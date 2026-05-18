@@ -40,6 +40,9 @@ import List from "@cloudscape-design/components/list";
 import ItemCard from "@cloudscape-design/components/item-card";
 import ActionCard from "@cloudscape-design/components/action-card";
 import TreeView from "@cloudscape-design/components/tree-view";
+import Pagination from "@cloudscape-design/components/pagination";
+import Slider from "@cloudscape-design/components/slider";
+import CopyToClipboard from "@cloudscape-design/components/copy-to-clipboard";
 const noop = () => {};
 
 function M() {
@@ -610,6 +613,30 @@ function M() {
           getItemChildren={(i: any) => i.children}
           renderItem={(i: any) => ({ content: i.label })}
         />
+      </div>
+      <div>
+        <Pagination currentPageIndex={3} pagesCount={8} onChange={() => {}} />
+      </div>
+      <div>
+        <Pagination currentPageIndex={1} pagesCount={3} onChange={() => {}} />
+      </div>
+      <div>
+        <Pagination currentPageIndex={2} pagesCount={20} onChange={() => {}} />
+      </div>
+      <div>
+        <Slider value={40} min={0} max={100} onChange={() => {}} />
+      </div>
+      <div>
+        <Slider value={70} min={0} max={100} step={10} onChange={() => {}} />
+      </div>
+      <div>
+        <Slider value={20} min={0} max={100} disabled onChange={() => {}} />
+      </div>
+      <div>
+        <CopyToClipboard copyButtonText="Copy" textToCopy="hello" textToDisplay="hello world" />
+      </div>
+      <div>
+        <CopyToClipboard variant="icon" copyButtonAriaLabel="Copy ARN" textToCopy="arn:..." />
       </div>
     </div>
   );

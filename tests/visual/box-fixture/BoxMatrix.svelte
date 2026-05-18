@@ -38,6 +38,9 @@
 	import List from '../../../src/lib/components/List.pui';
 	import ItemCard from '../../../src/lib/components/ItemCard.pui';
 	import ActionCard from '../../../src/lib/components/ActionCard.pui';
+	import Pagination from '../../../src/lib/components/Pagination.pui';
+	import Slider from '../../../src/lib/components/Slider.pui';
+	import CopyToClipboard from '../../../src/lib/components/CopyToClipboard.pui';
 	import TreeView from '../../../src/lib/components/TreeView.pui';
 </script>
 
@@ -280,6 +283,14 @@
 			renderItem={(i) => ({ content: i.label })}
 		/>
 	</div>
+	<div><Pagination currentPageIndex={3} pagesCount={8} /></div>
+	<div><Pagination currentPageIndex={1} pagesCount={3} /></div>
+	<div><Pagination currentPageIndex={2} pagesCount={20} /></div>
+	<div><Slider value={40} min={0} max={100} /></div>
+	<div><Slider value={70} min={0} max={100} step={10} /></div>
+	<div><Slider value={20} min={0} max={100} disabled /></div>
+	<div><CopyToClipboard copyButtonText="Copy" textToCopy="hello" textToDisplay="hello world" /></div>
+	<div><CopyToClipboard variant="icon" copyButtonAriaLabel="Copy ARN" textToCopy="arn:..." /></div>
 </div>
 </div>
 

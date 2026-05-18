@@ -47,7 +47,7 @@ bun run check    # svelte-check
 <!-- AUTOGEN:status (bun run status) -->
 ## Status
 
-**47 / 94** Cloudscape components ported to `.pui` at pixel parity. Verification is mechanical, not by eye: a deterministic Playwright pixel-diff against the **real** `@cloudscape-design/components` (pinned Chromium, fixed viewport/DPR, animations/caret off, fonts settled, built-not-dev). Current residuals — component matrix **≤0.01%**, integrated `Table` **0.70%** — are sub-pixel antialiasing on glyph/text edges with **zero box-model delta** (proven via the computed-box diagnostics, `*-diag.mjs`), i.e. visually indistinguishable. Harnesses: `tests/visual/box-shoot.mjs` (matrix), `shoot.mjs` (Table).
+**50 / 94** Cloudscape components ported to `.pui` at pixel parity. Verification is mechanical, not by eye: a deterministic Playwright pixel-diff against the **real** `@cloudscape-design/components` (pinned Chromium, fixed viewport/DPR, animations/caret off, fonts settled, built-not-dev). Current residuals — component matrix **≤0.01%**, integrated `Table` **0.70%** — are sub-pixel antialiasing on glyph/text edges with **zero box-model delta** (proven via the computed-box diagnostics, `*-diag.mjs`), i.e. visually indistinguishable. Harnesses: `tests/visual/box-shoot.mjs` (matrix), `shoot.mjs` (Table).
 
 > Dep-first by construction: a *pixel-relevant* dep is ported
 > before its consumer. A `✗` dep is **not a gap** — it is a
@@ -67,6 +67,7 @@ bun run check    # svelte-check
 | `Checkbox` | `@cloudscape-design/components/checkbox` | 0 | 4 | — |
 | `ColumnLayout` | `@cloudscape-design/components/column-layout` | 1 | 3 | grid ✅ |
 | `Container` | `@cloudscape-design/components/container` | 1 | 9 | box ✅ |
+| `CopyToClipboard` | `@cloudscape-design/components/copy-to-clipboard` | — | 0 | button ✅, popover ✅, status-indicator ✅ |
 | `DateInput` | `@cloudscape-design/components/date-input` | 0 | 2 | — |
 | `Divider` | `@cloudscape-design/components/divider` | 0 | 0 | — |
 | `Dropdown` | `@cloudscape-design/components/dropdown` | 0 | 6 | — |
@@ -86,10 +87,12 @@ bun run check    # svelte-check
 | `LiveRegion` | `@cloudscape-design/components/live-region` | 0 | 22 | — |
 | `Modal` | `@cloudscape-design/components/modal` | — | 4 | box ✅, button ✅, header ✅ |
 | `NavigableGroup` | `@cloudscape-design/components/navigable-group` | 0 | 1 | — |
+| `Pagination` | `@cloudscape-design/components/pagination` | — | 1 | button ✅, icon ✅, input ✅, popover ✅, space-between ✅ |
 | `Popover` | `@cloudscape-design/components/popover` | — | 7 | button ✅, live-region ✅, container ✅ |
 | `ProgressBar` | `@cloudscape-design/components/progress-bar` | — | 0 | live-region ✅, box ✅, button ✅, status-indicator ✅ |
 | `RadioButton` | `@cloudscape-design/components/radio-button` | 0 | 3 | — |
 | `RadioGroup` | `@cloudscape-design/components/radio-group` | 1 | 3 | radio-button ✅ |
+| `Slider` | `@cloudscape-design/components/slider` | — | 0 | tooltip ✅ |
 | `SpaceBetween` | `@cloudscape-design/components/space-between` | 0 | 15 | — |
 | `Spinner` | `@cloudscape-design/components/spinner` | 0 | 5 | — |
 | `StatusIndicator` | `@cloudscape-design/components/status-indicator` | — | 10 | icon ✅, spinner ✅ |
