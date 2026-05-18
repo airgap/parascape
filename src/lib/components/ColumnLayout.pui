@@ -25,6 +25,7 @@
 		variant = 'default',
 		borders = 'none',
 		disableGutters = false,
+		tagOverride = undefined,
 		colItems = [],
 		class: extraClass = undefined,
 		...rest
@@ -33,6 +34,7 @@
 		variant?: 'default' | 'text-grid';
 		borders?: 'none' | 'vertical' | 'horizontal' | 'all';
 		disableGutters?: boolean;
+		tagOverride?: string;
 		colItems?: Array<{ content: import('svelte').Snippet }>;
 		class?: string;
 		[k: string]: unknown;
@@ -86,6 +88,7 @@
 	derived gridClass = cx(
 		S.grid,
 		S[`grid-columns-${columns}`],
+		isTextGrid && S['grid-variant-text-grid'],
 		S[`grid-breakpoint-${bp}`],
 		hHorizontal && S['grid-horizontal-borders'],
 		hVertical && S['grid-vertical-borders'],
@@ -94,5 +97,5 @@
 </script>
 
 <div bind:this={rootEl} class={cx(extraClass, S['column-layout'])} {...rest}>
-	<Grid columns={gridCols} disableGutters={true} class={gridClass} />
+	<Grid columns={gridCols} disableGutters={true} {tagOverride} class={gridClass} />
 </div>

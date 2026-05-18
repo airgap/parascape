@@ -44,6 +44,7 @@ import Pagination from "@cloudscape-design/components/pagination";
 import Slider from "@cloudscape-design/components/slider";
 import CopyToClipboard from "@cloudscape-design/components/copy-to-clipboard";
 import Tabs from "@cloudscape-design/components/tabs";
+import KeyValuePairs from "@cloudscape-design/components/key-value-pairs";
 const noop = () => {};
 
 function M() {
@@ -638,6 +639,18 @@ function M() {
       </div>
       <div>
         <CopyToClipboard variant="icon" copyButtonAriaLabel="Copy ARN" textToCopy="arn:..." />
+      </div>
+      <div>
+        <KeyValuePairs
+          ariaLabel="Demo KVP"
+          columns={2}
+          items={[
+            { label: "Distribution ID", value: "E1WG1ZNPRXT0D4" },
+            { label: "Status", value: "Enabled" },
+            { label: "Domain", value: "abc.cloudfront.net", info: "(i)" },
+            { label: "Price class", value: "Use all edge locations" },
+          ]}
+        />
       </div>
       <div>
         <Tabs

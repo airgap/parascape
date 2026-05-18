@@ -47,7 +47,7 @@ bun run check    # svelte-check
 <!-- AUTOGEN:status (bun run status) -->
 ## Status
 
-**51 / 94** Cloudscape components ported to `.pui` at pixel parity. Verification is mechanical, not by eye: a deterministic Playwright pixel-diff against the **real** `@cloudscape-design/components` (pinned Chromium, fixed viewport/DPR, animations/caret off, fonts settled, built-not-dev). Current residuals — component matrix **≤0.01%**, integrated `Table` **0.70%** — are sub-pixel antialiasing on glyph/text edges with **zero box-model delta** (proven via the computed-box diagnostics, `*-diag.mjs`), i.e. visually indistinguishable. Harnesses: `tests/visual/box-shoot.mjs` (matrix), `shoot.mjs` (Table).
+**52 / 94** Cloudscape components ported to `.pui` at pixel parity. Verification is mechanical, not by eye: a deterministic Playwright pixel-diff against the **real** `@cloudscape-design/components` (pinned Chromium, fixed viewport/DPR, animations/caret off, fonts settled, built-not-dev). Current residuals — component matrix **≤0.01%**, integrated `Table` **0.70%** — are sub-pixel antialiasing on glyph/text edges with **zero box-model delta** (proven via the computed-box diagnostics, `*-diag.mjs`), i.e. visually indistinguishable. Harnesses: `tests/visual/box-shoot.mjs` (matrix), `shoot.mjs` (Table).
 
 > Dep-first by construction: a *pixel-relevant* dep is ported
 > before its consumer. A `✗` dep is **not a gap** — it is a
@@ -82,6 +82,7 @@ bun run check    # svelte-check
 | `IconProvider` | `@cloudscape-design/components/icon-provider` | — | 1 | icon ✅ |
 | `Input` | `@cloudscape-design/components/input` | — | 7 | button ✅, icon ✅ |
 | `ItemCard` | `@cloudscape-design/components/item-card` | 0 | 1 | — |
+| `KeyValuePairs` | `@cloudscape-design/components/key-value-pairs` | 2 | 0 | box ✅, column-layout ✅ |
 | `Link` | `@cloudscape-design/components/link` | — | 6 | icon ✅ |
 | `List` | `@cloudscape-design/components/list` | 0 | 2 | — |
 | `LiveRegion` | `@cloudscape-design/components/live-region` | 0 | 22 | — |

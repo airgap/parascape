@@ -22,9 +22,11 @@
 		gridDefinition = [],
 		columns = [],
 		disableGutters = false,
+		tagOverride = undefined,
 		class: extraClass = undefined,
 		...rest
 	}: {
+		tagOverride?: string;
 		gridDefinition?: Array<{ colspan?: number; offset?: number; push?: number; pull?: number }>;
 		columns?: Array<{
 			colspan?: number;
@@ -50,7 +52,13 @@
 	}
 </script>
 
-<div class={cx(G.grid, extraClass, disableGutters && G['no-gutters'])} {...rest}>
+<!-- internal.js: Tag = __tagOverride ?? 'div' (KeyValuePairs passes
+     "dl" so dt/dd flow as grid items). -->
+<svelte:element
+	this={tagOverride || 'div'}
+	class={cx(G.grid, extraClass, disableGutters && G['no-gutters'])}
+	{...rest}
+>
 	{#each columns as col, i (i)}
 		{@const d = defAt(i)}
 		<div
@@ -63,4 +71,4 @@
 			)}
 		><div class={G['restore-pointer-events']}>{@render col.content()}</div></div>
 	{/each}
-</div>
+</svelte:element>

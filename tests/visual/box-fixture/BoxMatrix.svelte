@@ -42,6 +42,7 @@
 	import Slider from '../../../src/lib/components/Slider.pui';
 	import CopyToClipboard from '../../../src/lib/components/CopyToClipboard.pui';
 	import Tabs from '../../../src/lib/components/Tabs.pui';
+	import KeyValuePairs from '../../../src/lib/components/KeyValuePairs.pui';
 	import TreeView from '../../../src/lib/components/TreeView.pui';
 </script>
 
@@ -292,6 +293,18 @@
 	<div><Slider value={20} min={0} max={100} disabled /></div>
 	<div><CopyToClipboard copyButtonText="Copy" textToCopy="hello" textToDisplay="hello world" /></div>
 	<div><CopyToClipboard variant="icon" copyButtonAriaLabel="Copy ARN" textToCopy="arn:..." /></div>
+	<div>
+		<KeyValuePairs
+			ariaLabel="Demo KVP"
+			columns={2}
+			items={[
+				{ label: "Distribution ID", value: "E1WG1ZNPRXT0D4" },
+				{ label: "Status", value: "Enabled" },
+				{ label: "Domain", value: "abc.cloudfront.net", info: "(i)" },
+				{ label: "Price class", value: "Use all edge locations" },
+			]}
+		/>
+	</div>
 	<div>
 		<Tabs
 			ariaLabel="Demo tabs"
