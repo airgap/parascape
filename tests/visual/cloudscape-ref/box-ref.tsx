@@ -45,6 +45,7 @@ import Slider from "@cloudscape-design/components/slider";
 import CopyToClipboard from "@cloudscape-design/components/copy-to-clipboard";
 import Tabs from "@cloudscape-design/components/tabs";
 import KeyValuePairs from "@cloudscape-design/components/key-value-pairs";
+import ButtonDropdown from "@cloudscape-design/components/button-dropdown";
 const noop = () => {};
 
 function M() {
@@ -639,7 +640,9 @@ function M() {
       </div>
       <div>
         <CopyToClipboard variant="icon" copyButtonAriaLabel="Copy ARN" textToCopy="arn:..." />
-      </div>
+      </div>      <div><ButtonDropdown items={[{id:"a",text:"Item A"},{id:"b",text:"Item B"}]} onItemClick={noop}>Actions</ButtonDropdown></div>
+      <div><ButtonDropdown variant="primary" items={[{id:"a",text:"One"}]} onItemClick={noop}>Primary</ButtonDropdown></div>
+      <div><ButtonDropdown variant="icon" ariaLabel="More" items={[{id:"a",text:"X"}]} onItemClick={noop} /></div>
       <div>
         <KeyValuePairs
           ariaLabel="Demo KVP"

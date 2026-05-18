@@ -43,6 +43,7 @@
 	import CopyToClipboard from '../../../src/lib/components/CopyToClipboard.pui';
 	import Tabs from '../../../src/lib/components/Tabs.pui';
 	import KeyValuePairs from '../../../src/lib/components/KeyValuePairs.pui';
+	import ButtonDropdown from '../../../src/lib/components/ButtonDropdown.pui';
 	import TreeView from '../../../src/lib/components/TreeView.pui';
 </script>
 
@@ -293,6 +294,9 @@
 	<div><Slider value={20} min={0} max={100} disabled /></div>
 	<div><CopyToClipboard copyButtonText="Copy" textToCopy="hello" textToDisplay="hello world" /></div>
 	<div><CopyToClipboard variant="icon" copyButtonAriaLabel="Copy ARN" textToCopy="arn:..." /></div>
+	<div><ButtonDropdown items={[{id:"a",text:"Item A"},{id:"b",text:"Item B"}]}>Actions</ButtonDropdown></div>
+	<div><ButtonDropdown variant="primary" items={[{id:"a",text:"One"}]}>Primary</ButtonDropdown></div>
+	<div><ButtonDropdown variant="icon" ariaLabel="More" items={[{id:"a",text:"X"}]} /></div>
 	<div>
 		<KeyValuePairs
 			ariaLabel="Demo KVP"
