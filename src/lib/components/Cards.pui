@@ -1,0 +1,241 @@
+<!--
+  Parascape <Cards> — faithful port of
+  @cloudscape-design/components/cards/index.js (Cards forwardRef +
+  CardsList + CardItem) + cards-layout-helper.js + table/tools-header.js.
+  Public defaults: variant='container', cardsPerRow=[], no selection.
+  isRefresh=true (Cloudscape 3.x) ⇒ computedVariant = variant
+  ('container'); InternalContainerAsSubstep gets
+  variant = computedVariant==='container' ? 'cards' : computedVariant
+  ⇒ Container variant='cards', disableContentPaddings=true,
+  disableHeaderPaddings=false. Structure verbatim:
+    <div clsx(styles.root)>
+      <InternalContainerAsSubstep variant='cards' disableContentPaddings
+        header={hasToolsHeader && <div clsx(styles.header[undef],
+          styles['header-refresh'], styles['header-variant-container']
+          [undef]) → ToolsHeader>}>
+        <div clsx(hasToolsHeader&&styles['has-header'],
+          styles.refresh, styles['header-variant-container'][undef])>
+          {status ?? <CardsList>}
+        </div>
+      </InternalContainerAsSubstep>
+    </div>
+  Cards' own styles.css.js has NO `header` / `header-variant-container`
+  keys (verified — only `header-refresh` / `header-variant-full-page`),
+  so for the default variant the header wrapper = clsx('header-refresh')
+  and the content wrapper = clsx('has-header','refresh').
+  CardsList = <ol clsx(styles.list, styles[`list-grid-${columns||1}`])
+    role={selectable?'group':undefined} aria-labelledby aria-label>
+    { items → CardItem }</ol>. columns = getCardsPerRow(contentBoxWidth,
+  cardsPerRow) — transcribed verbatim; contentBoxWidth measured off the
+  styles.root div (React merges measureRef there) via ResizeObserver
+  contentRect, exactly like Cloudscape's useContainerQuery.
+  CardItem (non-selectable path) = <li clsx(styles.card) role={listItem
+    Role}><InternalItemCard fullHeight header={<div styles['card-
+    header']><div clsx(styles['card-header-inner'])>{cardDefinition.
+    header(item)}</div></div>}>{ visibleSectionsDefinition.length>0 &&
+    visibleSectionsDefinition.map(({width=100,header,content,id}) =>
+      <div styles.section style="width:${width}%">
+        [header → <div styles['section-header']>{header}</div>]
+        [content → <div styles['section-content']>{content(item)}</div>]
+      </div>) }</InternalItemCard></li>
+  visibleSectionsDefinition = cardDefinition.sections (filtered by
+  visibleSections when given). Composes parity Container✅ /
+  ItemCard✅ (→ StructuredItem✅). ToolsHeader uses table's CSS module
+  (vendored table.styles.js, same as Table.pui) — isHeaderString ?
+  <span id> : header, then hasTools && tools row. Selection
+  (selectionType / SelectionControl / entireCardClickable /
+  card-selected), sticky header, mobile full-page footer-pagination,
+  the renderAriaLive live-region, loading spinner, and analytics
+  metadata are documented-omitted (not the default/static path —
+  consistent with all prior ports).
+-->
+<script lang="pts">
+	import Container from './Container.pui';
+	import ItemCard from './ItemCard.pui';
+	import styles from '../cloudscape/cards.styles.js';
+	import thStyles from '../cloudscape/table.styles.js';
+	import '../cloudscape/cards.scoped.css';
+
+	type Section = {
+		id?: string;
+		width?: number;
+		header?: import('svelte').Snippet | string;
+		content?: (item: any) => unknown;
+	};
+	type CardDefinition = {
+		header?: (item: any) => unknown;
+		sections?: Section[];
+	};
+
+	let {
+		items = [],
+		cardDefinition = {},
+		cardsPerRow = [],
+		header = undefined,
+		filter = undefined,
+		pagination = undefined,
+		preferences = undefined,
+		empty = undefined,
+		visibleSections = undefined,
+		ariaLabels = undefined,
+		variant = 'container',
+		class: extraClass = undefined,
+		...rest
+	}: {
+		items?: any[];
+		cardDefinition?: CardDefinition;
+		cardsPerRow?: Array<{ minWidth?: number; cards: number }>;
+		header?: import('svelte').Snippet | string;
+		filter?: import('svelte').Snippet;
+		pagination?: import('svelte').Snippet;
+		preferences?: import('svelte').Snippet;
+		empty?: import('svelte').Snippet | string;
+		visibleSections?: string[];
+		ariaLabels?: { cardsLabel?: string; itemSelectionLabel?: string };
+		variant?: 'container' | 'cards' | 'full-page';
+		class?: string;
+		[k: string]: unknown;
+	} = $props();
+
+	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
+	const S = styles as Record<string, string>;
+	const TH = thStyles as Record<string, string>;
+	const snip = (v: unknown) => typeof v === 'function';
+	const has = (v: unknown) => v !== null && v !== undefined;
+
+	// isRefresh=true (Cloudscape 3.x) ⇒ computedVariant = variant
+	const computedVariant = variant;
+	const containerVariant = computedVariant === 'container' ? 'cards' : computedVariant;
+
+	derived hasToolsHeader = has(header) || has(filter) || has(pagination) || has(preferences);
+	const isHeaderString = typeof header === 'string';
+	// isLabelledByHeader = !ariaLabels?.cardsLabel && !!header (verbatim)
+	derived isLabelledByHeader = !ariaLabels?.cardsLabel && has(header);
+	const headingId = 'parascape-cards-heading';
+
+	// cards-layout-helper.js — transcribed verbatim
+	const WIDTHS = [1920, 1400, 1200, 992, 768];
+	const defaultCardsPerRow = WIDTHS.map((value, index, widths) => ({
+		minWidth: value,
+		cards: widths.length + 1 - index,
+	}));
+	function getCardsPerRow(width: number, config: Array<{ minWidth?: number; cards: number }>) {
+		if (config.length === 0) config = defaultCardsPerRow;
+		let perRow = 1;
+		const sorted = config
+			.slice()
+			.map((v) => ({ minWidth: v.minWidth || 0, cards: v.cards }))
+			.sort((a, b) => b.minWidth - a.minWidth);
+		sorted.some((layout) => {
+			if (width >= layout.minWidth) {
+				perRow = layout.cards;
+				return true;
+			}
+		});
+		return perRow;
+	}
+
+	let rootEl: HTMLElement | undefined = $state();
+	let measuredWidth = $state(0);
+	$effect(() => {
+		if (!rootEl) return;
+		const m = () => {
+			if (rootEl) measuredWidth = rootEl.getBoundingClientRect().width;
+		};
+		requestAnimationFrame(m);
+		const ro =
+			typeof ResizeObserver !== 'undefined'
+				? new ResizeObserver((entries) => {
+						measuredWidth = entries[0].contentRect.width;
+					})
+				: undefined;
+		ro?.observe(rootEl);
+		return () => ro?.disconnect();
+	});
+	derived columns = getCardsPerRow(measuredWidth, cardsPerRow);
+
+	// CardsList: selectable=false (no selectionType) ⇒ listRole/listItemRole undefined
+	derived visibleSectionsDefinition = (() => {
+		const defs = cardDefinition.sections || [];
+		return visibleSections
+			? defs.filter((s) => s.id && visibleSections.indexOf(s.id) !== -1)
+			: defs;
+	})();
+</script>
+
+<div class={cx(extraClass, S.root)} bind:this={rootEl} {...rest}>
+	<Container
+		variant={containerVariant}
+		disableContentPaddings
+		header={hasToolsHeader ? toolsHeader : undefined}
+	>
+		<div class={cx(hasToolsHeader && S['has-header'], S.refresh)}>
+			{#if empty && items.length === 0}
+				<div class={S.empty}
+					>{#if snip(empty)}{@render (empty as import('svelte').Snippet)()}{:else}{empty}{/if}</div
+				>
+			{:else}
+				<ol
+					class={cx(S.list, S[`list-grid-${columns || 1}`])}
+					aria-labelledby={isLabelledByHeader ? headingId : undefined}
+					aria-label={ariaLabels?.cardsLabel}
+				>
+					{#each items as item, index (index)}
+						{#snippet cardHeader()}
+							<div class={S['card-header']}>
+								<div class={cx(S['card-header-inner'])}
+									>{cardDefinition.header ? cardDefinition.header(item) : ''}</div
+								>
+							</div>
+						{/snippet}
+						<li class={cx(S.card)}>
+							<ItemCard fullHeight header={cardHeader}>
+								{#if visibleSectionsDefinition.length > 0}
+									{#each visibleSectionsDefinition as sec, si (sec.id || si)}
+										<div class={S.section} style={`width: ${sec.width ?? 100}%`}>
+											{#if has(sec.header)}<div class={S['section-header']}
+													>{#if snip(sec.header)}{@render (sec.header as import('svelte').Snippet)()}{:else}{sec.header}{/if}</div
+												>{/if}
+											{#if sec.content}<div class={S['section-content']}
+													>{sec.content(item)}</div
+												>{/if}
+										</div>
+									{/each}
+								{/if}
+							</ItemCard>
+						</li>
+					{/each}
+				</ol>
+			{/if}
+		</div>
+	</Container>
+</div>
+
+<!-- ToolsHeader (table CSS module), declared at top level so it does NOT
+     shadow the `header` PROP (a {#snippet header} inside <Container>
+     would make {@render header()} recurse). isHeaderString ? <span id> :
+     header, then hasTools && <div.tools> with filter / right-aligned
+     pagination+preferences. -->
+{#snippet toolsHeader()}
+	<div class={cx(S['header-refresh'])}>
+		{#if isHeaderString}<span id={headingId}>{header}</span
+			>{:else if snip(header)}{@render (header as import('svelte').Snippet)()}{/if}
+		{#if has(filter) || has(pagination) || has(preferences)}
+			<div class={TH.tools}>
+				{#if has(filter)}<div class={TH['tools-filtering']}
+						>{@render (filter as import('svelte').Snippet)()}</div
+					>{/if}
+				{#if has(pagination) || has(preferences)}
+					<div class={TH['tools-align-right']}>
+						{#if has(pagination)}<div class={TH['tools-pagination']}
+								>{@render (pagination as import('svelte').Snippet)()}</div
+							>{/if}
+						{#if has(preferences)}<div class={TH['tools-preferences']}
+								>{@render (preferences as import('svelte').Snippet)()}</div
+							>{/if}
+					</div>
+				{/if}
+			</div>
+		{/if}
+	</div>
+{/snippet}

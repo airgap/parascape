@@ -47,6 +47,7 @@
 	import AttributeEditor from '../../../src/lib/components/AttributeEditor.pui';
 	import ButtonGroup from '../../../src/lib/components/ButtonGroup.pui';
 	import Calendar from '../../../src/lib/components/Calendar.pui';
+	import Cards from '../../../src/lib/components/Cards.pui';
 	import TreeView from '../../../src/lib/components/TreeView.pui';
 </script>
 
@@ -420,6 +421,22 @@
 				definition={[{ label: "Key", control: aeKey }, { label: "Value", control: aeVal }]}
 				addButtonText="Add new item"
 				removeButtonText="Remove"
+			/>
+		</div>
+		<div>
+			<Cards
+				header="Instances"
+				cardDefinition={{
+					header: (i) => i.name,
+					sections: [
+						{ id: "desc", header: "Description", content: (i) => i.description },
+						{ id: "type", header: "Type", content: (i) => i.type },
+					],
+				}}
+				items={[
+					{ name: "Item 1", description: "First item description", type: "1A" },
+					{ name: "Item 2", description: "Second item description", type: "2B" },
+				]}
 			/>
 		</div>
 	</div>
