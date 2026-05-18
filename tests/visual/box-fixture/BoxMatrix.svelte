@@ -46,6 +46,7 @@
 	import ButtonDropdown from '../../../src/lib/components/ButtonDropdown.pui';
 	import AttributeEditor from '../../../src/lib/components/AttributeEditor.pui';
 	import ButtonGroup from '../../../src/lib/components/ButtonGroup.pui';
+	import Calendar from '../../../src/lib/components/Calendar.pui';
 	import TreeView from '../../../src/lib/components/TreeView.pui';
 </script>
 
@@ -402,6 +403,7 @@
 				]}
 			/>
 		</div>
+		<div><Calendar value="2026-05-18" locale="en-US" /></div>
 		<div>
 			<ButtonGroup
 				ariaLabel="Actions"

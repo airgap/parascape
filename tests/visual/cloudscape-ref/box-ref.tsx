@@ -48,6 +48,7 @@ import KeyValuePairs from '@cloudscape-design/components/key-value-pairs';
 import ButtonDropdown from '@cloudscape-design/components/button-dropdown';
 import AttributeEditor from '@cloudscape-design/components/attribute-editor';
 import ButtonGroup from '@cloudscape-design/components/button-group';
+import Calendar from '@cloudscape-design/components/calendar';
 const noop = () => {};
 
 function M() {
@@ -698,6 +699,7 @@ function M() {
 					]}
 				/>
 			</div>
+			<div><Calendar value="2026-05-18" locale="en-US" onChange={noop} /></div>
 			<div>
 				<ButtonGroup
 					ariaLabel="Actions"
