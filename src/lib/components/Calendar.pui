@@ -115,7 +115,12 @@
 	}
 </script>
 
-<div class={cx(extraClass, S.root)} role="group" aria-label={ariaLabel} {...rest}>
+<div
+	class={cx(extraClass, S.root, S.calendar)}
+	role="group"
+	aria-label={ariaLabel}
+	{...rest}
+>
 	<div class={S['calendar-inner']}>
 		<div class={S['calendar-header']}>
 			<Button
