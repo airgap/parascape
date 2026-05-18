@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "status": "bun tests/visual/gen-status.mjs",
-    "conformance": "vitest run"
+    "conformance": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@cloudscape-design/components": "^3.0.1297",
@@ -27,6 +29,8 @@
     "jsdom": "^29.1.1",
     "pixelmatch": "^7.2.0",
     "pngjs": "^7.0.0",
+    "prettier": "^3.3",
+    "prettier-plugin-svelte": "^3.3",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "svelte": "^5.55.7",
