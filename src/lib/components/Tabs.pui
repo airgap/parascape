@@ -90,6 +90,7 @@
 				<li class={S['tabs-tab']}><div
 						class={cx(
 							S['tabs-tab-header-container'],
+							S.refresh,
 							isActive(tab) && S['tabs-tab-active'],
 							tab.disabled && S['tabs-tab-disabled'],
 							!tab.disabled && S['tabs-tab-focusable'],
@@ -97,6 +98,7 @@
 					><button
 							class={cx(
 								S['tabs-tab-link'],
+								S.refresh,
 								isActive(tab) && S['tabs-tab-active'],
 								tab.disabled && S['tabs-tab-disabled'],
 								!tab.disabled && S['tabs-tab-focusable'],
