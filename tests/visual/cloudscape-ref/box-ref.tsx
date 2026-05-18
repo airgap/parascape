@@ -47,6 +47,7 @@ import Tabs from '@cloudscape-design/components/tabs';
 import KeyValuePairs from '@cloudscape-design/components/key-value-pairs';
 import ButtonDropdown from '@cloudscape-design/components/button-dropdown';
 import AttributeEditor from '@cloudscape-design/components/attribute-editor';
+import ButtonGroup from '@cloudscape-design/components/button-group';
 const noop = () => {};
 
 function M() {
@@ -694,6 +695,17 @@ function M() {
 						{ id: 't1', label: 'First tab', content: 'First panel content.' },
 						{ id: 't2', label: 'Second tab', content: 'Second panel content.' },
 						{ id: 't3', label: 'Disabled', content: 'Hidden', disabled: true },
+					]}
+				/>
+			</div>
+			<div>
+				<ButtonGroup
+					ariaLabel="Actions"
+					onItemClick={noop}
+					items={[
+						{ type: "icon-button", id: "copy", text: "Copy", iconName: "copy" },
+						{ type: "icon-button", id: "edit", text: "Edit", iconName: "edit" },
+						{ type: "icon-button", id: "rm", text: "Remove", iconName: "remove" },
 					]}
 				/>
 			</div>

@@ -45,6 +45,7 @@
 	import KeyValuePairs from '../../../src/lib/components/KeyValuePairs.pui';
 	import ButtonDropdown from '../../../src/lib/components/ButtonDropdown.pui';
 	import AttributeEditor from '../../../src/lib/components/AttributeEditor.pui';
+	import ButtonGroup from '../../../src/lib/components/ButtonGroup.pui';
 	import TreeView from '../../../src/lib/components/TreeView.pui';
 </script>
 
@@ -398,6 +399,16 @@
 					{ id: 't1', label: 'First tab', content: 'First panel content.' },
 					{ id: 't2', label: 'Second tab', content: 'Second panel content.' },
 					{ id: 't3', label: 'Disabled', content: 'Hidden', disabled: true },
+				]}
+			/>
+		</div>
+		<div>
+			<ButtonGroup
+				ariaLabel="Actions"
+				items={[
+					{ type: "icon-button", id: "copy", text: "Copy", iconName: "copy" },
+					{ type: "icon-button", id: "edit", text: "Edit", iconName: "edit" },
+					{ type: "icon-button", id: "rm", text: "Remove", iconName: "remove" },
 				]}
 			/>
 		</div>
