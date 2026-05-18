@@ -15,10 +15,38 @@
 	const items: Instance[] = [
 		{ id: 'i-0a1', name: 'web-1', type: 't3.medium', state: 'Running', az: 'us-east-1a', vcpus: 2 },
 		{ id: 'i-0b2', name: 'web-2', type: 't3.medium', state: 'Running', az: 'us-east-1b', vcpus: 2 },
-		{ id: 'i-0c3', name: 'worker-1', type: 'c6i.xlarge', state: 'Stopped', az: 'us-east-1a', vcpus: 4 },
-		{ id: 'i-0d4', name: 'db-primary', type: 'r6g.large', state: 'Running', az: 'us-east-1c', vcpus: 2 },
-		{ id: 'i-0e5', name: 'batch-gpu', type: 'g5.xlarge', state: 'Pending', az: 'us-east-1b', vcpus: 4 },
-		{ id: 'i-0f6', name: 'cache-1', type: 'r6g.large', state: 'Running', az: 'us-east-1a', vcpus: 2 },
+		{
+			id: 'i-0c3',
+			name: 'worker-1',
+			type: 'c6i.xlarge',
+			state: 'Stopped',
+			az: 'us-east-1a',
+			vcpus: 4,
+		},
+		{
+			id: 'i-0d4',
+			name: 'db-primary',
+			type: 'r6g.large',
+			state: 'Running',
+			az: 'us-east-1c',
+			vcpus: 2,
+		},
+		{
+			id: 'i-0e5',
+			name: 'batch-gpu',
+			type: 'g5.xlarge',
+			state: 'Pending',
+			az: 'us-east-1b',
+			vcpus: 4,
+		},
+		{
+			id: 'i-0f6',
+			name: 'cache-1',
+			type: 'r6g.large',
+			state: 'Running',
+			az: 'us-east-1a',
+			vcpus: 2,
+		},
 	];
 
 	const columnDefinitions = [
@@ -38,8 +66,8 @@
 	<header>
 		<h1>Parascape</h1>
 		<p>
-			Cloudscape's <code>&lt;Table&gt;</code> API, ported to <code>.pui</code> —
-			filter / sort / multi-select are Para signals, not React hooks.
+			Cloudscape's <code>&lt;Table&gt;</code> API, ported to <code>.pui</code> — filter / sort /
+			multi-select are Para signals, not React hooks.
 			<strong>{selectedItems.length}</strong> selected.
 		</p>
 	</header>

@@ -5,22 +5,6 @@
 	import Modal from '../../../src/lib/components/Modal.pui';
 </script>
 
-<!--
-  FIXTURE-ONLY reveal: Cloudscape's .container is parked at
-  position:fixed; inset:-9999px until its runtime viewport positioner
-  sets top/left (the documented-omitted scope). To MEASURE body
-  fidelity we pin the container on-screen here — this overrides only
-  the fixture, never the component. Cloudscape's reference positions
-  itself via its real algorithm; both bodies end up visible and the
-  harness diffs the body element's own bbox (position-independent).
--->
-<style>
-	:global([class*='awsui_container']) {
-		position: static !important;
-		inset: auto !important;
-	}
-</style>
-
 <div
 	id="stage"
 	style="width:520px;background:#fff;padding:48px;font-family:'Open Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
@@ -29,8 +13,8 @@
 		Trigger
 		{#snippet content()}
 			<p style="margin:0">
-				This is the popover body content. It can contain <strong>rich</strong> text and
-				multiple lines to exercise the body / header-row / content layout.
+				This is the popover body content. It can contain <strong>rich</strong> text and multiple lines
+				to exercise the body / header-row / content layout.
 			</p>
 		{/snippet}
 	</Popover>
@@ -57,3 +41,19 @@
 		{#snippet footer()}<button>OK</button>{/snippet}
 	</Modal>
 </div>
+
+<!--
+  FIXTURE-ONLY reveal: Cloudscape's .container is parked at
+  position:fixed; inset:-9999px until its runtime viewport positioner
+  sets top/left (the documented-omitted scope). To MEASURE body
+  fidelity we pin the container on-screen here — this overrides only
+  the fixture, never the component. Cloudscape's reference positions
+  itself via its real algorithm; both bodies end up visible and the
+  harness diffs the body element's own bbox (position-independent).
+-->
+<style>
+	:global([class*='awsui_container']) {
+		position: static !important;
+		inset: auto !important;
+	}
+</style>

@@ -9,15 +9,15 @@
 	//         <button/>}> — these must be real nodes, not components)
 	//  - primitive (string/number) → text
 	// Self-import is the standard Svelte recursive-component pattern.
-	import Self from "./Descriptor.svelte";
+	import Self from './Descriptor.svelte';
 
 	let { node }: { node: any } = $props();
-	const isDesc = (x: any) => x && typeof x === "object" && x.__pui === true;
+	const isDesc = (x: any) => x && typeof x === 'object' && x.__pui === true;
 	const kids = $derived(isDesc(node) ? (node.children ?? []) : []);
 	const hasKids = $derived(kids.length > 0);
 	const comp = $derived(isDesc(node) ? node.component : null);
-	const isStringTag = $derived(typeof comp === "string");
-	const isFragment = $derived(comp === "fragment");
+	const isStringTag = $derived(typeof comp === 'string');
+	const isFragment = $derived(comp === 'fragment');
 	const Component = $derived(!isStringTag ? comp : null);
 </script>
 

@@ -1,574 +1,341 @@
 {
- "tiers": {
-  "0": [
-   "action-card",
-   "anchor-navigation",
-   "area-chart",
-   "badge",
-   "box",
-   "checkbox",
-   "date-input",
-   "divider",
-   "dropdown",
-   "file-dropzone",
-   "grid",
-   "item-card",
-   "list",
-   "live-region",
-   "mixed-line-bar-chart",
-   "navigable-group",
-   "plugins",
-   "radio-button",
-   "space-between",
-   "spinner",
-   "text-content",
-   "theming",
-   "time-input",
-   "toggle",
-   "tree-view"
-  ],
-  "1": [
-   "bar-chart",
-   "column-layout",
-   "container",
-   "content-layout",
-   "line-chart",
-   "pie-chart",
-   "radio-group"
-  ],
-  "2": [
-   "header",
-   "key-value-pairs",
-   "tiles"
-  ]
- },
- "cyclic": [
-  "alert",
-  "annotation-context",
-  "app-layout",
-  "app-layout-toolbar",
-  "attribute-editor",
-  "autosuggest",
-  "breadcrumb-group",
-  "button",
-  "button-dropdown",
-  "button-group",
-  "calendar",
-  "cards",
-  "code-editor",
-  "collection-preferences",
-  "copy-to-clipboard",
-  "date-picker",
-  "date-range-picker",
-  "drawer",
-  "expandable-section",
-  "file-input",
-  "file-token-group",
-  "file-upload",
-  "flashbar",
-  "form",
-  "form-field",
-  "help-panel",
-  "hotspot",
-  "icon",
-  "icon-provider",
-  "input",
-  "link",
-  "modal",
-  "multiselect",
-  "pagination",
-  "panel-layout",
-  "popover",
-  "progress-bar",
-  "prompt-input",
-  "property-filter",
-  "s3-resource-selector",
-  "segmented-control",
-  "select",
-  "side-navigation",
-  "slider",
-  "split-panel",
-  "status-indicator",
-  "steps",
-  "table",
-  "tabs",
-  "tag-editor",
-  "text-filter",
-  "textarea",
-  "toggle-button",
-  "token",
-  "token-group",
-  "tooltip",
-  "top-navigation",
-  "tutorial-panel",
-  "wizard"
- ],
- "deps": {
-  "action-card": [],
-  "alert": [
-   "button",
-   "icon",
-   "plugins"
-  ],
-  "anchor-navigation": [],
-  "annotation-context": [
-   "alert",
-   "box",
-   "button",
-   "popover",
-   "container",
-   "space-between"
-  ],
-  "app-layout": [
-   "split-panel",
-   "drawer",
-   "button-dropdown",
-   "plugins",
-   "button",
-   "icon",
-   "header",
-   "box",
-   "link",
-   "list",
-   "space-between",
-   "button-group",
-   "breadcrumb-group",
-   "tooltip"
-  ],
-  "app-layout-toolbar": [
-   "app-layout"
-  ],
-  "area-chart": [],
-  "attribute-editor": [
-   "live-region",
-   "button",
-   "space-between",
-   "form-field"
-  ],
-  "autosuggest": [
-   "form-field",
-   "select"
-  ],
-  "badge": [],
-  "bar-chart": [
-   "mixed-line-bar-chart"
-  ],
-  "box": [],
-  "breadcrumb-group": [
-   "button-dropdown",
-   "icon",
-   "button",
-   "plugins",
-   "tooltip"
-  ],
-  "button": [
-   "icon",
-   "spinner",
-   "live-region",
-   "tooltip"
-  ],
-  "button-dropdown": [
-   "icon",
-   "dropdown",
-   "box",
-   "button",
-   "tooltip",
-   "popover",
-   "container"
-  ],
-  "button-group": [
-   "file-input",
-   "tooltip",
-   "button",
-   "live-region",
-   "toggle-button",
-   "navigable-group",
-   "button-dropdown"
-  ],
-  "calendar": [
-   "tooltip",
-   "button",
-   "grid",
-   "header"
-  ],
-  "cards": [
-   "container",
-   "item-card",
-   "live-region",
-   "status-indicator",
-   "table"
-  ],
-  "checkbox": [],
-  "code-editor": [
-   "icon",
-   "link",
-   "live-region",
-   "spinner",
-   "button",
-   "box",
-   "checkbox",
-   "column-layout",
-   "form-field",
-   "modal",
-   "select",
-   "space-between"
-  ],
-  "collection-preferences": [
-   "toggle",
-   "box",
-   "button",
-   "list",
-   "space-between",
-   "text-filter",
-   "modal",
-   "checkbox",
-   "column-layout",
-   "form-field",
-   "radio-group"
-  ],
-  "column-layout": [
-   "grid"
-  ],
-  "container": [
-   "box"
-  ],
-  "content-layout": [
-   "grid"
-  ],
-  "copy-to-clipboard": [
-   "button",
-   "popover",
-   "status-indicator"
-  ],
-  "date-input": [],
-  "date-picker": [
-   "button",
-   "calendar",
-   "date-input",
-   "dropdown",
-   "live-region"
-  ],
-  "date-range-picker": [
-   "tooltip",
-   "calendar",
-   "space-between",
-   "grid",
-   "button",
-   "live-region",
-   "header",
-   "date-input",
-   "form-field",
-   "time-input",
-   "alert",
-   "box",
-   "dropdown",
-   "icon",
-   "segmented-control",
-   "input",
-   "radio-group",
-   "select"
-  ],
-  "divider": [],
-  "drawer": [
-   "app-layout",
-   "button",
-   "live-region",
-   "status-indicator"
-  ],
-  "dropdown": [],
-  "expandable-section": [
-   "container",
-   "header",
-   "icon"
-  ],
-  "file-dropzone": [],
-  "file-input": [
-   "button",
-   "form-field"
-  ],
-  "file-token-group": [
-   "box",
-   "form-field",
-   "space-between",
-   "spinner",
-   "token",
-   "tooltip"
-  ],
-  "file-upload": [
-   "box",
-   "form-field",
-   "file-dropzone",
-   "file-input",
-   "file-token-group",
-   "space-between"
-  ],
-  "flashbar": [
-   "icon",
-   "alert",
-   "button",
-   "plugins",
-   "live-region",
-   "spinner"
-  ],
-  "form": [
-   "header",
-   "alert",
-   "box",
-   "live-region"
-  ],
-  "form-field": [
-   "grid",
-   "icon",
-   "live-region"
-  ],
-  "grid": [],
-  "header": [
-   "container"
-  ],
-  "help-panel": [
-   "app-layout",
-   "live-region",
-   "status-indicator"
-  ],
-  "hotspot": [
-   "annotation-context"
-  ],
-  "icon": [
-   "icon-provider"
-  ],
-  "icon-provider": [
-   "icon"
-  ],
-  "input": [
-   "button",
-   "icon"
-  ],
-  "item-card": [],
-  "key-value-pairs": [
-   "box",
-   "column-layout"
-  ],
-  "line-chart": [
-   "mixed-line-bar-chart"
-  ],
-  "link": [
-   "icon"
-  ],
-  "list": [],
-  "live-region": [],
-  "mixed-line-bar-chart": [],
-  "modal": [
-   "box",
-   "button",
-   "header"
-  ],
-  "multiselect": [
-   "form-field",
-   "select",
-   "dropdown",
-   "token-group"
-  ],
-  "navigable-group": [],
-  "pagination": [
-   "button",
-   "icon",
-   "input",
-   "popover",
-   "space-between"
-  ],
-  "panel-layout": [
-   "app-layout",
-   "drawer"
-  ],
-  "pie-chart": [
-   "box",
-   "live-region"
-  ],
-  "plugins": [],
-  "popover": [
-   "button",
-   "live-region",
-   "container"
-  ],
-  "progress-bar": [
-   "live-region",
-   "box",
-   "button",
-   "status-indicator"
-  ],
-  "prompt-input": [
-   "autosuggest",
-   "live-region",
-   "select",
-   "dropdown",
-   "button",
-   "input",
-   "token"
-  ],
-  "property-filter": [
-   "icon",
-   "popover",
-   "select",
-   "button",
-   "space-between",
-   "text-filter",
-   "token",
-   "checkbox",
-   "multiselect",
-   "autosuggest",
-   "button-dropdown",
-   "form-field"
-  ],
-  "radio-button": [],
-  "radio-group": [
-   "radio-button"
-  ],
-  "s3-resource-selector": [
-   "box",
-   "form-field",
-   "button",
-   "live-region",
-   "select",
-   "status-indicator",
-   "input",
-   "header",
-   "pagination",
-   "space-between",
-   "table",
-   "text-filter",
-   "link",
-   "breadcrumb-group",
-   "modal",
-   "icon"
-  ],
-  "segmented-control": [
-   "form-field",
-   "select",
-   "icon",
-   "tooltip"
-  ],
-  "select": [
-   "dropdown",
-   "input",
-   "icon",
-   "tooltip",
-   "token"
-  ],
-  "side-navigation": [
-   "app-layout",
-   "box",
-   "expandable-section",
-   "icon"
-  ],
-  "slider": [
-   "tooltip"
-  ],
-  "space-between": [],
-  "spinner": [],
-  "split-panel": [
-   "app-layout",
-   "button",
-   "box",
-   "form-field",
-   "modal",
-   "space-between",
-   "tiles"
-  ],
-  "status-indicator": [
-   "icon",
-   "spinner"
-  ],
-  "steps": [
-   "box",
-   "status-indicator"
-  ],
-  "table": [
-   "icon",
-   "live-region",
-   "popover",
-   "container",
-   "button",
-   "form-field",
-   "space-between",
-   "header",
-   "status-indicator",
-   "checkbox",
-   "radio-button",
-   "area-chart"
-  ],
-  "tabs": [
-   "container",
-   "button",
-   "tooltip"
-  ],
-  "tag-editor": [
-   "attribute-editor",
-   "box",
-   "form-field",
-   "live-region",
-   "status-indicator",
-   "autosuggest"
-  ],
-  "text-content": [],
-  "text-filter": [
-   "input",
-   "live-region"
-  ],
-  "textarea": [
-   "input"
-  ],
-  "theming": [],
-  "tiles": [
-   "radio-group",
-   "radio-button"
-  ],
-  "time-input": [],
-  "toggle": [],
-  "toggle-button": [
-   "button"
-  ],
-  "token": [
-   "icon",
-   "token-group",
-   "live-region",
-   "tooltip"
-  ],
-  "token-group": [
-   "icon",
-   "token"
-  ],
-  "tooltip": [
-   "popover",
-   "container"
-  ],
-  "top-navigation": [
-   "button",
-   "button-dropdown",
-   "icon",
-   "header",
-   "link"
-  ],
-  "tree-view": [],
-  "tutorial-panel": [
-   "box",
-   "link",
-   "space-between",
-   "status-indicator",
-   "button",
-   "annotation-context",
-   "expandable-section",
-   "alert",
-   "icon",
-   "live-region"
-  ],
-  "wizard": [
-   "button",
-   "space-between",
-   "form",
-   "header",
-   "box",
-   "link",
-   "expandable-section"
-  ]
- }
+	"tiers": {
+		"0": [
+			"action-card",
+			"anchor-navigation",
+			"area-chart",
+			"badge",
+			"box",
+			"checkbox",
+			"date-input",
+			"divider",
+			"dropdown",
+			"file-dropzone",
+			"grid",
+			"item-card",
+			"list",
+			"live-region",
+			"mixed-line-bar-chart",
+			"navigable-group",
+			"plugins",
+			"radio-button",
+			"space-between",
+			"spinner",
+			"text-content",
+			"theming",
+			"time-input",
+			"toggle",
+			"tree-view"
+		],
+		"1": [
+			"bar-chart",
+			"column-layout",
+			"container",
+			"content-layout",
+			"line-chart",
+			"pie-chart",
+			"radio-group"
+		],
+		"2": ["header", "key-value-pairs", "tiles"]
+	},
+	"cyclic": [
+		"alert",
+		"annotation-context",
+		"app-layout",
+		"app-layout-toolbar",
+		"attribute-editor",
+		"autosuggest",
+		"breadcrumb-group",
+		"button",
+		"button-dropdown",
+		"button-group",
+		"calendar",
+		"cards",
+		"code-editor",
+		"collection-preferences",
+		"copy-to-clipboard",
+		"date-picker",
+		"date-range-picker",
+		"drawer",
+		"expandable-section",
+		"file-input",
+		"file-token-group",
+		"file-upload",
+		"flashbar",
+		"form",
+		"form-field",
+		"help-panel",
+		"hotspot",
+		"icon",
+		"icon-provider",
+		"input",
+		"link",
+		"modal",
+		"multiselect",
+		"pagination",
+		"panel-layout",
+		"popover",
+		"progress-bar",
+		"prompt-input",
+		"property-filter",
+		"s3-resource-selector",
+		"segmented-control",
+		"select",
+		"side-navigation",
+		"slider",
+		"split-panel",
+		"status-indicator",
+		"steps",
+		"table",
+		"tabs",
+		"tag-editor",
+		"text-filter",
+		"textarea",
+		"toggle-button",
+		"token",
+		"token-group",
+		"tooltip",
+		"top-navigation",
+		"tutorial-panel",
+		"wizard"
+	],
+	"deps": {
+		"action-card": [],
+		"alert": ["button", "icon", "plugins"],
+		"anchor-navigation": [],
+		"annotation-context": ["alert", "box", "button", "popover", "container", "space-between"],
+		"app-layout": [
+			"split-panel",
+			"drawer",
+			"button-dropdown",
+			"plugins",
+			"button",
+			"icon",
+			"header",
+			"box",
+			"link",
+			"list",
+			"space-between",
+			"button-group",
+			"breadcrumb-group",
+			"tooltip"
+		],
+		"app-layout-toolbar": ["app-layout"],
+		"area-chart": [],
+		"attribute-editor": ["live-region", "button", "space-between", "form-field"],
+		"autosuggest": ["form-field", "select"],
+		"badge": [],
+		"bar-chart": ["mixed-line-bar-chart"],
+		"box": [],
+		"breadcrumb-group": ["button-dropdown", "icon", "button", "plugins", "tooltip"],
+		"button": ["icon", "spinner", "live-region", "tooltip"],
+		"button-dropdown": ["icon", "dropdown", "box", "button", "tooltip", "popover", "container"],
+		"button-group": [
+			"file-input",
+			"tooltip",
+			"button",
+			"live-region",
+			"toggle-button",
+			"navigable-group",
+			"button-dropdown"
+		],
+		"calendar": ["tooltip", "button", "grid", "header"],
+		"cards": ["container", "item-card", "live-region", "status-indicator", "table"],
+		"checkbox": [],
+		"code-editor": [
+			"icon",
+			"link",
+			"live-region",
+			"spinner",
+			"button",
+			"box",
+			"checkbox",
+			"column-layout",
+			"form-field",
+			"modal",
+			"select",
+			"space-between"
+		],
+		"collection-preferences": [
+			"toggle",
+			"box",
+			"button",
+			"list",
+			"space-between",
+			"text-filter",
+			"modal",
+			"checkbox",
+			"column-layout",
+			"form-field",
+			"radio-group"
+		],
+		"column-layout": ["grid"],
+		"container": ["box"],
+		"content-layout": ["grid"],
+		"copy-to-clipboard": ["button", "popover", "status-indicator"],
+		"date-input": [],
+		"date-picker": ["button", "calendar", "date-input", "dropdown", "live-region"],
+		"date-range-picker": [
+			"tooltip",
+			"calendar",
+			"space-between",
+			"grid",
+			"button",
+			"live-region",
+			"header",
+			"date-input",
+			"form-field",
+			"time-input",
+			"alert",
+			"box",
+			"dropdown",
+			"icon",
+			"segmented-control",
+			"input",
+			"radio-group",
+			"select"
+		],
+		"divider": [],
+		"drawer": ["app-layout", "button", "live-region", "status-indicator"],
+		"dropdown": [],
+		"expandable-section": ["container", "header", "icon"],
+		"file-dropzone": [],
+		"file-input": ["button", "form-field"],
+		"file-token-group": ["box", "form-field", "space-between", "spinner", "token", "tooltip"],
+		"file-upload": [
+			"box",
+			"form-field",
+			"file-dropzone",
+			"file-input",
+			"file-token-group",
+			"space-between"
+		],
+		"flashbar": ["icon", "alert", "button", "plugins", "live-region", "spinner"],
+		"form": ["header", "alert", "box", "live-region"],
+		"form-field": ["grid", "icon", "live-region"],
+		"grid": [],
+		"header": ["container"],
+		"help-panel": ["app-layout", "live-region", "status-indicator"],
+		"hotspot": ["annotation-context"],
+		"icon": ["icon-provider"],
+		"icon-provider": ["icon"],
+		"input": ["button", "icon"],
+		"item-card": [],
+		"key-value-pairs": ["box", "column-layout"],
+		"line-chart": ["mixed-line-bar-chart"],
+		"link": ["icon"],
+		"list": [],
+		"live-region": [],
+		"mixed-line-bar-chart": [],
+		"modal": ["box", "button", "header"],
+		"multiselect": ["form-field", "select", "dropdown", "token-group"],
+		"navigable-group": [],
+		"pagination": ["button", "icon", "input", "popover", "space-between"],
+		"panel-layout": ["app-layout", "drawer"],
+		"pie-chart": ["box", "live-region"],
+		"plugins": [],
+		"popover": ["button", "live-region", "container"],
+		"progress-bar": ["live-region", "box", "button", "status-indicator"],
+		"prompt-input": [
+			"autosuggest",
+			"live-region",
+			"select",
+			"dropdown",
+			"button",
+			"input",
+			"token"
+		],
+		"property-filter": [
+			"icon",
+			"popover",
+			"select",
+			"button",
+			"space-between",
+			"text-filter",
+			"token",
+			"checkbox",
+			"multiselect",
+			"autosuggest",
+			"button-dropdown",
+			"form-field"
+		],
+		"radio-button": [],
+		"radio-group": ["radio-button"],
+		"s3-resource-selector": [
+			"box",
+			"form-field",
+			"button",
+			"live-region",
+			"select",
+			"status-indicator",
+			"input",
+			"header",
+			"pagination",
+			"space-between",
+			"table",
+			"text-filter",
+			"link",
+			"breadcrumb-group",
+			"modal",
+			"icon"
+		],
+		"segmented-control": ["form-field", "select", "icon", "tooltip"],
+		"select": ["dropdown", "input", "icon", "tooltip", "token"],
+		"side-navigation": ["app-layout", "box", "expandable-section", "icon"],
+		"slider": ["tooltip"],
+		"space-between": [],
+		"spinner": [],
+		"split-panel": ["app-layout", "button", "box", "form-field", "modal", "space-between", "tiles"],
+		"status-indicator": ["icon", "spinner"],
+		"steps": ["box", "status-indicator"],
+		"table": [
+			"icon",
+			"live-region",
+			"popover",
+			"container",
+			"button",
+			"form-field",
+			"space-between",
+			"header",
+			"status-indicator",
+			"checkbox",
+			"radio-button",
+			"area-chart"
+		],
+		"tabs": ["container", "button", "tooltip"],
+		"tag-editor": [
+			"attribute-editor",
+			"box",
+			"form-field",
+			"live-region",
+			"status-indicator",
+			"autosuggest"
+		],
+		"text-content": [],
+		"text-filter": ["input", "live-region"],
+		"textarea": ["input"],
+		"theming": [],
+		"tiles": ["radio-group", "radio-button"],
+		"time-input": [],
+		"toggle": [],
+		"toggle-button": ["button"],
+		"token": ["icon", "token-group", "live-region", "tooltip"],
+		"token-group": ["icon", "token"],
+		"tooltip": ["popover", "container"],
+		"top-navigation": ["button", "button-dropdown", "icon", "header", "link"],
+		"tree-view": [],
+		"tutorial-panel": [
+			"box",
+			"link",
+			"space-between",
+			"status-indicator",
+			"button",
+			"annotation-context",
+			"expandable-section",
+			"alert",
+			"icon",
+			"live-region"
+		],
+		"wizard": ["button", "space-between", "form", "header", "box", "link", "expandable-section"]
+	}
 }

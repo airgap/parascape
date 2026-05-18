@@ -13,8 +13,8 @@
 // normalized to a prop spread because that is LITERALLY what Cloudscape
 // does internally (getBaseProps spreads it onto the root) — equivalent,
 // not a fudge; documented so the oracle stays honest.
-import { render as svelteRender, fireEvent } from "@testing-library/svelte";
-import { waitFor } from "@testing-library/dom";
+import { render as svelteRender, fireEvent } from '@testing-library/svelte';
+import { waitFor } from '@testing-library/dom';
 
 // fireEvent: @testing-library/svelte's — dispatches REAL DOM events
 // then flushes Svelte's tick. Framework-agnostic; the .pui components
@@ -23,22 +23,22 @@ import { waitFor } from "@testing-library/dom";
 // act: svelte-testing-library has none (no React batching); a microtask
 // flush is the faithful equivalent for "let effects settle".
 const act = async (cb?: () => unknown) => {
-  await cb?.();
-  await Promise.resolve();
+	await cb?.();
+	await Promise.resolve();
 };
 export { fireEvent, waitFor, act };
-import createWrapper from "@cloudscape-design/components/test-utils/dom";
+import createWrapper from '@cloudscape-design/components/test-utils/dom';
 // Re-export every named wrapper (BadgeWrapper, AnchorNavigationWrapper,
 // ElementWrapper, …) verbatim so codemod-rewritten named imports
 // resolve. These are framework-agnostic DOM queries keyed on the
 // vendored hashes — they work against the .pui DOM unchanged.
-export * from "@cloudscape-design/components/test-utils/dom";
-import Harness from "./Harness.svelte";
+export * from '@cloudscape-design/components/test-utils/dom';
+import Harness from './Harness.svelte';
 
 export { createWrapper };
 
 export interface RenderResult {
-  container: HTMLElement;
+	container: HTMLElement;
 }
 
 /**
@@ -63,13 +63,13 @@ export interface RenderResult {
 // it recursively. (Plain `__pui:true` flag — Descriptor.svelte checks
 // that, not a Symbol.)
 export interface PuiDescriptor {
-  __pui: true;
-  component: unknown;
-  props: Record<string, unknown>;
-  children: unknown[];
+	__pui: true;
+	component: unknown;
+	props: Record<string, unknown>;
+	children: unknown[];
 }
 function isDescriptor(x: unknown): x is PuiDescriptor {
-  return !!x && typeof x === "object" && (x as any).__pui === true;
+	return !!x && typeof x === 'object' && (x as any).__pui === true;
 }
 
 // Per-descriptor prop normalization, applied at EVERY level so nested
@@ -77,48 +77,52 @@ function isDescriptor(x: unknown): x is PuiDescriptor {
 // Svelte class (Cloudscape's getBaseProps concatenates className into
 // the component class — equivalent to our clsx(class,…) merge).
 function normalizeProps(p: Record<string, unknown> | null): Record<string, unknown> {
-  const { nativeAttributes, ...rest } = (p ?? {}) as Record<string, unknown>;
-  const merged = { ...rest, ...((nativeAttributes as Record<string, unknown>) ?? {}) };
-  if ("className" in merged) {
-    merged.class = merged.className;
-    delete merged.className;
-  }
-  return merged;
+	const { nativeAttributes, ...rest } = (p ?? {}) as Record<string, unknown>;
+	const merged = { ...rest, ...((nativeAttributes as Record<string, unknown>) ?? {}) };
+	if ('className' in merged) {
+		merged.class = merged.className;
+		delete merged.className;
+	}
+	return merged;
 }
 
-export function h(component: unknown, props: Record<string, unknown> | null, ...children: unknown[]): PuiDescriptor {
-  return {
-    __pui: true,
-    component,
-    props: normalizeProps(props),
-    children: children.flat(Infinity).filter(c => c !== null && c !== undefined && c !== false),
-  };
+export function h(
+	component: unknown,
+	props: Record<string, unknown> | null,
+	...children: unknown[]
+): PuiDescriptor {
+	return {
+		__pui: true,
+		component,
+		props: normalizeProps(props),
+		children: children.flat(Infinity).filter((c) => c !== null && c !== undefined && c !== false),
+	};
 }
-export const Fragment = "fragment";
+export const Fragment = 'fragment';
 
 // Minimal React compat: Cloudscape test helpers reference React.createRef/
 // forwardRef/Fragment (NOT for rendering — JSX goes through h()). Shim
 // just the surface they touch so the codemod can alias `React` instead
 // of deleting the import (deleting broke helpers that call React.*).
 export const React = {
-  createRef: <T>() => ({ current: null as T | null }),
-  forwardRef: <T>(fn: T) => fn,
-  Fragment,
-  createElement: h,
+	createRef: <T>() => ({ current: null as T | null }),
+	forwardRef: <T>(fn: T) => fn,
+	Fragment,
+	createElement: h,
 };
 
 export function render(
-  componentOrDescriptor: unknown,
-  opts: { props?: Record<string, unknown>; text?: string } = {},
+	componentOrDescriptor: unknown,
+	opts: { props?: Record<string, unknown>; text?: string } = {},
 ): RenderResult {
-  // Accept render(<JSX/>) (descriptor) OR render(Comp, {props,text}).
-  const node = isDescriptor(componentOrDescriptor)
-    ? componentOrDescriptor
-    : h(
-        componentOrDescriptor,
-        (opts.props ?? {}) as Record<string, unknown>,
-        ...(opts.text !== undefined && opts.text !== null ? [opts.text] : []),
-      );
-  const { container } = svelteRender(Harness, { props: { node } });
-  return { container };
+	// Accept render(<JSX/>) (descriptor) OR render(Comp, {props,text}).
+	const node = isDescriptor(componentOrDescriptor)
+		? componentOrDescriptor
+		: h(
+				componentOrDescriptor,
+				(opts.props ?? {}) as Record<string, unknown>,
+				...(opts.text !== undefined && opts.text !== null ? [opts.text] : []),
+			);
+	const { container } = svelteRender(Harness, { props: { node } });
+	return { container };
 }

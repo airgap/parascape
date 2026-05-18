@@ -1,8 +1,8 @@
 // jest-dom matchers (toHaveClass / toHaveTextContent / …) — framework-
 // agnostic, so Cloudscape's assertions run unchanged against the
 // .pui-rendered DOM.
-import "@testing-library/jest-dom/vitest";
-import { vi } from "vitest";
+import '@testing-library/jest-dom/vitest';
+import { vi } from 'vitest';
 
 // Cloudscape's tests call jest.fn()/jest.spyOn()/jest.useFakeTimers()
 // as a global (they're jest-authored). vitest's `vi` is API-compatible

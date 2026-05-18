@@ -13,25 +13,27 @@ import Spinner from '@components/Spinner.pui';
 import styles from '@cloudscape/spinner.styles.js';
 
 describe('Spinner', () => {
-  test('Renders the size correctly', function () {
-    const { container } = render(<Spinner size="big" />);
-    expect(container.firstElementChild).toHaveClass(styles['size-big']);
-  });
+	test('Renders the size correctly', function () {
+		const { container } = render(<Spinner size="big" />);
+		expect(container.firstElementChild).toHaveClass(styles['size-big']);
+	});
 
-  it('Renders the variant correctly', function () {
-    const { container } = render(<Spinner variant="inverted" />);
-    expect(container.firstElementChild).toHaveClass(styles['variant-inverted']);
-  });
+	it('Renders the variant correctly', function () {
+		const { container } = render(<Spinner variant="inverted" />);
+		expect(container.firstElementChild).toHaveClass(styles['variant-inverted']);
+	});
 
-  describe('native attributes', () => {
-    it('adds native attributes', () => {
-      const { container } = render(<Spinner nativeAttributes={{ 'data-testid': 'my-test-id' }} />);
-      expect(container.querySelector('[data-testid="my-test-id"]')).not.toBeNull();
-    });
-    it('concatenates class names', () => {
-      const { container } = render(<Spinner nativeAttributes={{ className: 'additional-class' }} />);
-      expect(container.firstElementChild).toHaveClass(styles.root);
-      expect(container.firstElementChild).toHaveClass('additional-class');
-    });
-  });
+	describe('native attributes', () => {
+		it('adds native attributes', () => {
+			const { container } = render(<Spinner nativeAttributes={{ 'data-testid': 'my-test-id' }} />);
+			expect(container.querySelector('[data-testid="my-test-id"]')).not.toBeNull();
+		});
+		it('concatenates class names', () => {
+			const { container } = render(
+				<Spinner nativeAttributes={{ className: 'additional-class' }} />,
+			);
+			expect(container.firstElementChild).toHaveClass(styles.root);
+			expect(container.firstElementChild).toHaveClass('additional-class');
+		});
+	});
 });

@@ -4,7 +4,7 @@
 	// — that injects a leading anchor comment which breaks Cloudscape
 	// tests asserting on container.firstChild; the codemod's
 	// firstChild→firstElementChild rule covers the residual anchor).
-	import Descriptor from "./Descriptor.svelte";
+	import Descriptor from './Descriptor.svelte';
 	let { node }: { node: any } = $props();
 </script>
 

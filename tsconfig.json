@@ -1,17 +1,17 @@
 {
-  "extends": "@tsconfig/svelte/tsconfig.json",
-  "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "allowJs": true,
-    "checkJs": false,
-    "isolatedModules": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "types": ["svelte", "vite/client"]
-  },
-  "include": ["src/**/*.ts", "src/**/*.svelte", "src/**/*.pui"],
-  "exclude": ["node_modules", "dist"]
+	"extends": "@tsconfig/svelte/tsconfig.json",
+	"compilerOptions": {
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"resolveJsonModule": true,
+		"allowJs": true,
+		"checkJs": false,
+		"isolatedModules": true,
+		"strict": true,
+		"skipLibCheck": true,
+		"types": ["svelte", "vite/client"]
+	},
+	"include": ["src/**/*.ts", "src/**/*.svelte", "src/**/*.pui"],
+	"exclude": ["node_modules", "dist"]
 }
