@@ -41,6 +41,7 @@
 	import Pagination from '../../../src/lib/components/Pagination.pui';
 	import Slider from '../../../src/lib/components/Slider.pui';
 	import CopyToClipboard from '../../../src/lib/components/CopyToClipboard.pui';
+	import Tabs from '../../../src/lib/components/Tabs.pui';
 	import TreeView from '../../../src/lib/components/TreeView.pui';
 </script>
 
@@ -291,6 +292,17 @@
 	<div><Slider value={20} min={0} max={100} disabled /></div>
 	<div><CopyToClipboard copyButtonText="Copy" textToCopy="hello" textToDisplay="hello world" /></div>
 	<div><CopyToClipboard variant="icon" copyButtonAriaLabel="Copy ARN" textToCopy="arn:..." /></div>
+	<div>
+		<Tabs
+			ariaLabel="Demo tabs"
+			activeTabId="t2"
+			tabs={[
+				{ id: 't1', label: 'First tab', content: 'First panel content.' },
+				{ id: 't2', label: 'Second tab', content: 'Second panel content.' },
+				{ id: 't3', label: 'Disabled', content: 'Hidden', disabled: true },
+			]}
+		/>
+	</div>
 </div>
 </div>
 

@@ -43,6 +43,7 @@ import TreeView from "@cloudscape-design/components/tree-view";
 import Pagination from "@cloudscape-design/components/pagination";
 import Slider from "@cloudscape-design/components/slider";
 import CopyToClipboard from "@cloudscape-design/components/copy-to-clipboard";
+import Tabs from "@cloudscape-design/components/tabs";
 const noop = () => {};
 
 function M() {
@@ -637,6 +638,18 @@ function M() {
       </div>
       <div>
         <CopyToClipboard variant="icon" copyButtonAriaLabel="Copy ARN" textToCopy="arn:..." />
+      </div>
+      <div>
+        <Tabs
+          ariaLabel="Demo tabs"
+          activeTabId="t2"
+          onChange={noop}
+          tabs={[
+            { id: "t1", label: "First tab", content: "First panel content." },
+            { id: "t2", label: "Second tab", content: "Second panel content." },
+            { id: "t3", label: "Disabled", content: "Hidden", disabled: true },
+          ]}
+        />
       </div>
     </div>
   );

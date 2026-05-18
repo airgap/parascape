@@ -47,7 +47,7 @@ bun run check    # svelte-check
 <!-- AUTOGEN:status (bun run status) -->
 ## Status
 
-**50 / 94** Cloudscape components ported to `.pui` at pixel parity. Verification is mechanical, not by eye: a deterministic Playwright pixel-diff against the **real** `@cloudscape-design/components` (pinned Chromium, fixed viewport/DPR, animations/caret off, fonts settled, built-not-dev). Current residuals — component matrix **≤0.01%**, integrated `Table` **0.70%** — are sub-pixel antialiasing on glyph/text edges with **zero box-model delta** (proven via the computed-box diagnostics, `*-diag.mjs`), i.e. visually indistinguishable. Harnesses: `tests/visual/box-shoot.mjs` (matrix), `shoot.mjs` (Table).
+**51 / 94** Cloudscape components ported to `.pui` at pixel parity. Verification is mechanical, not by eye: a deterministic Playwright pixel-diff against the **real** `@cloudscape-design/components` (pinned Chromium, fixed viewport/DPR, animations/caret off, fonts settled, built-not-dev). Current residuals — component matrix **≤0.01%**, integrated `Table` **0.70%** — are sub-pixel antialiasing on glyph/text edges with **zero box-model delta** (proven via the computed-box diagnostics, `*-diag.mjs`), i.e. visually indistinguishable. Harnesses: `tests/visual/box-shoot.mjs` (matrix), `shoot.mjs` (Table).
 
 > Dep-first by construction: a *pixel-relevant* dep is ported
 > before its consumer. A `✗` dep is **not a gap** — it is a
@@ -99,6 +99,7 @@ bun run check    # svelte-check
 | `Steps` | `@cloudscape-design/components/steps` | — | 0 | box ✅, status-indicator ✅ |
 | `StructuredItem` | `@cloudscape-design/components/structured-item` | — | 0 | — |
 | `Table` | `@cloudscape-design/components/table` | — | 2 | icon ✅, live-region ✅, popover ✅, container ✅, button ✅, form-field ✅, space-between ✅, header ✅, status-indicator ✅, checkbox ✅, radio-button ✅, area-chart ✗ |
+| `Tabs` | `@cloudscape-design/components/tabs` | — | 0 | container ✅, button ✅, tooltip ✅ |
 | `Textarea` | `@cloudscape-design/components/textarea` | — | 0 | input ✅ |
 | `TextContent` | `@cloudscape-design/components/text-content` | 0 | 0 | — |
 | `TextFilter` | `@cloudscape-design/components/text-filter` | — | 3 | input ✅, live-region ✅ |
