@@ -1,0 +1,97 @@
+<!--
+  Parascape <ExpandableSection> — faithful port of
+  @cloudscape-design/components/expandable-section/internal.js +
+  expandable-section-container.js + expandable-section-header.js,
+  variant='default' path (the headerText / ExpandableHeaderTextWrapper
+  branch). Public defaults: variant='default', defaultExpanded=false.
+  ExpandableSectionContainer(default) = <div clsx(className,
+  styles.root)>{header}{content}</div>. Header (ExpandableHeaderText-
+  Wrapper, no actions/description) = <div clsx(wrapperClassName,
+  expanded&&expanded, !expanded&&wrapper-not-expanded-without-actions)
+  click-target onClick=toggle><div><div styles['header-wrapper']>
+  <span clsx(expand-button, header-button) role=button aria-expanded>
+  <span clsx(icon-container, icon-container-default)>{caret Icon✅}
+  </span><span styles['header-text']>{headerText}</span></span></div>
+  </div></div>. wrapperClassName = clsx(styles.wrapper,
+  styles['wrapper-default'], expanded&&styles['wrapper-expanded']).
+  Content div always mounted (CSSTransition only adds a transient
+  enter class — collapse is the CSS content vs content-expanded
+  toggle, no transition class in a static frame). container/stacked/
+  navigation/inline/deprecated variants + headerActions/description/
+  counter/info omitted (default path only; documented).
+-->
+<script lang="pts">
+	import Icon from './Icon.pui';
+	import styles from '../cloudscape/expandable-section.styles.js';
+	import '../cloudscape/expandable-section.scoped.css';
+
+	let {
+		headerText = undefined,
+		defaultExpanded = false,
+		expanded: controlledExpanded = undefined,
+		onChange = undefined,
+		children = undefined,
+		class: extraClass = undefined,
+		...rest
+	}: {
+		headerText?: string;
+		defaultExpanded?: boolean;
+		expanded?: boolean;
+		onChange?: (e: { expanded: boolean }) => void;
+		children?: import('svelte').Snippet | string;
+		class?: string;
+		[k: string]: unknown;
+	} = $props();
+
+	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
+	const S = styles as Record<string, string>;
+
+	const controlId = 'parascape-expandable';
+	const triggerControlId = `${controlId}-trigger`;
+	let uncontrolled = $state(defaultExpanded);
+	derived expanded = controlledExpanded ?? uncontrolled;
+
+	function toggle() {
+		const next = !expanded;
+		if (controlledExpanded === undefined) uncontrolled = next;
+		onChange?.({ expanded: next });
+	}
+	const snip = (v: unknown) => typeof v === 'function';
+</script>
+
+<div class={cx(extraClass, S.root)} {...rest}>
+	<div
+		class={cx(
+			S.wrapper,
+			S['wrapper-default'],
+			expanded && S['wrapper-expanded'],
+			expanded && S.expanded,
+			!expanded && S['wrapper-not-expanded-without-actions'],
+			S['click-target'],
+		)}
+		onclick={toggle}
+		role="presentation"
+	>
+		<div>
+			<div class={S['header-wrapper']}>
+				<span
+					class={cx(S['expand-button'], S['header-button'])}
+					role="button"
+					tabindex="0"
+					aria-expanded={expanded}
+					aria-controls={controlId}
+				><span class={cx(S['icon-container'], S['icon-container-default'])}><Icon
+							name="caret-down-filled"
+							size="normal"
+							class={cx(S.icon, expanded && S.expanded)}
+						/></span><span id={triggerControlId} class={S['header-text']}>{headerText}</span></span>
+			</div>
+		</div>
+	</div>
+	<div
+		id={controlId}
+		class={cx(S.content, S['content-default'], expanded && S['content-expanded'])}
+		role="group"
+		>{#if snip(children)}{@render (children as import('svelte').Snippet)()}{:else}{children}{/if}</div
+	>
+</div>

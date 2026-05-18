@@ -1,0 +1,59 @@
+/*
+ * Approximation of Cloudscape's visual language — enough for the scaffold
+ * to look right on day one and stay motivating. This is NOT the real
+ * token set.
+ *
+ * The real move (cheap, high-fidelity): vendor @cloudscape-design/design-tokens
+ * verbatim. It's framework-agnostic CSS/JSON — lifting it unchanged gets
+ * pixel-1:1 with zero per-component effort. Treat the vars below as a
+ * temporary stand-in with Cloudscape-shaped names so swapping is mechanical.
+ */
+:root {
+  --color-background-layout-main: var(--color-background-layout-main-5ilwcb, #ffffff);
+  --color-background-container-content: var(--color-background-container-content-6u8rvp, #ffffff);
+  --color-background-container-header: var(--color-background-container-header-gs3mbe, #ffffff);
+  --color-background-cell-shaded: var(--color-background-cell-shaded-v7o6so, #f6f6f9);
+  --color-background-item-selected: var(--color-background-item-selected-9gppru, #f0fbff);
+  --color-background-button-primary-default: var(--color-background-button-primary-default-vdt0fu, #006ce0);
+  --color-background-button-primary-hover: var(--color-background-button-primary-hover-mo85i6, #002b66);
+  --color-text-body-default: var(--color-text-body-default-vvtq8u, #0f141a);
+  --color-text-heading-default: var(--color-text-heading-default-izpp46, #0f141a);
+  --color-text-body-secondary: var(--color-text-body-secondary-yna5sb, #424650);
+  --color-text-link-default: var(--color-text-link-default-hude44, #006ce0);
+  --color-text-button-primary: var(--color-text-button-primary-default-mwl31m, #ffffff);
+  --color-border-divider-default: var(--color-border-divider-default-nr68jt, #c6c6cd);
+  --color-border-container-default: var(--color-border-container-top-k3vmoz, transparent);
+  --color-border-item-focused: var(--color-border-item-focused-uk47pl, #006ce0);
+  --space-xxs: var(--space-scaled-xxs-pfm1nx, 4px);
+  --space-xs: var(--space-scaled-xs-xwoogq, 8px);
+  --space-s: var(--space-scaled-s-8ozaad, 12px);
+  --space-m: var(--space-scaled-m-m892r9, 16px);
+  --space-l: var(--space-scaled-l-sej05l, 20px);
+  --space-xl: var(--space-scaled-xl-dunxp5, 24px);
+  --space-xxl: var(--space-scaled-xxl-6wgq96, 32px);
+  --font-family-base: var(--font-family-base-gmnpzl, "Open Sans", "Helvetica Neue", Roboto, Arial, sans-serif);
+  --font-size-body-m: var(--font-size-body-m-a7nh2n, 14px);
+  --font-size-heading-m: var(--font-size-heading-m-170yiy, 18px);
+  --font-size-heading-s: var(--font-size-heading-s-zp08en, 16px);
+  --line-height-body-m: var(--line-height-body-m-2mh3ke, 20px);
+  --border-radius-container: var(--border-radius-container-nsfwmm, 16px);
+  --border-radius-control: 8px;
+  --border-radius-input: var(--border-radius-input-7q0str, 8px);
+  --shadow-container: 0 1px 8px 1px rgba(0, 7, 22, 0.1);
+}
+
+/* NO blanket `* { box-sizing }` — Cloudscape's @cloudscape-design/
+   global-styles + per-component scoped CSS set box-sizing intentionally
+   per element (e.g. header-cell-content is content-box). A wildcard rule
+   here overrides that and shifts text (Stage-5 diagnostic: header-cell-
+   content computed border-box vs content-box). Same anti-pattern as the
+   wildcard *.pui ambient — let the real CSS own it. */
+
+body {
+  margin: 0;
+  background: var(--color-background-layout-main);
+  color: var(--color-text-body-default);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-body-m);
+  line-height: var(--line-height-body-m);
+}

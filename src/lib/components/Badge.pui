@@ -1,0 +1,13 @@
+<!-- Parascape <Badge> — tier-0. 1:1 with Cloudscape Badge:
+     tag span, clsx(badge, badge-color-*). (style-API helper omitted —
+     not exercised; add if a consumer passes `style`.) -->
+<script lang="pts">
+	import styles from '../cloudscape/badge.styles.js';
+	import '../cloudscape/badge.scoped.css';
+	let { color = 'grey', class: extraClass = undefined, children = undefined, ...rest }:
+		{ color?: string; class?: string; children?: import('svelte').Snippet; [k: string]: unknown } = $props();
+	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
+	const s = styles as Record<string, string>;
+	derived className = cx(extraClass, s.badge, s[`badge-color-${color}`]);
+</script>
+<span class={className} {...rest}>{@render children?.()}</span>

@@ -1,0 +1,47 @@
+<!--
+  Parascape <SpaceBetween> — tier-0 primitive. 1:1 with Cloudscape's
+  InternalSpaceBetween className logic + vendored hashed classes + its
+  own scoped CSS. Spacing is pure flex `gap` on `.root` (verified in
+  styles.scoped.css); Cloudscape additionally wraps each child in a
+  layout-NEUTRAL `.child` div (empty CSS rule, test-utils marker only).
+  Svelte can't map slot children to per-child wrappers, but since
+  `.child` has no layout effect, rendering children directly into the
+  flex `.root` is pixel-equivalent — proven by the parity harness, not
+  asserted. Logic transcribed from
+  @cloudscape-design/components/space-between/internal.js.
+-->
+<script lang="pts">
+	import styles from '../cloudscape/space-between.styles.js';
+	import '../cloudscape/space-between.scoped.css';
+
+	let {
+		direction = 'vertical',
+		size = undefined,
+		alignItems = undefined,
+		class: extraClass = undefined,
+		children = undefined,
+		...rest
+	}: {
+		direction?: 'vertical' | 'horizontal';
+		size?: string;
+		alignItems?: 'center' | 'start' | 'end';
+		class?: string;
+		children?: import('svelte').Snippet;
+		[k: string]: unknown;
+	} = $props();
+
+	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
+	const s = styles as Record<string, string>;
+
+	derived className {
+		return cx(
+			extraClass,
+			s.root,
+			s[direction],
+			s[`${direction}-${size}`],
+			alignItems && s[`align-${alignItems}`],
+		);
+	}
+</script>
+
+<div class={className} {...rest}>{@render children?.()}</div>

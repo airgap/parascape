@@ -1,0 +1,74 @@
+<!--
+  Parascape <Textarea> — faithful port of
+  @cloudscape-design/components/textarea/index.js.
+  Public defaults: autoComplete=true; rows falls back to 3
+  (`rows || 3`), value forced controlled (`value || ''`).
+  <span class={clsx(styles.root, className)}><textarea
+  class={clsx(styles.textarea, { textarea-readonly, textarea-invalid,
+  textarea-warning && !invalid })} ...></span> transcribed verbatim.
+-->
+<script lang="pts">
+	import styles from '../cloudscape/textarea.styles.js';
+	import '../cloudscape/textarea.scoped.css';
+
+	let {
+		value = '',
+		rows = undefined,
+		placeholder = undefined,
+		name = undefined,
+		disabled = false,
+		readOnly = false,
+		invalid = false,
+		warning = false,
+		autoComplete = true,
+		ariaLabel = undefined,
+		ariaRequired = false,
+		controlId = undefined,
+		onChange = undefined,
+		class: extraClass = undefined,
+		...rest
+	}: {
+		value?: string;
+		rows?: number;
+		placeholder?: string;
+		name?: string;
+		disabled?: boolean;
+		readOnly?: boolean;
+		invalid?: boolean;
+		warning?: boolean;
+		autoComplete?: boolean | string;
+		ariaLabel?: string;
+		ariaRequired?: boolean;
+		controlId?: string;
+		onChange?: (value: string) => void;
+		class?: string;
+		[k: string]: unknown;
+	} = $props();
+
+	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
+	const T = styles as Record<string, string>;
+	derived autoCompleteAttr = autoComplete === true ? 'on' : (autoComplete as string) || 'off';
+</script>
+
+<span class={cx(T.root, extraClass)} {...rest}>
+	<textarea
+		class={cx(
+			T.textarea,
+			readOnly && T['textarea-readonly'],
+			invalid && T['textarea-invalid'],
+			warning && !invalid && T['textarea-warning'],
+		)}
+		id={controlId}
+		{name}
+		{placeholder}
+		{disabled}
+		readonly={readOnly ? true : undefined}
+		rows={rows || 3}
+		autocomplete={autoCompleteAttr}
+		aria-label={ariaLabel}
+		aria-required={ariaRequired ? 'true' : undefined}
+		aria-invalid={invalid ? 'true' : undefined}
+		{value}
+		oninput={(e: Event) => onChange?.((e.currentTarget as HTMLTextAreaElement).value)}
+	></textarea>
+</span>

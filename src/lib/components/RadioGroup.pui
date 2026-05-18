@@ -1,0 +1,67 @@
+<!--
+  Parascape <RadioGroup> — faithful port of
+  @cloudscape-design/components/radio-group/internal.js.
+  <div role="radiogroup" class={clsx(className, styles['radio-group'],
+  direction==='horizontal' && styles['horizontal-group'])}> mapping
+  items → the parity RadioButton✅ with className clsx(styles.radio,
+  item.description && styles['radio--has-description']). name falls
+  back to a generated group name (DOM-only; static is pixel-equivalent
+  to useUniqueId). readOnly/disabled propagate per item.
+-->
+<script lang="pts">
+	import RadioButton from './RadioButton.pui';
+	import styles from '../cloudscape/radio-group.styles.js';
+	import '../cloudscape/radio-group.scoped.css';
+
+	let {
+		value = undefined,
+		items = [],
+		name = undefined,
+		direction = 'vertical',
+		readOnly = false,
+		ariaLabel = undefined,
+		ariaRequired = false,
+		ariaControls = undefined,
+		onChange = undefined,
+		class: extraClass = undefined,
+		...rest
+	}: {
+		value?: string;
+		items?: Array<{ value: string; label: string; description?: string; disabled?: boolean }>;
+		name?: string;
+		direction?: 'vertical' | 'horizontal';
+		readOnly?: boolean;
+		ariaLabel?: string;
+		ariaRequired?: boolean;
+		ariaControls?: string;
+		onChange?: (e: { value: string }) => void;
+		class?: string;
+		[k: string]: unknown;
+	} = $props();
+
+	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
+	const S = styles as Record<string, string>;
+	const groupName = name || 'parascape-radio-group';
+</script>
+
+<div
+	role="radiogroup"
+	aria-label={ariaLabel}
+	aria-required={ariaRequired ? 'true' : undefined}
+	aria-controls={ariaControls}
+	class={cx(extraClass, S['radio-group'], direction === 'horizontal' && S['horizontal-group'])}
+	{...rest}
+>
+	{#each items as item (item.value)}
+		<RadioButton
+			class={cx(S.radio, item.description && S['radio--has-description'])}
+			checked={value === item.value}
+			name={groupName}
+			value={item.value}
+			disabled={item.disabled}
+			{readOnly}
+			description={item.description}
+			onChange={() => onChange?.({ value: item.value })}
+		>{item.label}</RadioButton>
+	{/each}
+</div>

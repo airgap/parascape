@@ -1,0 +1,91 @@
+<!--
+  Parascape <Container> — tier-1 composite. 1:1 with Cloudscape
+  InternalContainer, DEFAULT static path: root > content-wrapper >
+  [header] + content > content-inner + [footer]. Vendored hashed classes
+  (container + analytics `header` + test `content-inner`) + its own
+  scoped CSS → parity by construction. Cloudscape 3.x is visual-refresh
+  only → `styles.refresh` always on. Omitted (not on the default static
+  path / runtime-only, all layout-neutral when absent): media, sticky
+  header, fit-height, the error boundaries (pass-through when no error)
+  and context providers (render no DOM), style.js helpers (no-op when
+  SYSTEM!=='core'). `header-variant-default` isn't a class (clsx drops
+  it) — matches Cloudscape. Transcribed from
+  @cloudscape-design/components/container/internal.js.
+-->
+<script lang="pts">
+	import styles from '../cloudscape/container.styles.js';
+	import ana from '../cloudscape/container-analytics.styles.js';
+	import test from '../cloudscape/container-test.styles.js';
+	import '../cloudscape/container.scoped.css';
+
+	let {
+		variant = 'default',
+		disableHeaderPaddings = false,
+		disableContentPaddings = false,
+		disableFooterPaddings = false,
+		disableFooterDivider = false,
+		header = undefined,
+		footer = undefined,
+		class: extraClass = undefined,
+		children = undefined,
+		...rest
+	}: {
+		variant?: string;
+		disableHeaderPaddings?: boolean;
+		disableContentPaddings?: boolean;
+		disableFooterPaddings?: boolean;
+		disableFooterDivider?: boolean;
+		header?: import('svelte').Snippet;
+		footer?: import('svelte').Snippet;
+		class?: string;
+		children?: import('svelte').Snippet;
+		[k: string]: unknown;
+	} = $props();
+
+	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
+	const S = styles as Record<string, string>;
+	const ANA = ana as Record<string, string>;
+	const TEST = test as Record<string, string>;
+
+	derived hasHeader = header !== null && header !== undefined;
+	derived hasChildren = children !== null && children !== undefined;
+
+	const contentId = 'parascape-container-content';
+
+	derived rootClass = cx(extraClass, S.root, S[`variant-${variant}`], S.refresh);
+	derived headerClass {
+		return cx(
+			S.refresh,
+			S.header,
+			ANA.header,
+			S[`header-variant-${variant}`],
+			!disableHeaderPaddings && S['with-paddings'],
+			!hasChildren && S['with-hidden-content'],
+		);
+	}
+	derived contentInnerClass {
+		return cx(
+			S['content-inner'],
+			TEST['content-inner'],
+			!disableContentPaddings && S['with-paddings'],
+			hasHeader && S['with-header'],
+		);
+	}
+	derived footerClass {
+		return cx(
+			S.footer,
+			!disableFooterDivider && S['with-divider'],
+			!disableFooterPaddings && S['with-paddings'],
+		);
+	}
+</script>
+
+<div class={rootClass} {...rest}>
+	<div id={contentId} class={S['content-wrapper']}>
+		{#if hasHeader}<div class={headerClass}>{@render header?.()}</div>{/if}
+		<div class={S.content}>
+			<div class={contentInnerClass}>{@render children?.()}</div>
+		</div>
+		{#if footer}<div class={footerClass}>{@render footer?.()}</div>{/if}
+	</div>
+</div>

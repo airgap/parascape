@@ -1,0 +1,9 @@
+node_modules
+dist
+.DS_Store
+*.log
+.vite
+
+# test/build artifacts (regenerable)
+tests/visual/__screenshots__/
+tests/visual/cloudscape-ref/dist*/

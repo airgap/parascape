@@ -1,0 +1,72 @@
+<!--
+  Parascape <TextFilter> — faithful port of
+  @cloudscape-design/components/text-filter/internal.js.
+
+  Structure transcribed verbatim:
+    <div class={clsx(baseProps.className, styles.root)}>
+      <InternalInput className={styles.input} type="search"
+        value={filteringText} placeholder={filteringPlaceholder}
+        ariaLabel={filteringAriaLabel} ... />
+      {showResults ? <SearchResults>{countText}</SearchResults> : null}
+    </div>
+  showResults = filteringText && countText && !disabled — SearchResults
+  (an sr-targeted live-region + visible count) is only the result-count
+  path; the default/demo render (no countText) is bare root+Input, which
+  is what the Table filter needs. Composes the parity Input✅ (its
+  type="search" path = parity Icon✅ search glyph + parity Button✅
+  clear-button), so this wrapper is purely the styles.root/styles.input
+  class wiring.
+-->
+<script lang="pts">
+	import Input from './Input.pui';
+	import styles from '../cloudscape/text-filter.styles.js';
+	import '../cloudscape/text-filter.scoped.css';
+
+	let {
+		filteringText = '',
+		filteringPlaceholder = undefined,
+		filteringAriaLabel = undefined,
+		filteringClearAriaLabel = 'Clear',
+		disabled = false,
+		disableBrowserAutocorrect = false,
+		countText = undefined,
+		controlId = undefined,
+		onChange = undefined,
+		class: extraClass = undefined,
+		...rest
+	}: {
+		filteringText?: string;
+		filteringPlaceholder?: string;
+		filteringAriaLabel?: string;
+		filteringClearAriaLabel?: string;
+		disabled?: boolean;
+		disableBrowserAutocorrect?: boolean;
+		countText?: string;
+		controlId?: string;
+		onChange?: (value: string) => void;
+		class?: string;
+		[k: string]: unknown;
+	} = $props();
+
+	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
+	const S = styles as Record<string, string>;
+
+	// internal.js — showResults = filteringText && countText && !disabled
+	derived showResults = !!filteringText && !!countText && !disabled;
+</script>
+
+<div class={cx(extraClass, S.root)} {...rest}>
+	<Input
+		class={S.input}
+		type="search"
+		value={filteringText}
+		{disabled}
+		{disableBrowserAutocorrect}
+		{controlId}
+		placeholder={filteringPlaceholder}
+		ariaLabel={filteringAriaLabel}
+		clearAriaLabel={filteringClearAriaLabel}
+		onChange={(v) => onChange?.(v)}
+	/>
+	{#if showResults}<span class={S.results}>{countText}</span>{/if}
+</div>

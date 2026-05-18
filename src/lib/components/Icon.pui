@@ -1,0 +1,103 @@
+<!-- Parascape <Icon> — de-facto primitive (only dep: empty
+     icon-provider context). 1:1 with Cloudscape InternalIcon, default
+     name-based path: span + clsx(icon, size-*-mapped-height, size-*,
+     variant-*, name-*) wrapping the generated SVG. Vendored hashed
+     classes + its own scoped CSS + the generated icon set → parity by
+     construction. size="inherit" (contextualSize) is the runtime-
+     measured path Cloudscape uses for in-text icons (e.g. Link's
+     external icon): iconSizeMap(parentHeight,parentFontSize) +
+     icon-flex-height + inline height:{parentHeight}px, where
+     parentHeight/parentFontSize = parseInt of THIS span's own
+     computed lineHeight/fontSize (transcribed verbatim from
+     icon/internal.js useLayoutEffect). (url/svg/badge still omitted —
+     not exercised.) -->
+<script lang="pts">
+	import styles from '../cloudscape/icon.styles.js';
+	import svgs from '../cloudscape/icon-svgs.js';
+	import '../cloudscape/icon.scoped.css';
+
+	let {
+		name = undefined,
+		size = 'normal',
+		variant = 'normal',
+		ariaLabel = undefined,
+		svg = undefined,
+		url = undefined,
+		alt = undefined,
+		class: extraClass = undefined,
+		...rest
+	}: {
+		name?: string;
+		size?: string;
+		variant?: string;
+		ariaLabel?: string;
+		svg?: import('svelte').Snippet | string;
+		url?: string;
+		alt?: string;
+		class?: string;
+		[k: string]: unknown;
+	} = $props();
+
+	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
+	const s = styles as Record<string, string>;
+	const map = svgs as Record<string, string>;
+	derived hasAriaLabel = typeof ariaLabel === 'string';
+
+	// icon/internal.js iconSizeMap — transcribed verbatim
+	function iconSizeMap(height: number | null, fontSize: number | null) {
+		if (height === null) return 'normal';
+		if (height >= 50) return 'large';
+		if (height >= 36) return 'big';
+		if (height >= 24 && !!fontSize && fontSize >= 20) return 'medium';
+		if (height <= 16) return 'small';
+		return 'normal';
+	}
+
+	let el: HTMLSpanElement | undefined = $state();
+	let parentHeight = $state<number | null>(null);
+	let parentFontSize = $state<number | null>(null);
+	derived contextualSize = size === 'inherit';
+
+	// icon/internal.js useLayoutEffect — measure THIS span's own
+	// computed lineHeight/fontSize (it inherits the text context).
+	$effect(() => {
+		if (!contextualSize || !el) return;
+		const csComputed = getComputedStyle(el);
+		parentHeight = parseInt(csComputed.lineHeight, 10);
+		parentFontSize = parseInt(csComputed.fontSize, 10);
+	});
+
+	derived iconSize = contextualSize ? iconSizeMap(parentHeight, parentFontSize) : size;
+	derived inlineHeight =
+		contextualSize && parentHeight !== null ? `height:${parentHeight}px` : undefined;
+
+	derived className {
+		return cx(
+			extraClass,
+			s.icon,
+			contextualSize && s['icon-flex-height'],
+			!contextualSize && s[`size-${iconSize}-mapped-height`],
+			s[`size-${iconSize}`],
+			s[`variant-${variant}`],
+			s[`name-${name}`],
+		);
+	}
+</script>
+
+<!-- icon/internal.js: svg takes precedence over url; url → <img>;
+     else the named glyph. The span keeps the same className/aria
+     for all three (faithful). (svg/url were documented-omitted in the
+     original port — the conformance oracle exercised them, so they
+     are now ported.) -->
+<span
+	bind:this={el}
+	class={className}
+	style={inlineHeight}
+	aria-hidden={!hasAriaLabel}
+	role={hasAriaLabel ? 'img' : undefined}
+	aria-label={hasAriaLabel ? ariaLabel : undefined}
+	{...rest}
+>{#if svg}{#if typeof svg === 'function'}{@render (svg as import('svelte').Snippet)()}{:else}{@html svg}{/if}{:else if url}<img
+			src={url}
+			alt={ariaLabel ?? alt}
+		/>{:else}{@html name && map[name] ? map[name] : ''}{/if}</span>

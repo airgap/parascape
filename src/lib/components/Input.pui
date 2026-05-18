@@ -1,0 +1,140 @@
+<!--
+  Parascape <Input> — faithful port of
+  @cloudscape-design/components/input/internal.js (static render path).
+
+  Public defaults from input/index.js: type='text', autoComplete=true.
+  useSearchProps / convertAutoComplete transcribed verbatim from
+  input/utils.js. The `clsx(styles.input, styles['input-type-'+type],
+  __rightIcon && 'input-has-icon-right', __leftIcon && 'input-has-icon-
+  left', { input-readonly, input-invalid, input-warning })` class and
+  the input-container / icon-left span / icon-right span structure are
+  transcribed verbatim from internal.js.
+
+  type='search' is the path TextFilter needs: __leftIcon='search'
+  (parity Icon✅), and when a value is present __rightIcon='close'
+  rendered as the parity Button✅ (variant inline-icon-pointer-target,
+  formAction none) — exactly Cloudscape's clear-button. WithNativeAttributes
+  is an attribute spread only (warning plumbing omitted); inline-label
+  wrapper is gated on the internal __inlineLabelText (never set by the
+  public component) so the default render is root + input-container.
+  (The outer carries BOTH styles.root and styles['input-container'] —
+  public index.js clsx(styles.root, …) flows into InternalInput's
+  clsx(…, styles['input-container']). Dropping styles.root was a real
+  structural defect the conformance oracle (createWrapper().findInput()
+  roots on styles.root) caught — invisible to pixel-diff.)
+-->
+<script lang="pts">
+	import Icon from './Icon.pui';
+	import Button from './Button.pui';
+	import { getFormFieldContext, fieldProp } from './form-field-context';
+	import styles from '../cloudscape/input.styles.js';
+	import '../cloudscape/input.scoped.css';
+
+	let {
+		value = '',
+		type = 'text',
+		autoComplete = true,
+		disabled = false,
+		readOnly = false,
+		invalid = undefined,
+		warning = undefined,
+		placeholder = undefined,
+		name = undefined,
+		controlId = undefined,
+		ariaLabel = undefined,
+		ariaRequired = false,
+		clearAriaLabel = 'Clear',
+		onChange = undefined,
+		class: extraClass = undefined,
+		...rest
+	}: {
+		value?: string;
+		type?: string;
+		autoComplete?: boolean | string;
+		disabled?: boolean;
+		readOnly?: boolean;
+		invalid?: boolean;
+		warning?: boolean;
+		placeholder?: string;
+		name?: string;
+		controlId?: string;
+		ariaLabel?: string;
+		ariaRequired?: boolean;
+		clearAriaLabel?: string;
+		onChange?: (value: string) => void;
+		class?: string;
+		[k: string]: unknown;
+	} = $props();
+
+	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
+	const S = styles as Record<string, string>;
+
+	// input/index.js always passes __inheritFormFieldProps: true →
+	// invalid/warning/controlId resolve via the FormFieldContext
+	// (prop if explicitly set, else the parent FormField's value).
+	const ff = getFormFieldContext();
+	derived effInvalid = fieldProp(invalid, ff.invalid);
+	derived effWarning = fieldProp(warning, ff.warning);
+	derived effControlId = fieldProp(controlId, ff.controlId);
+
+	function handleChange(v: string) {
+		onChange?.(v);
+	}
+
+	// input/utils.js convertAutoComplete — verbatim
+	derived autoCompleteAttr =
+		autoComplete === true ? 'on' : (autoComplete as string) || 'off';
+
+	// input/utils.js useSearchProps — verbatim
+	derived isSearch = type === 'search' || type === 'visualSearch';
+	derived leftIcon = isSearch ? 'search' : undefined;
+	derived rightIcon = isSearch && !disabled && !readOnly && value ? 'close' : undefined;
+	function onRightIconClick() {
+		handleChange('');
+	}
+
+	// internal.js — type="visualSearch" renders a type="text" input
+	derived domType = type === 'visualSearch' ? 'text' : type;
+
+	derived inputClass = cx(
+		S.input,
+		domType && S[`input-type-${domType}`],
+		rightIcon && S['input-has-icon-right'],
+		leftIcon && S['input-has-icon-left'],
+		readOnly && S['input-readonly'],
+		effInvalid && S['input-invalid'],
+		effWarning && !effInvalid && S['input-warning'],
+	);
+</script>
+
+<div
+	class={cx(extraClass, S.root, S['input-container'])}
+	dir={type === 'email' ? 'ltr' : undefined}
+	{...rest}
+>
+	{#if leftIcon}<span class={S['input-icon-left']}><Icon
+				name={leftIcon}
+				variant={disabled || readOnly ? 'disabled' : undefined}
+			/></span>{/if}<input
+		class={inputClass}
+		type={domType}
+		{value}
+		{name}
+		{placeholder}
+		id={effControlId}
+		{disabled}
+		readonly={readOnly}
+		autocomplete={autoCompleteAttr}
+		aria-label={ariaLabel}
+		aria-required={ariaRequired ? 'true' : undefined}
+		aria-invalid={effInvalid ? 'true' : undefined}
+		oninput={(e: Event) => handleChange((e.currentTarget as HTMLInputElement).value)}
+	/>{#if rightIcon}<span class={S['input-icon-right']}><Button
+				class={S['input-button-right']}
+				variant="inline-icon-pointer-target"
+				formAction="none"
+				iconName={rightIcon}
+				ariaLabel={clearAriaLabel}
+				onClick={onRightIconClick}
+			/></span>{/if}
+</div>

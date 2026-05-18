@@ -1,0 +1,108 @@
+<!--
+  Parascape <ProgressBar> — faithful port of
+  @cloudscape-design/components/progress-bar/index.js + internal.js
+  helpers. Public defaults: value=0, status='in-progress',
+  variant='standalone'. Structure transcribed verbatim:
+    <div clsx(className, styles.root, variant && styles[variant])>
+      <div [isInFlash ? flash-container]>
+        <div clsx(word-wrap, label-${variant}) id=labelId>{label}</div>
+        [description → SmallText]
+        <div>{ in-progress ? <Progress/> : <ResultState/> }</div>
+      </div>
+      [additionalInfo → SmallText class=additional-info]
+    </div>
+  Progress = <div progress-container><progress clsx(progress,
+  value>=100&&complete) max=100 value/><span percentage-container>
+  <Box small>{v}%</Box></span></div>. SmallText = parity Box✅
+  (variant="small" display="block"). ResultState composes parity
+  StatusIndicator✅ + (resultButtonText → parity Button✅). Custom
+  `style` theming helpers omitted (SYSTEM core default). isInFlash =
+  variant==='flash'; standalone path is the default/tested one.
+-->
+<script lang="pts">
+	import Box from './Box.pui';
+	import Button from './Button.pui';
+	import StatusIndicator from './StatusIndicator.pui';
+	import styles from '../cloudscape/progress-bar.styles.js';
+	import '../cloudscape/progress-bar.scoped.css';
+
+	let {
+		value = 0,
+		status = 'in-progress',
+		variant = 'standalone',
+		label = undefined,
+		description = undefined,
+		additionalInfo = undefined,
+		resultText = undefined,
+		resultButtonText = undefined,
+		ariaLabel = undefined,
+		onResultButtonClick = undefined,
+		class: extraClass = undefined,
+		...rest
+	}: {
+		value?: number;
+		status?: 'in-progress' | 'success' | 'error';
+		variant?: 'standalone' | 'flash' | 'key-value';
+		label?: import('svelte').Snippet | string;
+		description?: import('svelte').Snippet | string;
+		additionalInfo?: import('svelte').Snippet | string;
+		resultText?: string;
+		resultButtonText?: string;
+		ariaLabel?: string;
+		onResultButtonClick?: () => void;
+		class?: string;
+		[k: string]: unknown;
+	} = $props();
+
+	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
+	const S = styles as Record<string, string>;
+	const MAX_VALUE = 100;
+	const clamp = (v: number, lo: number, hi: number) => Math.max(Math.min(v, hi), lo);
+
+	derived isInFlash = variant === 'flash';
+	derived isInProgressState = status === 'in-progress';
+	derived progressValue = clamp(Math.round(value), 0, MAX_VALUE);
+	const snip = (v: unknown) => typeof v === 'function';
+</script>
+
+<div class={cx(extraClass, S.root, variant && S[variant])} {...rest}>
+	<div class={isInFlash ? S['flash-container'] : undefined}>
+		<div class={cx(S['word-wrap'], S[`label-${variant}`])}
+			>{#if snip(label)}{@render (label as import('svelte').Snippet)()}{:else}{label}{/if}</div
+		>
+		{#if description}<Box
+				class={S['word-wrap']}
+				variant="small"
+				display="block"
+				color={isInFlash ? 'inherit' : undefined}
+				>{#if snip(description)}{@render (description as import('svelte').Snippet)()}{:else}{description}{/if}</Box
+			>{/if}
+		<div>
+			{#if isInProgressState}<div class={S['progress-container']}><progress
+						class={cx(S.progress, progressValue >= MAX_VALUE && S.complete)}
+						max={MAX_VALUE}
+						value={progressValue}
+						aria-label={ariaLabel}
+					></progress><span aria-hidden="true" class={S['percentage-container']}><Box
+							class={S.percentage}
+							variant="small"
+							color={isInFlash ? 'inherit' : undefined}
+						>{progressValue}%</Box></span></div>{:else}<div
+					class={S[`result-container-${status}`]}
+				><span class={cx(resultButtonText && S['with-result-button'])}><StatusIndicator
+							type={status === 'success' ? 'success' : 'error'}
+						><span class={S['result-text']}>{resultText}</span></StatusIndicator></span
+					>{#if resultButtonText}<div class={S['result-button']}><Button
+								formAction="none"
+								onClick={() => onResultButtonClick?.()}>{resultButtonText}</Button
+							></div>{/if}</div>{/if}
+		</div>
+	</div>
+	{#if additionalInfo}<Box
+			class={S['additional-info']}
+			variant="small"
+			display="block"
+			color={isInFlash ? 'inherit' : undefined}
+			>{#if snip(additionalInfo)}{@render (additionalInfo as import('svelte').Snippet)()}{:else}{additionalInfo}{/if}</Box
+		>{/if}
+</div>
