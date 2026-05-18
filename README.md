@@ -47,7 +47,7 @@ bun run check    # svelte-check
 <!-- AUTOGEN:status (bun run status) -->
 ## Status
 
-**53 / 94** Cloudscape components ported to `.pui` at pixel parity. Verification is mechanical, not by eye: a deterministic Playwright pixel-diff against the **real** `@cloudscape-design/components` (pinned Chromium, fixed viewport/DPR, animations/caret off, fonts settled, built-not-dev). Current residuals — component matrix **≤0.01%**, integrated `Table` **0.70%** — are sub-pixel antialiasing on glyph/text edges with **zero box-model delta** (proven via the computed-box diagnostics, `*-diag.mjs`), i.e. visually indistinguishable. Harnesses: `tests/visual/box-shoot.mjs` (matrix), `shoot.mjs` (Table).
+**54 / 94** Cloudscape components ported to `.pui` at pixel parity. Verification is mechanical, not by eye: a deterministic Playwright pixel-diff against the **real** `@cloudscape-design/components` (pinned Chromium, fixed viewport/DPR, animations/caret off, fonts settled, built-not-dev). Current residuals — component matrix **≤0.01%**, integrated `Table` **0.70%** — are sub-pixel antialiasing on glyph/text edges with **zero box-model delta** (proven via the computed-box diagnostics, `*-diag.mjs`), i.e. visually indistinguishable. Harnesses: `tests/visual/box-shoot.mjs` (matrix), `shoot.mjs` (Table).
 
 > Dep-first by construction: a *pixel-relevant* dep is ported
 > before its consumer. A `✗` dep is **not a gap** — it is a
@@ -61,6 +61,7 @@ bun run check    # svelte-check
 | `ActionCard` | `@cloudscape-design/components/action-card` | 0 | 0 | — |
 | `Alert` | `@cloudscape-design/components/alert` | — | 5 | button ✅, icon ✅, plugins ✗ |
 | `AnchorNavigation` | `@cloudscape-design/components/anchor-navigation` | 0 | 0 | — |
+| `AttributeEditor` | `@cloudscape-design/components/attribute-editor` | — | 1 | live-region ✅, button ✅, space-between ✅, form-field ✅ |
 | `Badge` | `@cloudscape-design/components/badge` | 0 | 0 | — |
 | `Box` | `@cloudscape-design/components/box` | 0 | 21 | — |
 | `Button` | `@cloudscape-design/components/button` | — | 31 | icon ✅, spinner ✅, live-region ✅, tooltip ✅ |
@@ -112,7 +113,7 @@ bun run check    # svelte-check
 | `Tooltip` | `@cloudscape-design/components/tooltip` | — | 13 | popover ✅, container ✅ |
 | `TreeView` | `@cloudscape-design/components/tree-view` | 0 | 0 | — |
 
-**Next portable** (deps satisfied, fan-in desc): `plugins`, `annotation-context` (needs alert+box+button+popover+container+space-between ✅), `calendar` (needs tooltip+button+grid+header ✅), `mixed-line-bar-chart`, `area-chart`, `attribute-editor` (needs live-region+button+space-between+form-field ✅).
+**Next portable** (deps satisfied, fan-in desc): `plugins`, `annotation-context` (needs alert+box+button+popover+container+space-between ✅), `calendar` (needs tooltip+button+grid+header ✅), `mixed-line-bar-chart`, `area-chart`, `button-group` (needs file-input+tooltip+button+live-region+toggle-button+navigable-group+button-dropdown ✅).
 
 _`live-region` has the highest raw fan-in (22) but is `aria-live` sr-only — zero painted pixels, no meaningful pixel-diff — so it is deprioritized despite being a real dependency (consumers like `Button` exclude it from the static render)._
 <!-- /AUTOGEN:status -->

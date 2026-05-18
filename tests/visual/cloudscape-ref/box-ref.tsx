@@ -46,6 +46,7 @@ import CopyToClipboard from '@cloudscape-design/components/copy-to-clipboard';
 import Tabs from '@cloudscape-design/components/tabs';
 import KeyValuePairs from '@cloudscape-design/components/key-value-pairs';
 import ButtonDropdown from '@cloudscape-design/components/button-dropdown';
+import AttributeEditor from '@cloudscape-design/components/attribute-editor';
 const noop = () => {};
 
 function M() {
@@ -694,6 +695,19 @@ function M() {
 						{ id: 't2', label: 'Second tab', content: 'Second panel content.' },
 						{ id: 't3', label: 'Disabled', content: 'Hidden', disabled: true },
 					]}
+				/>
+			</div>
+			<div>
+				<AttributeEditor
+					items={[{ key: "k1", value: "v1" }, { key: "k2", value: "v2" }]}
+					definition={[
+						{ label: "Key", control: (item: any) => <Input value={item.key} onChange={noop} /> },
+						{ label: "Value", control: (item: any) => <Input value={item.value} onChange={noop} /> },
+					]}
+					addButtonText="Add new item"
+					removeButtonText="Remove"
+					onAddButtonClick={noop}
+					onRemoveButtonClick={noop}
 				/>
 			</div>
 		</div>

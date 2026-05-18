@@ -44,6 +44,7 @@
 	import Tabs from '../../../src/lib/components/Tabs.pui';
 	import KeyValuePairs from '../../../src/lib/components/KeyValuePairs.pui';
 	import ButtonDropdown from '../../../src/lib/components/ButtonDropdown.pui';
+	import AttributeEditor from '../../../src/lib/components/AttributeEditor.pui';
 	import TreeView from '../../../src/lib/components/TreeView.pui';
 </script>
 
@@ -400,8 +401,19 @@
 				]}
 			/>
 		</div>
+		<div>
+			<AttributeEditor
+				items={[{ key: "k1", value: "v1" }, { key: "k2", value: "v2" }]}
+				definition={[{ label: "Key", control: aeKey }, { label: "Value", control: aeVal }]}
+				addButtonText="Add new item"
+				removeButtonText="Remove"
+			/>
+		</div>
 	</div>
 </div>
+
+{#snippet aeKey(item)}<Input value={item.key} />{/snippet}
+{#snippet aeVal(item)}<Input value={item.value} />{/snippet}
 
 {#snippet cl2a()}<div style="background:#eef">CL2 A</div>{/snippet}
 {#snippet cl2b()}<div style="background:#fee">CL2 B</div>{/snippet}
