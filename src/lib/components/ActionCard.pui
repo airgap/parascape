@@ -71,7 +71,16 @@
 	const headerId = 'parascape-actioncard-header';
 	const descriptionId = 'parascape-actioncard-desc';
 	const bodyId = 'parascape-actioncard-body';
+	const standaloneButtonId = 'parascape-actioncard-button';
 	derived headerRowEmpty = !has(header) && !has(description);
+	// internal.js: when there's no header a standalone overlay <button>
+	// is still rendered (the interactive active/hover/click layer);
+	// it's labelled by the description, else the body.
+	derived standaloneButtonLabelledBy = has(description)
+		? descriptionId
+		: has(children)
+			? bodyId
+			: undefined;
 	derived buttonClass = cx(
 		S['header-button'],
 		TEST.button,
@@ -83,7 +92,7 @@
 <div
 	role="group"
 	aria-label={ariaLabel}
-	aria-labelledby={has(header) ? headerId : undefined}
+	aria-labelledby={has(header) ? headerId : standaloneButtonId}
 	class={cx(
 		extraClass,
 		S.root,
@@ -93,6 +102,14 @@
 	)}
 	{...rest}
 >
+	{#if !has(header)}<button
+			class={buttonClass}
+			id={standaloneButtonId}
+			type="button"
+			{disabled}
+			aria-labelledby={standaloneButtonLabelledBy}
+			onclick={() => onClick?.()}
+		></button>{/if}
 	<div class={S['inner-card']}>
 		{#if !headerRowEmpty}<div class={cx(S.header, disableHeaderPaddings && S['no-padding'])}
 				><StructuredItem
