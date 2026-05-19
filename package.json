@@ -14,7 +14,7 @@
     "visual:wide": "bun tests/visual/wide-shoot.mjs",
     "visual:cp": "bun tests/visual/cp-shoot.mjs",
     "visual:ann": "bun tests/visual/ann-shoot.mjs",
-    "conformance": "vitest run",
+    "conformance": "bun run vendor:verify && vitest run",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "visual:chart": "bun tests/visual/chart-shoot.mjs",
