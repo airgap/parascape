@@ -39,6 +39,10 @@
 -->
 <script lang="pts">
 	import Icon from './Icon.pui';
+	// Faithful: internal.js warns via @cloudscape-design/component-toolkit
+	// warnOnce on unsupported prop×variant combos (real dev-util in prod;
+	// the conformance suite vi.mock's it and asserts the calls).
+	import { warnOnce } from '@cloudscape-design/component-toolkit/internal';
 	import styles from '../cloudscape/expandable-section.styles.js';
 	import '../cloudscape/expandable-section.scoped.css';
 
@@ -46,6 +50,10 @@
 		variant = 'default',
 		headerText = undefined,
 		headingTagOverride = undefined,
+		headerDescription = undefined,
+		headerActions = undefined,
+		headerInfo = undefined,
+		headerCounter = undefined,
 		headerAriaLabel = undefined,
 		defaultExpanded = false,
 		expanded: controlledExpanded = undefined,
@@ -54,9 +62,13 @@
 		class: extraClass = undefined,
 		...rest
 	}: {
-		variant?: 'default' | 'footer';
+		variant?: string;
 		headerText?: string;
 		headingTagOverride?: string;
+		headerDescription?: import('svelte').Snippet | string;
+		headerActions?: import('svelte').Snippet | string;
+		headerInfo?: import('svelte').Snippet | string;
+		headerCounter?: string;
 		headerAriaLabel?: string;
 		defaultExpanded?: boolean;
 		expanded?: boolean;
@@ -71,6 +83,38 @@
 
 	const controlId = 'parascape-expandable';
 	const triggerControlId = `${controlId}-trigger`;
+	const descriptionId = `${controlId}-description`;
+	const componentName = 'ExpandableSection';
+
+	// expandable-section/utils.js — verbatim membership
+	const oneOf = (v: string, l: string[]) => l.includes(v);
+	const variantSupportsDescription = (v: string) =>
+		oneOf(v, ['container', 'default', 'footer', 'inline']);
+	const variantSupportsActions = (v: string) =>
+		oneOf(v, ['container', 'compact', 'default', 'inline']);
+	const variantSupportsInfoLink = (v: string) => oneOf(v, ['container', 'compact']);
+
+	// expandable-section-header.js ExpandableSectionHeader — verbatim
+	// dev-warning conditions (warnOnce is the in-test-mocked spy).
+	if (headerDescription && !variantSupportsDescription(variant)) {
+		warnOnce(
+			componentName,
+			`The \`headerDescription\` prop is not supported for the ${variant} variant.`,
+		);
+	}
+	if ((headerCounter || headerInfo) && !variantSupportsInfoLink(variant)) {
+		warnOnce(
+			componentName,
+			'The `headerCounter` and `headerInfo` props are only supported for the "container" variant.',
+		);
+	}
+	if (headerActions && !variantSupportsActions(variant)) {
+		warnOnce(
+			componentName,
+			'The `headerActions` prop is only supported for the "container" and "default" variants.',
+		);
+	}
+
 	let uncontrolled = $state(defaultExpanded);
 	derived expanded = controlledExpanded ?? uncontrolled;
 
@@ -81,6 +125,15 @@
 	}
 	const snip = (v: unknown) => typeof v === 'function';
 	derived isFooter = variant === 'footer';
+	derived hasDescription = variantSupportsDescription(variant) && !!headerDescription;
+	// content: aria-labelledby the header-text unless an explicit
+	// headerAriaLabel; aria-describedby the description when present.
+	derived contentLabelledBy = headerAriaLabel ? undefined : triggerControlId;
+	derived contentDescribedBy = hasDescription ? descriptionId : undefined;
+	// header button: labelledby header-text only when no aria-label AND a
+	// description exists; describedby the description.
+	derived hbLabelledBy = !headerAriaLabel && hasDescription ? triggerControlId : undefined;
+	derived hbDescribedBy = hasDescription ? descriptionId : undefined;
 </script>
 
 <div class={cx(extraClass, S.root)} {...rest}>
@@ -107,6 +160,8 @@
 						aria-label={headerAriaLabel}
 						aria-expanded={expanded}
 						aria-controls={controlId}
+						aria-labelledby={hbLabelledBy}
+						aria-describedby={hbDescribedBy}
 					><span class={cx(S['icon-container'])}><Icon
 								name="caret-down-filled"
 								size="normal"
@@ -119,6 +174,8 @@
 			id={controlId}
 			class={cx(S.content, S['content-footer'], expanded && S['content-expanded'])}
 			role="group"
+			aria-labelledby={contentLabelledBy}
+			aria-describedby={contentDescribedBy}
 			aria-label={headerAriaLabel}
 			>{#if snip(children)}{@render (children as import('svelte').Snippet)()}{:else}{children}{/if}</div
 		>
@@ -142,8 +199,11 @@
 						class={cx(S['expand-button'], S['header-button'])}
 						role="button"
 						tabindex="0"
+						aria-label={headerAriaLabel}
 						aria-expanded={expanded}
 						aria-controls={controlId}
+						aria-labelledby={hbLabelledBy}
+						aria-describedby={hbDescribedBy}
 					><span class={cx(S['icon-container'], S['icon-container-default'])}><Icon
 								name="caret-down-filled"
 								size="normal"
@@ -156,6 +216,9 @@
 			id={controlId}
 			class={cx(S.content, S['content-default'], expanded && S['content-expanded'])}
 			role="group"
+			aria-labelledby={contentLabelledBy}
+			aria-describedby={contentDescribedBy}
+			aria-label={headerAriaLabel}
 			>{#if snip(children)}{@render (children as import('svelte').Snippet)()}{:else}{children}{/if}</div
 		>
 	{/if}
