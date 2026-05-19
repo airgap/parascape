@@ -51,7 +51,7 @@
 		children = undefined,
 		open = false,
 		variant = undefined,
-		overflowVisible = undefined,
+		overflowVisible = 'both',
 		onDismiss = undefined,
 		class: extraClass = undefined,
 		...rest
