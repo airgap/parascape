@@ -13,6 +13,7 @@ export default defineConfig({
         box: resolve(__dirname, "tests/visual/box-fixture/box.html"),
         wide: resolve(__dirname, "tests/visual/wide-fixture/wide.html"),
         cp: resolve(__dirname, "tests/visual/cp-fixture/cp.html"),
+        ann: resolve(__dirname, "tests/visual/ann-fixture/ann.html"),
         popover: resolve(__dirname, "tests/visual/popover-fixture/popover.html"),
       },
     },

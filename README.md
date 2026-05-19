@@ -47,7 +47,7 @@ bun run check    # svelte-check
 <!-- AUTOGEN:status (bun run status) -->
 ## Status
 
-**59 / 94** Cloudscape components ported to `.pui` at pixel parity. Verification is mechanical, not by eye: a deterministic Playwright pixel-diff against the **real** `@cloudscape-design/components` (pinned Chromium, fixed viewport/DPR, animations/caret off, fonts settled, built-not-dev). Current residuals — component matrix **≤0.01%**, integrated `Table` **0.70%** — are sub-pixel antialiasing on glyph/text edges with **zero box-model delta** (proven via the computed-box diagnostics, `*-diag.mjs`), i.e. visually indistinguishable. Harnesses (shared core `shoot-lib.mjs`): `box-shoot.mjs` (520px matrix), `wide-shoot.mjs` (1280px column — trips the container-query breakpoints the narrow matrix can't: Wizard desktop, Cards multi-column, AttributeEditor wide grid), `cp-shoot.mjs` / `popover-shoot.mjs` (open-state overlay dialogs), `shoot.mjs` (Table).
+**60 / 94** Cloudscape components ported to `.pui` at pixel parity. Verification is mechanical, not by eye: a deterministic Playwright pixel-diff against the **real** `@cloudscape-design/components` (pinned Chromium, fixed viewport/DPR, animations/caret off, fonts settled, built-not-dev). Current residuals — component matrix **≤0.01%**, integrated `Table` **0.70%** — are sub-pixel antialiasing on glyph/text edges with **zero box-model delta** (proven via the computed-box diagnostics, `*-diag.mjs`), i.e. visually indistinguishable. Harnesses (shared core `shoot-lib.mjs`): `box-shoot.mjs` (520px matrix), `wide-shoot.mjs` (1280px column — trips the container-query breakpoints the narrow matrix can't: Wizard desktop, Cards multi-column, AttributeEditor wide grid), `cp-shoot.mjs` / `popover-shoot.mjs` (open-state overlay dialogs), `shoot.mjs` (Table).
 
 > Dep-first by construction: a *pixel-relevant* dep is ported
 > before its consumer. A `✗` dep is **not a gap** — it is a
@@ -61,6 +61,7 @@ bun run check    # svelte-check
 | `ActionCard` | `@cloudscape-design/components/action-card` | 0 | 0 | — |
 | `Alert` | `@cloudscape-design/components/alert` | — | 5 | button ✅, icon ✅, plugins ✗ |
 | `AnchorNavigation` | `@cloudscape-design/components/anchor-navigation` | 0 | 0 | — |
+| `AnnotationContext` | `@cloudscape-design/components/annotation-context` | — | 2 | alert ✅, box ✅, button ✅, popover ✅, container ✅, space-between ✅ |
 | `AttributeEditor` | `@cloudscape-design/components/attribute-editor` | — | 1 | live-region ✅, button ✅, space-between ✅, form-field ✅ |
 | `Badge` | `@cloudscape-design/components/badge` | 0 | 0 | — |
 | `Box` | `@cloudscape-design/components/box` | 0 | 21 | — |
@@ -118,7 +119,7 @@ bun run check    # svelte-check
 | `TreeView` | `@cloudscape-design/components/tree-view` | 0 | 0 | — |
 | `Wizard` | `@cloudscape-design/components/wizard` | — | 0 | button ✅, space-between ✅, form ✅, header ✅, box ✅, link ✅, expandable-section ✅ |
 
-**Next portable** (deps satisfied, fan-in desc): `plugins`, `annotation-context` (needs alert+box+button+popover+container+space-between ✅), `mixed-line-bar-chart`, `area-chart`, `content-layout` (needs grid ✅), `date-picker` (needs button+calendar+date-input+dropdown+live-region ✅).
+**Next portable** (deps satisfied, fan-in desc): `plugins`, `mixed-line-bar-chart`, `area-chart`, `content-layout` (needs grid ✅), `date-picker` (needs button+calendar+date-input+dropdown+live-region ✅), `hotspot` (needs annotation-context ✅).
 
 _`live-region` has the highest raw fan-in (22) but is `aria-live` sr-only — zero painted pixels, no meaningful pixel-diff — so it is deprioritized despite being a real dependency (consumers like `Button` exclude it from the static render)._
 <!-- /AUTOGEN:status -->

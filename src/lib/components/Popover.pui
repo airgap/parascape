@@ -51,6 +51,7 @@
 		children = undefined,
 		open = false,
 		variant = undefined,
+		overflowVisible = undefined,
 		onDismiss = undefined,
 		class: extraClass = undefined,
 		...rest
@@ -65,6 +66,7 @@
 		children?: import('svelte').Snippet | string;
 		open?: boolean;
 		variant?: string;
+		overflowVisible?: 'content' | 'both';
 		onDismiss?: () => void;
 		class?: string;
 		[k: string]: unknown;
@@ -91,7 +93,11 @@
 				><div class={cx(S.arrow, S[`arrow-position-${position}`])}><div class={S['arrow-outer']}
 					></div><div class={cx(S['arrow-inner'], isRefresh && S.refresh)}></div></div></div
 			><div class={cx(S['container-body'], S[`container-body-size-${size}`])}><div
-					class={cx(S.body, variant && S[`body-variant-${variant}`])}
+					class={cx(
+						S.body,
+						variant && S[`body-variant-${variant}`],
+						overflowVisible === 'both' && S['body-overflow-visible'],
+					)}
 					role="dialog"
 				>{#if hasHeader}<div
 							class={cx(S['header-row'], dismissButton && S['has-dismiss'])}
@@ -119,7 +125,8 @@
 									visible = false;
 									onDismiss?.();
 								}}
-							/></div>{/if}<div class={S.content}
+							/></div>{/if}<div
+							class={cx(S.content, overflowVisible && S['content-overflow-visible'])}
 						>{#if snip(content)}{@render (content as import('svelte').Snippet)()}{:else}{content}{/if}</div
 						></div></div></div></div>{/if}</span
 >
