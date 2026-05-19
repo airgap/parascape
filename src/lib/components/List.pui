@@ -18,6 +18,11 @@
 <script lang="pts">
 	import StructuredItem from './StructuredItem.pui';
 	import styles from '../cloudscape/list.styles.js';
+	// test-utils ListWrapper.{rootSelector,findItems,findItemById} key off
+	// the STABLE test-classes, clsx'd alongside the visual hashes in
+	// internal.js (clsx(styles.root, testClasses.root) / styles.item,
+	// testClasses.item). Omitting them made findList() return null.
+	import testClasses from '../cloudscape/list.test-classes.js';
 	import '../cloudscape/list.scoped.css';
 
 	type SI = {
@@ -54,12 +59,13 @@
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
+	const T = testClasses as Record<string, string>;
 	derived Tag = tagOverride || (sortable ? 'ol' : 'ul');
 </script>
 
 <svelte:element
 	this={Tag}
-	class={cx(extraClass, S.root)}
+	class={cx(extraClass, S.root, T.root)}
 	aria-label={ariaLabel}
 	aria-labelledby={ariaLabelledby}
 	{...rest}
@@ -70,6 +76,7 @@
 			data-testid={si.id}
 			class={cx(
 				S.item,
+				T.item,
 				disablePaddings && S['disable-paddings'],
 				disableItemPaddings && S['disable-item-paddings'],
 			)}

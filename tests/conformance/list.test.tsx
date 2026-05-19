@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/list/__tests__/
 // list.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, collapsed any<…>→any; stubbed unresolvable ../../../lib/components.
+// render → adapter, styles → vendored, collapsed any<…>→any; barrel lib/components → 1 resolved.
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
 // / sibling-test-helper imports. Callable, constructable (so tests can
@@ -23,7 +23,7 @@ const __STUB: any = new Proxy(function () {}, {
 import { React } from '@conformance/adapter';
 import { render } from '@conformance/adapter';
 
-const { Icon } = __STUB; // stub: ../../../lib/components
+import Icon from '@components/Icon.pui';
 import List from '@components/List.pui';
 import { createWrapper } from '@conformance/adapter';
 

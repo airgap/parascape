@@ -129,6 +129,38 @@ function adapt(src, Pascal, kebab) {
     },
   );
 
+  // 2b-bis. BARREL import: `import { Icon, Foo as Bar } from
+  //     '<…>/lib/components'` (path ends AT lib/components, no
+  //     `/<kebab>` subpath — the index barrel re-exporting every
+  //     component). Rule 2b only matches a specific subpath, so sibling
+  //     refs via the barrel were wholesale-stubbed. Resolve EACH named
+  //     specifier independently: ported → its `.pui` (barrel exports
+  //     named; our .pui is default, so `{Icon}` → `import Icon from
+  //     Icon.pui`; `Foo as Bar` → `import Bar`). Unported names → one
+  //     honest __STUB destructure (dependent assertions fail honestly).
+  s = s.replace(/import\s+\{([^}]*)\}\s+from\s+['"][^'"]*\/lib\/components['"];?/g, (full, names) => {
+    const lines = [];
+    const stub = [];
+    for (const spec of names
+      .split(",")
+      .map(x => x.trim())
+      .filter(Boolean)) {
+      const mm = spec.match(/^([A-Za-z]\w*)(?:\s+as\s+([A-Za-z]\w*))?$/);
+      if (!mm) {
+        stub.push(spec.replace(/\s+as\s+/g, ": "));
+        continue;
+      }
+      const local = mm[2] || mm[1];
+      const kb = mm[1].replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+      const pui = resolvePui(kb);
+      if (pui) lines.push(`import ${local} from '${pui}';`);
+      else stub.push(mm[2] ? `${mm[1]}: ${mm[2]}` : mm[1]);
+    }
+    if (stub.length) lines.push(`const { ${stub.join(", ")} } = __STUB;`);
+    notes.push(`barrel lib/components → ${lines.length} resolved`);
+    return lines.join(" ");
+  });
+
   // 2c. SIDE-EFFECT-ONLY strip: `import '<unresolvable>';` (no
   //     bindings) → drop (safe — nothing references it; e.g. a
   //     side-effect mocks/setup module we don't have). Imports WITH

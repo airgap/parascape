@@ -26,6 +26,8 @@
 		disableFooterDivider = false,
 		header = undefined,
 		footer = undefined,
+		media = undefined,
+		style = undefined,
 		class: extraClass = undefined,
 		children = undefined,
 		...rest
@@ -35,8 +37,15 @@
 		disableContentPaddings?: boolean;
 		disableFooterPaddings?: boolean;
 		disableFooterDivider?: boolean;
-		header?: import('svelte').Snippet;
-		footer?: import('svelte').Snippet;
+		header?: import('svelte').Snippet | string;
+		footer?: import('svelte').Snippet | string;
+		media?: {
+			content?: import('svelte').Snippet | string;
+			position?: 'top' | 'side';
+			height?: string;
+			width?: string;
+		};
+		style?: Record<string, any>;
 		class?: string;
 		children?: import('svelte').Snippet;
 		[k: string]: unknown;
@@ -46,13 +55,71 @@
 	const S = styles as Record<string, string>;
 	const ANA = ana as Record<string, string>;
 	const TEST = test as Record<string, string>;
+	const snip = (v: unknown) => typeof v === 'function';
+	const has = (v: unknown) => v !== null && v !== undefined;
+
+	// camelCase style object → inline cssText (border-end-start-radius,
+	// padding-block, …); undefined entries dropped. Mirrors how React
+	// applies the style.js helper objects.
+	const sty = (o: Record<string, any> | undefined) =>
+		o
+			? Object.entries(o)
+					.filter(([, val]) => val !== undefined && val !== null && val !== '')
+					.map(([k, val]) => `${k.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase())}:${val}`)
+					.join(';') || undefined
+			: undefined;
+
+	// Faithful transcription of container/style.js (the SYSTEM==='core'
+	// branch — the observable Style-API contract the oracle asserts).
+	derived rootStyles = sty({
+		background: style?.root?.background,
+		borderColor: style?.root?.borderColor,
+		borderRadius: style?.root?.borderRadius,
+		borderWidth: style?.root?.borderWidth,
+		boxShadow: style?.root?.boxShadow,
+		color: style?.root?.color,
+	});
+	derived contentStyles = sty({
+		paddingBlock: style?.content?.paddingBlock,
+		paddingInline: style?.content?.paddingInline,
+	});
+	derived headerStyles = sty({
+		...(style?.root?.background ? { background: 'transparent' } : {}),
+		borderRadius: style?.root?.borderRadius,
+		paddingBlock: style?.header?.paddingBlock,
+		paddingInline: style?.header?.paddingInline,
+	});
+	derived footerStyles = sty({
+		borderColor: style?.footer?.divider?.borderColor,
+		borderWidth: style?.footer?.divider?.borderWidth,
+		paddingBlock: style?.footer?.root?.paddingBlock,
+		paddingInline: style?.footer?.root?.paddingInline,
+	});
+
+	derived hasMedia = has(media) && has(media!.content);
+	derived mediaPosition = media?.position === 'side' ? 'side' : 'top';
+	derived mediaStyles = sty({
+		borderRadius: style?.root?.borderRadius,
+		...(mediaPosition === 'top'
+			? { borderEndStartRadius: '0px', borderEndEndRadius: '0px' }
+			: { borderStartEndRadius: '0px', borderEndEndRadius: '0px' }),
+		...(mediaPosition === 'top'
+			? { height: media?.height || '' }
+			: { width: media?.width || '' }),
+	});
 
 	derived hasHeader = header !== null && header !== undefined;
 	derived hasChildren = children !== null && children !== undefined;
 
 	const contentId = 'parascape-container-content';
 
-	derived rootClass = cx(extraClass, S.root, S[`variant-${variant}`], S.refresh);
+	derived rootClass = cx(
+		extraClass,
+		S.root,
+		S[`variant-${variant}`],
+		hasMedia && (mediaPosition === 'side' ? S['with-side-media'] : S['with-top-media']),
+		S.refresh,
+	);
 	derived headerClass {
 		return cx(
 			S.refresh,
@@ -80,12 +147,21 @@
 	}
 </script>
 
-<div class={rootClass} {...rest}>
+<div class={rootClass} style={rootStyles} {...rest}>
+	{#if hasMedia}<div
+			class={cx(mediaPosition === 'side' ? S['media-side'] : S['media-top'], S.media)}
+			style={mediaStyles}
+			>{#if snip(media!.content)}{@render (media!.content as import('svelte').Snippet)()}{:else}{media!.content}{/if}</div
+		>{/if}
 	<div id={contentId} class={S['content-wrapper']}>
-		{#if hasHeader}<div class={headerClass}>{@render header?.()}</div>{/if}
+		{#if hasHeader}<div class={headerClass} style={headerStyles}
+				>{#if snip(header)}{@render (header as import('svelte').Snippet)()}{:else}{header}{/if}</div
+			>{/if}
 		<div class={S.content}>
-			<div class={contentInnerClass}>{@render children?.()}</div>
+			<div class={contentInnerClass} style={contentStyles}>{@render children?.()}</div>
 		</div>
-		{#if footer}<div class={footerClass}>{@render footer?.()}</div>{/if}
+		{#if has(footer)}<div class={footerClass} style={footerStyles}
+				>{#if snip(footer)}{@render (footer as import('svelte').Snippet)()}{:else}{footer}{/if}</div
+			>{/if}
 	</div>
 </div>
