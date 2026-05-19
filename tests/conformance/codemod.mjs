@@ -305,7 +305,7 @@ function adapt(src, Pascal, kebab) {
       // `render as testingLibraryRender` — keep the alias; only the
       // BASE name must be adapter-supported (was dropped → ReferenceError).
       const mm = spec.match(/^([A-Za-z_$][\w$]*)(?:\s+as\s+([A-Za-z_$][\w$]*))?$/);
-      if (mm && /^(render|fireEvent|waitFor|act)$/.test(mm[1])) {
+      if (mm && /^(render|fireEvent|waitFor|act|screen)$/.test(mm[1])) {
         supported.push(mm[2] ? `${mm[1]} as ${mm[2]}` : mm[1]);
       } else {
         dropped.push(spec);

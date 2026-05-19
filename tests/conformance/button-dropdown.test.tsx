@@ -22,7 +22,7 @@ const __STUB: any = new Proxy(function () {}, {
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 import { React } from '@conformance/adapter';
-import { act, fireEvent, render } from '@conformance/adapter'; // unsupported: screen
+import { act, fireEvent, render, screen } from '@conformance/adapter';
 
 import { warnOnce } from '@cloudscape-design/component-toolkit/internal';
 
