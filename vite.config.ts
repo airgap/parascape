@@ -14,6 +14,7 @@ export default defineConfig({
         wide: resolve(__dirname, "tests/visual/wide-fixture/wide.html"),
         cp: resolve(__dirname, "tests/visual/cp-fixture/cp.html"),
         ann: resolve(__dirname, "tests/visual/ann-fixture/ann.html"),
+        chart: resolve(__dirname, "tests/visual/chart-fixture/chart.html"),
         popover: resolve(__dirname, "tests/visual/popover-fixture/popover.html"),
       },
     },

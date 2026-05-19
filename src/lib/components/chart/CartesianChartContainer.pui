@@ -21,6 +21,7 @@
 		bottomAxisLabel = undefined,
 		chartPlot = undefined,
 		popover = undefined,
+		ref = $bindable(undefined),
 		...rest
 	}: {
 		minHeight?: number;
@@ -31,6 +32,7 @@
 		bottomAxisLabel?: import('svelte').Snippet;
 		chartPlot?: import('svelte').Snippet;
 		popover?: import('svelte').Snippet;
+		ref?: HTMLElement;
 		[k: string]: unknown;
 	} = $props();
 
@@ -39,7 +41,7 @@
 </script>
 
 {#if fitHeight}
-	<div class={cx(S['chart-container'], S['fit-height'])} {...rest}>
+	<div bind:this={ref} class={cx(S['chart-container'], S['fit-height'])} {...rest}>
 		{@render leftAxisLabel?.()}
 		<div
 			class={cx(
@@ -66,7 +68,7 @@
 		</div>
 	</div>
 {:else}
-	<div class={S['chart-container']} {...rest}>
+	<div bind:this={ref} class={S['chart-container']} {...rest}>
 		{@render leftAxisLabel?.()}
 		<div class={S['chart-container-outer']}>
 			{@render leftAxisLabelMeasure?.()}

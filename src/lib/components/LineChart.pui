@@ -1,0 +1,24 @@
+<!--
+  Parascape <LineChart> — faithful port of
+  @cloudscape-design/components/line-chart/index.js (thin delegator):
+  renders MixedLineBarChart with xScaleType defaulting to 'linear'
+  (verbatim line-chart default) and series/rest forwarded. Same engine
+  as BarChart (verified pixel-perfect + geometry-exact); LineChart
+  exercises the LineSeries d3-shape line() path + linesOnly baseline
+  ordering. No bar/horizontal/stacked props (lines only).
+-->
+<script lang="pts">
+	import MixedLineBarChart from './chart/MixedLineBarChart.pui';
+
+	let {
+		series = [],
+		xScaleType = 'linear',
+		...rest
+	}: {
+		series?: any[];
+		xScaleType?: any;
+		[k: string]: unknown;
+	} = $props();
+</script>
+
+<MixedLineBarChart {series} {xScaleType} {...rest} />

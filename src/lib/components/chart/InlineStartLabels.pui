@@ -88,6 +88,7 @@
 	>{#each visibleTicks as t, index (index)}{#if isFinite(t.position)}<g
 				role="listitem"
 				transform={`translate(0,${t.position + yOffset})`}
+				class={cx(S.ticks, axis === 'x' ? S['ticks--x'] : S['ticks--y'])}
 				>{#if axis === 'y'}<line
 						class={cx(S.grid, S.ticks_line)}
 						x1={-TICK_LENGTH}

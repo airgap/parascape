@@ -16,7 +16,8 @@
 		"visual:ann": "bun tests/visual/ann-shoot.mjs",
 		"conformance": "vitest run",
 		"format": "prettier --write .",
-		"format:check": "prettier --check ."
+		"format:check": "prettier --check .",
+		"visual:chart": "bun tests/visual/chart-shoot.mjs"
 	},
 	"devDependencies": {
 		"@cloudscape-design/components": "^3.0.1297",

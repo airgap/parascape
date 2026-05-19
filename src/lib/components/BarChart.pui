@@ -1,0 +1,27 @@
+<!--
+  Parascape <BarChart> — faithful port of
+  @cloudscape-design/components/bar-chart/index.js (the thin
+  delegator): renders MixedLineBarChart with stackedBars/horizontalBars
+  forwarded and the rest of the props passed through. Public defaults
+  match Cloudscape (height 500, scales linear, emphasizeBaselineAxis
+  true, finished).
+-->
+<script lang="pts">
+	import MixedLineBarChart from './chart/MixedLineBarChart.pui';
+
+	let {
+		series = [],
+		xScaleType = 'categorical',
+		stackedBars = false,
+		horizontalBars = false,
+		...rest
+	}: {
+		series?: any[];
+		xScaleType?: any;
+		stackedBars?: boolean;
+		horizontalBars?: boolean;
+		[k: string]: unknown;
+	} = $props();
+</script>
+
+<MixedLineBarChart {series} {xScaleType} {stackedBars} {horizontalBars} {...rest} />

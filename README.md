@@ -47,7 +47,7 @@ bun run check    # svelte-check
 <!-- AUTOGEN:status (bun run status) -->
 ## Status
 
-**60 / 94** Cloudscape components ported to `.pui` at pixel parity. Verification is mechanical, not by eye: a deterministic Playwright pixel-diff against the **real** `@cloudscape-design/components` (pinned Chromium, fixed viewport/DPR, animations/caret off, fonts settled, built-not-dev). Current residuals — component matrix **≤0.01%**, integrated `Table` **0.70%** — are sub-pixel antialiasing on glyph/text edges with **zero box-model delta** (proven via the computed-box diagnostics, `*-diag.mjs`), i.e. visually indistinguishable. Harnesses (shared core `shoot-lib.mjs`): `box-shoot.mjs` (520px matrix), `wide-shoot.mjs` (1280px column — trips the container-query breakpoints the narrow matrix can't: Wizard desktop, Cards multi-column, AttributeEditor wide grid), `cp-shoot.mjs` / `popover-shoot.mjs` (open-state overlay dialogs), `shoot.mjs` (Table).
+**62 / 94** Cloudscape components ported to `.pui` at pixel parity. Verification is mechanical, not by eye: a deterministic Playwright pixel-diff against the **real** `@cloudscape-design/components` (pinned Chromium, fixed viewport/DPR, animations/caret off, fonts settled, built-not-dev). Current residuals — component matrix **≤0.01%**, integrated `Table` **0.70%** — are sub-pixel antialiasing on glyph/text edges with **zero box-model delta** (proven via the computed-box diagnostics, `*-diag.mjs`), i.e. visually indistinguishable. Harnesses (shared core `shoot-lib.mjs`): `box-shoot.mjs` (520px matrix), `wide-shoot.mjs` (1280px column — trips the container-query breakpoints the narrow matrix can't: Wizard desktop, Cards multi-column, AttributeEditor wide grid), `cp-shoot.mjs` / `popover-shoot.mjs` (open-state overlay dialogs), `shoot.mjs` (Table).
 
 > Dep-first by construction: a *pixel-relevant* dep is ported
 > before its consumer. A `✗` dep is **not a gap** — it is a
@@ -64,6 +64,7 @@ bun run check    # svelte-check
 | `AnnotationContext` | `@cloudscape-design/components/annotation-context` | — | 2 | alert ✅, box ✅, button ✅, popover ✅, container ✅, space-between ✅ |
 | `AttributeEditor` | `@cloudscape-design/components/attribute-editor` | — | 1 | live-region ✅, button ✅, space-between ✅, form-field ✅ |
 | `Badge` | `@cloudscape-design/components/badge` | 0 | 0 | — |
+| `BarChart` | `@cloudscape-design/components/bar-chart` | 1 | 0 | mixed-line-bar-chart ✗ |
 | `Box` | `@cloudscape-design/components/box` | 0 | 21 | — |
 | `Button` | `@cloudscape-design/components/button` | — | 31 | icon ✅, spinner ✅, live-region ✅, tooltip ✅ |
 | `ButtonDropdown` | `@cloudscape-design/components/button-dropdown` | — | 5 | icon ✅, dropdown ✅, box ✅, button ✅, tooltip ✅, popover ✅, container ✅ |
@@ -90,6 +91,7 @@ bun run check    # svelte-check
 | `Input` | `@cloudscape-design/components/input` | — | 7 | button ✅, icon ✅ |
 | `ItemCard` | `@cloudscape-design/components/item-card` | 0 | 1 | — |
 | `KeyValuePairs` | `@cloudscape-design/components/key-value-pairs` | 2 | 0 | box ✅, column-layout ✅ |
+| `LineChart` | `@cloudscape-design/components/line-chart` | 1 | 0 | mixed-line-bar-chart ✗ |
 | `Link` | `@cloudscape-design/components/link` | — | 6 | icon ✅ |
 | `List` | `@cloudscape-design/components/list` | 0 | 2 | — |
 | `LiveRegion` | `@cloudscape-design/components/live-region` | 0 | 22 | — |
