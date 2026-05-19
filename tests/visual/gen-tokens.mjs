@@ -35,7 +35,28 @@ const header = `/* Vendored VERBATIM from @cloudscape-design/components/internal
    body so var(--token,fallback) resolves to the REAL value on the
    Parascape side too. Mechanical lift, no edits. Regenerate with
    \`bun tests/visual/gen-tokens.mjs\`. */\n`;
-fs.writeFileSync(out, `${header}:root, body {\n${decls.map(d => `\t${d};`).join("\n")}\n}\n`);
+const next = `${header}:root, body {\n${decls.map(d => `\t${d};`).join("\n")}\n}\n`;
+
+if (process.argv.includes("--check")) {
+  // vendor:verify — non-mutating drift guard. If the committed snapshot
+  // no longer matches what the (exact-pinned) installed package emits,
+  // the dep desynced from the vendored corpus: fail loudly so a bump
+  // re-triggers re-vendoring instead of silently rendering wrong.
+  const current = fs.existsSync(out) ? fs.readFileSync(out, "utf8") : "";
+  if (current !== next) {
+    console.error(
+      `✗ vendor:verify FAIL — src/lib/tokens/cloudscape-tokens.css is STALE vs the\n` +
+        `  installed @cloudscape-design/components. The pinned dep changed (or the\n` +
+        `  snapshot drifted). Re-vendor: \`bun run vendor:gen\` AND re-vendor the\n` +
+        `  per-component .scoped.css that share these token hashes.`,
+    );
+    process.exit(1);
+  }
+  console.log(`✓ vendor:verify — token snapshot matches installed package (${decls.length} decls)`);
+  process.exit(0);
+}
+
+fs.writeFileSync(out, next);
 console.log(
   `cloudscape-tokens.css regenerated: ${decls.length} token decls, ${(fs.statSync(out).size / 1024).toFixed(1)}KB`,
 );
