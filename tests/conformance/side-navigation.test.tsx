@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/side-navigation/__tests__/
 // side-navigation.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/select; interaction (manual-triage tier).
+// render → adapter, styles → vendored, interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -25,7 +25,7 @@ import { React } from '@conformance/adapter';
 import { render } from '@conformance/adapter';
 
 import Badge from '@components/Badge.pui';
-const Select = __STUB; // stub: ../../../lib/components/select
+import Select from '@components/Select.pui';
 import SideNavigation from '@components/SideNavigation.pui';
 import { createWrapper } from '@conformance/adapter';
 

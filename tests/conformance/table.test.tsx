@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/table/__tests__/
 // table.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, jest.mock → hoisted vi.mock; stubbed unresolvable ../../../lib/components/internal/hooks/use-mobile; stubbed unresolvable ../../../lib/components/property-filter; stubbed unresolvable ../../../lib/components/select; interaction (manual-triage tier).
+// render → adapter, styles → vendored, jest.mock → hoisted vi.mock; stubbed unresolvable ../../../lib/components/internal/hooks/use-mobile; stubbed unresolvable ../../../lib/components/property-filter; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -26,7 +26,7 @@ import { fireEvent, render, waitFor } from '@conformance/adapter';
 
 const { useMobile } = __STUB; // stub: ../../../lib/components/internal/hooks/use-mobile
 const PropertyFilter = __STUB; // stub: ../../../lib/components/property-filter
-const Select = __STUB; // stub: ../../../lib/components/select
+import Select from '@components/Select.pui';
 import Table from '@components/Table.pui';
 import { createWrapper, ElementWrapper, PaginationWrapper, TableWrapper } from '@conformance/adapter';
 

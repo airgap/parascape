@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/modal/__tests__/
 // modal.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/autosuggest; stubbed unresolvable ../../../lib/components/date-picker; stubbed unresolvable ../../../lib/components/date-range-picker; stubbed unresolvable ../../../lib/components/multiselect; stubbed unresolvable ../../../lib/components/select; stubbed unresolvable ../../internal/analytics; stubbed unresolvable ../../internal/keycode; interaction (manual-triage tier).
+// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/autosuggest; stubbed unresolvable ../../../lib/components/date-picker; stubbed unresolvable ../../../lib/components/date-range-picker; stubbed unresolvable ../../../lib/components/multiselect; stubbed unresolvable ../../internal/analytics; stubbed unresolvable ../../internal/keycode; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -34,7 +34,7 @@ import Input from '@components/Input.pui';
 import Modal from '@components/Modal.pui';
 const Multiselect = __STUB; // stub: ../../../lib/components/multiselect
 import Popover from '@components/Popover.pui';
-const Select = __STUB; // stub: ../../../lib/components/select
+import Select from '@components/Select.pui';
 import StatusIndicator from '@components/StatusIndicator.pui';
 import { createWrapper, ElementWrapper, ModalWrapper } from '@conformance/adapter';
 const { PerformanceMetrics } = __STUB; // stub: ../../internal/analytics
