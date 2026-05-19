@@ -29,7 +29,12 @@
 		spellcheck = undefined,
 		disableBrowserAutocorrect = false,
 		nativeAttributes = undefined,
+		autoFocus = false,
 		onChange = undefined,
+		onFocus = undefined,
+		onBlur = undefined,
+		onKeyDown = undefined,
+		onKeyUp = undefined,
 		class: extraClass = undefined,
 		...rest
 	}: {
@@ -50,10 +55,56 @@
 		spellcheck?: boolean;
 		disableBrowserAutocorrect?: boolean;
 		nativeAttributes?: Record<string, unknown>;
-		onChange?: (value: string) => void;
+		autoFocus?: boolean;
+		onChange?: (e: { detail: { value: string } }) => void;
+		onFocus?: (e: { detail: undefined }) => void;
+		onBlur?: (e: { detail: undefined }) => void;
+		onKeyDown?: (e: { detail: KbdDetail }) => void;
+		onKeyUp?: (e: { detail: KbdDetail }) => void;
 		class?: string;
 		[k: string]: unknown;
 	} = $props();
+
+	type KbdDetail = {
+		keyCode: number;
+		key: string;
+		ctrlKey: boolean;
+		shiftKey: boolean;
+		altKey: boolean;
+		metaKey: boolean;
+		isComposing: boolean;
+	};
+	// internal/events CustomEvent shape (faithful minimal — conformance
+	// asserts e.detail.*; preventDefault wired for cancelable keyboard).
+	const ce = (detail: unknown) => {
+		let prevented = false;
+		return {
+			detail,
+			preventDefault() {
+				prevented = true;
+			},
+			stopPropagation() {},
+			get defaultPrevented() {
+				return prevented;
+			},
+		};
+	};
+	const kbd = (e: KeyboardEvent): KbdDetail => ({
+		keyCode: e.keyCode,
+		key: e.key,
+		ctrlKey: e.ctrlKey,
+		shiftKey: e.shiftKey,
+		altKey: e.altKey,
+		metaKey: e.metaKey,
+		isComposing: e.isComposing,
+	});
+	const pickClass = (o?: Record<string, unknown>) =>
+		(o && ((o as any).className ?? (o as any).class)) || '';
+	const stripClass = (o?: Record<string, unknown>) => {
+		if (!o) return o;
+		const { className, class: _c, ...r } = o as any;
+		return r;
+	};
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const T = styles as Record<string, string>;
@@ -67,7 +118,7 @@
 		'aria-labelledby': ariaLabelledby,
 		spellcheck: spellcheck === undefined ? undefined : `${spellcheck}`,
 		...(disableBrowserAutocorrect ? { autocorrect: 'off', autocapitalize: 'off' } : {}),
-		...(nativeAttributes ?? {}),
+		...(stripClass(nativeAttributes) ?? {}),
 	};
 </script>
 
@@ -78,6 +129,7 @@
 			readOnly && T['textarea-readonly'],
 			invalid && T['textarea-invalid'],
 			warning && !invalid && T['textarea-warning'],
+			pickClass(nativeAttributes),
 		)}
 		id={controlId}
 		{name}
@@ -90,7 +142,13 @@
 		aria-required={ariaRequired ? 'true' : undefined}
 		aria-invalid={invalid ? 'true' : undefined}
 		{value}
-		oninput={(e: Event) => onChange?.((e.currentTarget as HTMLTextAreaElement).value)}
+		autofocus={autoFocus ? true : undefined}
+		oninput={(e: Event) =>
+			onChange?.(ce({ value: (e.currentTarget as HTMLTextAreaElement).value }))}
+		onfocus={() => onFocus?.(ce(undefined))}
+		onblur={() => onBlur?.(ce(undefined))}
+		onkeydown={(e: KeyboardEvent) => onKeyDown?.(ce(kbd(e)))}
+		onkeyup={(e: KeyboardEvent) => onKeyUp?.(ce(kbd(e)))}
 		{...controlAttrs}
 	></textarea>
 </span>
