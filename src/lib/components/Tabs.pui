@@ -105,6 +105,7 @@
 							)}
 							type="button"
 							role="tab"
+							data-testid={tab.id}
 							aria-selected={isActive(tab) ? 'true' : 'false'}
 							disabled={tab.disabled}
 							onclick={() => select(tab)}
