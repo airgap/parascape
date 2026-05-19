@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/progress-bar/__tests__/
 // progress-bar.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/live-region/test-classes/styles.css.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -28,7 +28,7 @@ import ProgressBar from '@components/ProgressBar.pui';
 import { createWrapper } from '@conformance/adapter';
 import { ProgressBarWrapper } from '@conformance/adapter';
 
-const liveRegionStyles = __STUB; // stub: ../../../lib/components/live-region/test-classes/styles.css.js
+import liveRegionStyles from '@cloudscape/live-region.test-classes.js';
 import styles from '@cloudscape/progress-bar.styles.js';
 
 const standaloneAndKeyvalueVariants: Array<any.Variant> = ['standalone', 'key-value'];

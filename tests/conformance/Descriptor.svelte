@@ -78,7 +78,7 @@
 {:else if isStringTag}
 	<svelte:element this={comp} {...node.props}>{@render kidSnippet()}</svelte:element>
 {:else}
-	<Component {...tprops} children={hasKids ? kidSnippet : undefined} />
+	<Component {...tprops} children={hasKids ? kidSnippet : tprops.children} />
 {/if}
 
 {#snippet kidSnippet()}

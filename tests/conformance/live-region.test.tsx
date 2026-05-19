@@ -26,7 +26,7 @@ import { render, waitFor } from '@conformance/adapter';
 
 import InternalLiveRegion from '@components/LiveRegion.pui';
 
-import styles from '@cloudscape/live-region.styles.js';
+import styles from '@cloudscape/live-region.test-classes.js';
 
 const renderLiveRegion = async (jsx: React.ReactElement) => {
   const { container, rerender } = render(jsx);

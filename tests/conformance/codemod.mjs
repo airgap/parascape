@@ -195,16 +195,20 @@ function adapt(src, Pascal, kebab) {
   //    cross-component selector falls to the honest residual __STUB.
   let stylesVendored = true;
   s = s.replace(
-    /import\s+([A-Za-z_$][\w$]*)\s+from\s+['"][^'"]*\/lib\/components\/([a-z][\w-]*)\/styles\.(?:css|selectors)\.js['"];?/g,
-    (full, id, comp) => {
-      if (fs.existsSync(path.join(VENDOR, `${comp}.styles.js`))) {
-        return `import ${id} from '@cloudscape/${comp}.styles.js';`;
+    /import\s+([A-Za-z_$][\w$]*)\s+from\s+['"][^'"]*\/lib\/components\/([a-z][\w-]*)\/(test-classes\/)?styles\.(?:css|selectors)\.js['"];?/g,
+    (full, id, comp, tc) => {
+      // test-classes/styles.selectors.js → vendored <comp>.test-classes.js
+      // (the stable test hooks, distinct from the visual hashes);
+      // plain styles.{css,selectors}.js → vendored <comp>.styles.js.
+      const file = tc ? `${comp}.test-classes.js` : `${comp}.styles.js`;
+      if (fs.existsSync(path.join(VENDOR, file))) {
+        return `import ${id} from '@cloudscape/${file}';`;
       }
-      if (comp === kebab) {
+      if (comp === kebab && !tc) {
         stylesVendored = false;
-        return `import ${id} from '@cloudscape/${comp}.styles.js'; // MISSING vendored styles`;
+        return `import ${id} from '@cloudscape/${file}'; // MISSING vendored styles`;
       }
-      return full; // cross-component, unvendored → residual __STUB
+      return full; // cross-component / unvendored → residual __STUB
     },
   );
   // Bare `styles` from a non-/lib/components path (internal primitives'

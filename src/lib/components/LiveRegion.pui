@@ -14,6 +14,9 @@
 -->
 <script lang="pts">
 	import styles from '../cloudscape/live-region.styles.js';
+	// internal.js: clsx(styles.root, testUtilStyles.root, className) —
+	// the stable test-class hook (consumers' findByClassName target).
+	import testClasses from '../cloudscape/live-region.test-classes.js';
 	import '../cloudscape/live-region.scoped.css';
 
 	let {
@@ -34,11 +37,12 @@
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const L = styles as Record<string, string>;
+	const T = testClasses as Record<string, string>;
 </script>
 
 <svelte:element
 	this={tagName}
-	class={cx(L.root, extraClass)}
+	class={cx(L.root, T.root, extraClass)}
 	hidden={hidden ? true : undefined}
 	aria-live={assertive ? 'assertive' : 'polite'}
 	aria-atomic="true"

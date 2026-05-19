@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/button/__tests__/
 // button.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../__tests__/target-rel-test-helper; stubbed unresolvable ../../internal/generated/custom-css-properties; stubbed unresolvable ../../../lib/components/button/test-classes/styles.css.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../__tests__/target-rel-test-helper; stubbed unresolvable ../../internal/generated/custom-css-properties; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -36,7 +36,7 @@ const { buttonRelExpectations, buttonTargetExpectations } = __STUB; // stub: ../
 const customCssProps = __STUB; // stub: ../../internal/generated/custom-css-properties
 
 import styles from '@cloudscape/button.styles.js';
-const testUtilStyles = __STUB; // stub: ../../../lib/components/button/test-classes/styles.css.js
+import testUtilStyles from '@cloudscape/button.test-classes.js';
 
 function renderWrappedButton(props: any = {}) {
   const onClickSpy = jest.fn();

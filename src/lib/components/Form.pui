@@ -48,7 +48,9 @@
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
 	const snip = (v: unknown) => typeof v === 'function';
-	derived hasErr = errorText !== null && errorText !== undefined;
+	// internal.js renders the error block on `errorText &&` — '' is
+	// falsy ⇒ no error (test toggles errorText:'' to remove it).
+	derived hasErr = !!errorText;
 </script>
 
 <div class={cx(extraClass, S.root)} {...rest}>
@@ -65,7 +67,7 @@
 					>{#if snip(errorText)}{@render (errorText as import('svelte').Snippet)()}{:else}{errorText}{/if}</div
 				></Alert
 			></Box><LiveRegion hidden assertive tagName="span"
-			>{#if snip(errorText)}{@render (errorText as import('svelte').Snippet)()}{:else}{errorText}{/if}</LiveRegion
+			>{errorIconAriaLabel}{', '}{#if snip(errorText)}{@render (errorText as import('svelte').Snippet)()}{:else}{errorText}{/if}</LiveRegion
 		>{/if}
 	{#if actions || secondaryActions}<div class={S.footer}><div class={S['actions-section']}
 			>{#if actions}<div class={S.actions}>{@render actions()}</div>{/if}{#if secondaryActions}<div
