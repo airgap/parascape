@@ -52,7 +52,12 @@
 		nativeInputAttributes = undefined,
 		nativeAttributes = undefined,
 		clearAriaLabel = 'Clear',
+		autoFocus = false,
 		onChange = undefined,
+		onFocus = undefined,
+		onBlur = undefined,
+		onKeyDown = undefined,
+		onKeyUp = undefined,
 		class: extraClass = undefined,
 		...rest
 	}: {
@@ -77,10 +82,51 @@
 		nativeInputAttributes?: Record<string, unknown>;
 		nativeAttributes?: Record<string, unknown>;
 		clearAriaLabel?: string;
-		onChange?: (value: string) => void;
+		autoFocus?: boolean;
+		onChange?: (e: { detail: { value: string } }) => void;
+		onFocus?: (e: { detail: undefined }) => void;
+		onBlur?: (e: { detail: undefined }) => void;
+		onKeyDown?: (e: { detail: KbdDetail }) => void;
+		onKeyUp?: (e: { detail: KbdDetail }) => void;
 		class?: string;
 		[k: string]: unknown;
 	} = $props();
+
+	type KbdDetail = {
+		keyCode: number;
+		key: string;
+		ctrlKey: boolean;
+		shiftKey: boolean;
+		altKey: boolean;
+		metaKey: boolean;
+		isComposing: boolean;
+	};
+	// internal/events: handlers receive a CustomEvent-shaped object
+	// ({ detail, preventDefault, defaultPrevented }). Faithful minimal
+	// shape — conformance asserts e.detail.*; preventDefault is wired
+	// for the cancelable (keyboard) ones.
+	const ce = (detail: unknown) => {
+		let prevented = false;
+		return {
+			detail,
+			preventDefault() {
+				prevented = true;
+			},
+			stopPropagation() {},
+			get defaultPrevented() {
+				return prevented;
+			},
+		};
+	};
+	const kbd = (e: KeyboardEvent): KbdDetail => ({
+		keyCode: e.keyCode,
+		key: e.key,
+		ctrlKey: e.ctrlKey,
+		shiftKey: e.shiftKey,
+		altKey: e.altKey,
+		metaKey: e.metaKey,
+		isComposing: e.isComposing,
+	});
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
@@ -93,9 +139,20 @@
 	derived effWarning = fieldProp(warning, ff.warning);
 	derived effControlId = fieldProp(controlId, ff.controlId);
 
+	// internal.js handleChange → fireNonCancelableEvent(onChange,{value})
 	function handleChange(v: string) {
-		onChange?.(v);
+		onChange?.(ce({ value: v }));
 	}
+	// nativeAttributes/nativeInputAttributes className is concatenated
+	// into the control class (getBaseProps merge), NOT spread as a raw
+	// attribute (which would clobber the styles class).
+	const pickClass = (o?: Record<string, unknown>) =>
+		(o && ((o as any).className ?? (o as any).class)) || '';
+	const stripClass = (o?: Record<string, unknown>) => {
+		if (!o) return o;
+		const { className, class: _c, ...r } = o as any;
+		return r;
+	};
 
 	// input/utils.js convertAutoComplete — verbatim
 	derived autoCompleteAttr =
@@ -120,6 +177,8 @@
 		readOnly && S['input-readonly'],
 		effInvalid && S['input-invalid'],
 		effWarning && !effInvalid && S['input-warning'],
+		pickClass(nativeInputAttributes),
+		pickClass(nativeAttributes),
 	);
 
 	// internal.js: native/aria/nativeAttributes are forwarded to the
@@ -132,8 +191,8 @@
 		step,
 		spellcheck: spellcheck === undefined ? undefined : `${spellcheck}`,
 		...(disableBrowserAutocorrect ? { autocorrect: 'off', autocapitalize: 'off' } : {}),
-		...(nativeInputAttributes ?? {}),
-		...(nativeAttributes ?? {}),
+		...(stripClass(nativeInputAttributes) ?? {}),
+		...(stripClass(nativeAttributes) ?? {}),
 	};
 </script>
 
@@ -159,6 +218,11 @@
 		aria-required={ariaRequired ? 'true' : undefined}
 		aria-invalid={effInvalid ? 'true' : undefined}
 		oninput={(e: Event) => handleChange((e.currentTarget as HTMLInputElement).value)}
+		autofocus={autoFocus ? true : undefined}
+		onfocus={() => onFocus?.(ce(undefined))}
+		onblur={() => onBlur?.(ce(undefined))}
+		onkeydown={(e: KeyboardEvent) => onKeyDown?.(ce(kbd(e)))}
+		onkeyup={(e: KeyboardEvent) => onKeyUp?.(ce(kbd(e)))}
 		{...controlAttrs}
 	/>{#if rightIcon}<span class={S['input-icon-right']}><Button
 				class={S['input-button-right']}

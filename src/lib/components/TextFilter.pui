@@ -66,7 +66,7 @@
 		placeholder={filteringPlaceholder}
 		ariaLabel={filteringAriaLabel}
 		clearAriaLabel={filteringClearAriaLabel}
-		onChange={(v) => onChange?.(v)}
+		onChange={(e) => onChange?.(e.detail.value)}
 	/>
 	{#if showResults}<span class={S.results}>{countText}</span>{/if}
 </div>

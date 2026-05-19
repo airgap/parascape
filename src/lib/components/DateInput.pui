@@ -55,6 +55,6 @@
 	{controlId}
 	{disableBrowserAutocorrect}
 	autoComplete={false}
-	onChange={(v) => onChange?.({ value: v })}
+	onChange={(e) => onChange?.({ value: e.detail.value })}
 	{...rest}
 />
