@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/pie-chart/__tests__/
 // pie-chart.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, collapsed any<…>→any; i18n/testing → passthrough provider; stubbed unresolvable ../../../lib/components/internal/components/chart-wrapper/styles.css.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, collapsed any<…>→any; i18n/testing → passthrough provider; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -31,7 +31,7 @@ import PieChart from '@components/PieChart.pui';
 import { createWrapper, ElementWrapper } from '@conformance/adapter';
 import { PieChartWrapper } from '@conformance/adapter';
 
-const chartWrapperStyles = __STUB; // stub: ../../../lib/components/internal/components/chart-wrapper/styles.css.js
+import chartWrapperStyles from '@cloudscape/chart-wrapper.styles.js';
 import styles from '@cloudscape/pie-chart.styles.js';
 
 const variants: Array<any['variant']> = ['pie', 'donut'];

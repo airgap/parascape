@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/checkbox/__tests__/
 // checkbox.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../internal/generated/custom-css-properties; stubbed unresolvable ../../../lib/components/internal/components/abstract-switch/styles.css.js; stubbed unresolvable ../../../lib/components/internal/components/checkbox-icon/styles.selectors.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../internal/generated/custom-css-properties; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -34,8 +34,8 @@ import { createWrapper, CheckboxWrapper } from '@conformance/adapter';
 const customCssProps = __STUB; // stub: ../../internal/generated/custom-css-properties
 import { createCommonTests } from '@conformance/checkbox.common-tests';
 
-const abstractSwitchStyles = __STUB; // stub: ../../../lib/components/internal/components/abstract-switch/styles.css.js
-const styles = __STUB; // stub: ../../../lib/components/internal/components/checkbox-icon/styles.selectors.js
+import abstractSwitchStyles from '@cloudscape/abstract-switch.styles.js';
+import styles from '@cloudscape/checkbox-icon.styles.js';
 
 function renderCheckbox(jsx: React.ReactElement) {
   const { container, rerender } = render(jsx);

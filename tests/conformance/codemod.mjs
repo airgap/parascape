@@ -263,22 +263,29 @@ function adapt(src, Pascal, kebab) {
   //    cross-component selector falls to the honest residual __STUB.
   let stylesVendored = true;
   s = s.replace(
-    /import\s+([A-Za-z_$][\w$]*)\s+from\s+['"][^'"]*\/lib\/components\/([a-z][\w-]*)\/(?:(?!test-classes\/)([a-z][\w-]*)\/)?(test-classes\/)?styles\.(?:css|selectors)\.js['"];?/g,
-    (full, id, comp, sub, tc) => {
-      // <comp>[/<sub>][/test-classes]/styles.{css,selectors}.js →
-      // vendored <comp>[-<sub>].{styles,test-classes}.js. test-classes
-      // = the stable test hooks (distinct from visual hashes); a <sub>
-      // segment (e.g. breadcrumb-group/item) maps to <comp>-<sub>.
-      const base = sub ? `${comp}-${sub}` : comp;
-      const file = tc ? `${base}.test-classes.js` : `${base}.styles.js`;
-      if (fs.existsSync(path.join(VENDOR, file))) {
-        return `import ${id} from '@cloudscape/${file}';`;
+    /import\s+([A-Za-z_$][\w$]*)\s+from\s+['"][^'"]*\/lib\/components\/([\w\-/]*?)\/?(test-classes\/)?styles\.(?:css|selectors)\.js['"];?/g,
+    (full, id, segStr, tc) => {
+      // Arbitrary-depth: any …/lib/components/<segs…>[/test-classes]/
+      // styles.{css,selectors}.js. Try candidate vendored names from
+      // the path segments (validated by existence, so no mis-map):
+      //   full dash-join (breadcrumb-group/item → breadcrumb-group-item),
+      //   namespace-stripped (internal/components/abstract-switch →
+      //   abstract-switch), last segment. test-classes → .test-classes.js.
+      const segs = segStr.split("/").filter(Boolean);
+      if (!segs.length) return full;
+      const ext = tc ? "test-classes" : "styles";
+      const stripped = segs.filter(x => x !== "internal" && x !== "components");
+      const cands = [...new Set([segs.join("-"), stripped.join("-"), segs[segs.length - 1]])];
+      for (const c of cands) {
+        if (c && fs.existsSync(path.join(VENDOR, `${c}.${ext}.js`))) {
+          return `import ${id} from '@cloudscape/${c}.${ext}.js';`;
+        }
       }
-      if (comp === kebab && !sub && !tc) {
+      if (segs.length === 1 && segs[0] === kebab && !tc) {
         stylesVendored = false;
-        return `import ${id} from '@cloudscape/${file}'; // MISSING vendored styles`;
+        return `import ${id} from '@cloudscape/${kebab}.styles.js'; // MISSING vendored styles`;
       }
-      return full; // cross-component / unvendored → residual __STUB
+      return full; // unvendored → honest residual __STUB
     },
   );
   // Bare `styles` from a non-/lib/components path (internal primitives'

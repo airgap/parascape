@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/toggle/__tests__/
 // toggle.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../checkbox/__tests__/common-tests; stubbed unresolvable ../../internal/generated/custom-css-properties; stubbed unresolvable ../../../lib/components/internal/components/abstract-switch/styles.css.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, stubbed unresolvable ../../checkbox/__tests__/common-tests; stubbed unresolvable ../../internal/generated/custom-css-properties; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -31,7 +31,7 @@ import Toggle from '@components/Toggle.pui';
 const { createCommonTests } = __STUB; // stub: ../../checkbox/__tests__/common-tests
 const customCssProps = __STUB; // stub: ../../internal/generated/custom-css-properties
 
-const abstractSwitchStyles = __STUB; // stub: ../../../lib/components/internal/components/abstract-switch/styles.css.js
+import abstractSwitchStyles from '@cloudscape/abstract-switch.styles.js';
 import styles from '@cloudscape/toggle.styles.js';
 
 function renderToggle(jsx: React.ReactElement) {

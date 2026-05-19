@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/radio-group/__tests__/
 // radio-group.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../internal/generated/custom-css-properties; stubbed unresolvable ../../../lib/components/internal/components/abstract-switch/styles.css.js; stubbed unresolvable ../../../lib/components/internal/components/radio-button/styles.selectors.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../internal/generated/custom-css-properties; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -33,8 +33,8 @@ import { createWrapper } from '@conformance/adapter';
 import { RadioButtonWrapper } from '@conformance/adapter';
 const customCssProps = __STUB; // stub: ../../internal/generated/custom-css-properties
 
-const abstractSwitchStyles = __STUB; // stub: ../../../lib/components/internal/components/abstract-switch/styles.css.js
-const radioButtonStyles = __STUB; // stub: ../../../lib/components/internal/components/radio-button/styles.selectors.js
+import abstractSwitchStyles from '@cloudscape/abstract-switch.styles.js';
+import radioButtonStyles from '@cloudscape/radio-button.styles.js';
 
 const defaultItems: any.RadioButtonDefinition[] = [
   { value: 'val1', label: 'Option one' },
