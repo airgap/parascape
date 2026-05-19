@@ -1,0 +1,267 @@
+// AUTO-ADAPTED from cloudscape-design/components src/token/__tests__/
+// token.test.tsx via tests/conformance/codemod.mjs.
+// Mechanical rewrites only: component import → .pui, createWrapper +
+// render → adapter, styles → vendored, interaction (manual-triage tier).
+// JSX is compiled to the adapter h() descriptor by vitest esbuild.
+// ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
+// __STUB: honest recursive no-op for unresolvable Cloudscape-internal
+// / sibling-test-helper imports. Callable, constructable (so tests can
+// extend it), empty-iterable, deep-property-safe — never throws at
+// collection, supplies NO fake data (every access is the stub itself,
+// so dependent value/DOM assertions fail honestly, never fake-pass).
+const __STUB: any = new Proxy(function () {}, {
+	get: (_t, k) =>
+		k === Symbol.iterator
+			? function* () {}
+			: k === Symbol.toPrimitive || k === 'toString' || k === 'valueOf'
+				? () => ''
+				: __STUB,
+	apply: () => __STUB,
+	construct: () => ({}),
+});
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+import { React } from '@conformance/adapter';
+import { render, screen } from '@conformance/adapter';
+
+import Icon from '@components/Icon.pui';
+import { createWrapper } from '@conformance/adapter';
+import Token from '@components/Token.pui';
+import InternalToken from '@components/Token.pui';
+
+import styles from '@cloudscape/token.styles.js';
+
+function renderToken(props: any) {
+  const renderResult = render(<Token {...props} />);
+  return createWrapper(renderResult.container).findToken()!;
+}
+
+describe('Token', () => {
+  describe('Basic rendering', () => {
+    test('renders with minimal props', () => {
+      const wrapper = renderToken({ label: 'Test token' });
+      expect(wrapper.getElement()).toHaveClass(styles['token-normal']);
+      expect(wrapper.findLabel()!.getElement()).toHaveTextContent('Test token');
+    });
+
+    test('renders with all props', () => {
+      const onDismiss = jest.fn();
+      const wrapper = renderToken({
+        label: 'Test token',
+        labelTag: 'Tag',
+        description: 'Description',
+        tags: ['Tag1', 'Tag2'],
+        icon: <Icon name="settings" data-testid="custom-icon" />,
+        dismissLabel: 'Dismiss',
+        onDismiss,
+      });
+
+      expect(wrapper.findLabel()!.getElement()).toHaveTextContent('Test token');
+      expect(wrapper.findLabelTag()!.getElement()).toHaveTextContent('Tag');
+      expect(wrapper.findDescription()!.getElement()).toHaveTextContent('Description');
+      expect(wrapper.findTags()).toHaveLength(2);
+      expect(wrapper.findTags()![0].getElement()).toHaveTextContent('Tag1');
+      expect(wrapper.findTags()![1].getElement()).toHaveTextContent('Tag2');
+      expect(screen.getByTestId('custom-icon')).toBeInTheDocument();
+      expect(wrapper.findDismiss()!.getElement()).toHaveAttribute('aria-label', 'Dismiss');
+    });
+
+    test('renders with ReactNode label', () => {
+      renderToken({
+        label: <div data-testid="custom-label">Custom label</div>,
+      });
+      expect(screen.getByTestId('custom-label')).toBeInTheDocument();
+    });
+  });
+
+  describe('Variants', () => {
+    test('renders normal variant by default', () => {
+      const wrapper = renderToken({ label: 'Test token' });
+      expect(wrapper.getElement()).toHaveClass(styles['token-normal']);
+      expect(wrapper.getElement()).not.toHaveClass(styles['token-inline']);
+    });
+
+    test('renders inline variant', () => {
+      const wrapper = renderToken({ label: 'Test token', variant: 'inline' });
+      expect(wrapper.getElement()).toHaveClass(styles['token-inline']);
+      expect(wrapper.getElement()).not.toHaveClass(styles['token-normal']);
+    });
+
+    test('applies correct CSS classes for inline variant', () => {
+      const inlineWrapper = renderToken({ label: 'Test token', variant: 'inline' });
+      expect(inlineWrapper.getElement()).toHaveClass(styles['token-inline']);
+
+      const normalWrapper = renderToken({ label: 'Test token' });
+      expect(normalWrapper.getElement()).toHaveClass(styles['token-normal']);
+    });
+  });
+
+  describe('States', () => {
+    test('applies disabled state', () => {
+      const wrapper = renderToken({ label: 'Test token', disabled: true });
+      expect(wrapper.getElement().querySelector(`.${styles['token-box']}`)).toHaveClass(styles['token-box-disabled']);
+      expect(wrapper.getElement()).toHaveAttribute('aria-disabled', 'true');
+    });
+
+    test('applies readonly state', () => {
+      const wrapper = renderToken({ label: 'Test token', readOnly: true });
+      expect(wrapper.getElement().querySelector(`.${styles['token-box']}`)).toHaveClass(styles['token-box-readonly']);
+    });
+  });
+
+  describe('Dismiss button', () => {
+    test('renders when onDismiss is provided', () => {
+      const onDismiss = jest.fn();
+      const wrapper = renderToken({ label: 'Test token', onDismiss });
+      expect(wrapper.findDismiss()).toBeTruthy();
+    });
+
+    test('does not render when onDismiss is not provided', () => {
+      const wrapper = renderToken({ label: 'Test token' });
+      expect(wrapper.findDismiss()).toBeNull();
+    });
+
+    test('calls onDismiss when clicked', () => {
+      const onDismiss = jest.fn();
+      const wrapper = renderToken({ label: 'Test token', onDismiss });
+      wrapper.findDismiss()!.click();
+      expect(onDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    test('shows for inline readonly tokens', () => {
+      const onDismiss = jest.fn();
+      const wrapper = renderToken({
+        label: 'Test token',
+        variant: 'inline',
+        onDismiss,
+        readOnly: true,
+      });
+      expect(wrapper.findDismiss()).toBeTruthy();
+    });
+
+    test('sets accessibility attributes', () => {
+      const onDismiss = jest.fn();
+      const wrapper = renderToken({
+        label: 'Test token',
+        onDismiss,
+        dismissLabel: 'Remove token',
+      });
+
+      const dismissButton = wrapper.findDismiss()!.getElement();
+      expect(dismissButton).toHaveAttribute('aria-label', 'Remove token');
+    });
+  });
+
+  describe('Icons', () => {
+    test('renders icon with correct styling for normal variant', () => {
+      renderToken({
+        label: 'Test token',
+        icon: <Icon name="settings" data-testid="normal-icon" />,
+      });
+      const normalIcon = screen.getByTestId('normal-icon').parentElement;
+      expect(normalIcon).toHaveClass(styles.icon);
+      expect(normalIcon).not.toHaveClass(styles['icon-inline']);
+    });
+
+    test('renders icon with correct styling for inline variant', () => {
+      renderToken({
+        label: 'Test token',
+        variant: 'inline',
+        icon: <Icon name="edit" size="small" data-testid="inline-icon" />,
+      });
+      const inlineIcon = screen.getByTestId('inline-icon').parentElement;
+      expect(inlineIcon).toHaveClass(styles.icon);
+      expect(inlineIcon).toHaveClass(styles['icon-inline']);
+    });
+  });
+
+  describe('Error handling for inline variants', () => {
+    test('React elements trigger a dev warning', () => {
+      // Mock console.warn to capture the warning
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Positive case: React element with inline variant should trigger warning
+      renderToken({
+        variant: 'inline',
+        label: <span data-testid="react-element">React element</span>,
+      });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[AwsUi] [Label] Only plain text (strings or numbers) are supported when variant="inline"'
+        )
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    test('strings do not throw a dev warning', () => {
+      // Mock console.warn to capture any warnings
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Negative case: string with inline variant should not trigger warning
+      renderToken({
+        variant: 'inline',
+        label: 'String label',
+      });
+
+      expect(consoleSpy).not.toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('Inline element tags', () => {
+    test('normal variant renders div elements', () => {
+      const wrapper = renderToken({ label: 'Test token' });
+      const root = wrapper.getElement();
+      expect(root.tagName).toBe('DIV');
+      expect(root.querySelector(`.${styles['token-box']}`)!.tagName).toBe('DIV');
+    });
+
+    test('inline variant renders span elements', () => {
+      const wrapper = renderToken({ label: 'Test token', variant: 'inline' });
+      const root = wrapper.getElement();
+      expect(root.tagName).toBe('SPAN');
+      expect(root.querySelector(`.${styles['token-box-inline']}`)!.tagName).toBe('SPAN');
+    });
+  });
+
+  describe('Accessibility', () => {
+    test('applies default group role and aria attributes', () => {
+      const wrapper = renderToken({ label: 'Test token' });
+      expect(wrapper.getElement()).toHaveAttribute('role', 'group');
+      expect(wrapper.getElement()).toHaveAttribute('aria-disabled', 'false');
+      expect(wrapper.getElement()).toHaveAttribute('aria-labelledby');
+    });
+
+    test('allows custom role override', () => {
+      const { container } = render(<InternalToken label="Test token" role="menuitem" />);
+      const wrapper = createWrapper(container).findToken()!;
+      expect(wrapper.getElement()).toHaveAttribute('role', 'menuitem');
+    });
+
+    test('aria-labelledby matches label element ID', () => {
+      const wrapper = renderToken({ label: 'Test token' });
+      const tokenElement = wrapper.getElement();
+      const labelElement = wrapper.findLabel().getElement();
+
+      const ariaLabelledby = tokenElement.getAttribute('aria-labelledby');
+      const labelId = labelElement.getAttribute('id');
+
+      expect(ariaLabelledby).toBe(labelId);
+      expect(ariaLabelledby).toBeTruthy();
+    });
+
+    test('uses ariaLabel when provided instead of aria-labelledby', () => {
+      const wrapper = renderToken({
+        label: 'Test token',
+        ariaLabel: 'Custom aria label',
+      });
+      const tokenElement = wrapper.getElement();
+
+      expect(tokenElement).toHaveAttribute('aria-label', 'Custom aria label');
+      expect(tokenElement).not.toHaveAttribute('aria-labelledby');
+    });
+  });
+});
