@@ -59,8 +59,20 @@
 	const isStringTag = $derived(typeof comp === 'string');
 	const isFragment = $derived(comp === 'fragment');
 	const VOID = new Set([
-		'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
-		'link', 'meta', 'param', 'source', 'track', 'wbr',
+		'area',
+		'base',
+		'br',
+		'col',
+		'embed',
+		'hr',
+		'img',
+		'input',
+		'link',
+		'meta',
+		'param',
+		'source',
+		'track',
+		'wbr',
 	]);
 	const isVoid = $derived(isStringTag && VOID.has(comp));
 	const Component = $derived(!isStringTag ? comp : null);
