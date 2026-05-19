@@ -22,8 +22,13 @@
 		warning = false,
 		autoComplete = true,
 		ariaLabel = undefined,
+		ariaLabelledby = undefined,
+		ariaDescribedby = undefined,
 		ariaRequired = false,
 		controlId = undefined,
+		spellcheck = undefined,
+		disableBrowserAutocorrect = false,
+		nativeAttributes = undefined,
 		onChange = undefined,
 		class: extraClass = undefined,
 		...rest
@@ -38,8 +43,13 @@
 		warning?: boolean;
 		autoComplete?: boolean | string;
 		ariaLabel?: string;
+		ariaLabelledby?: string;
+		ariaDescribedby?: string;
 		ariaRequired?: boolean;
 		controlId?: string;
+		spellcheck?: boolean;
+		disableBrowserAutocorrect?: boolean;
+		nativeAttributes?: Record<string, unknown>;
 		onChange?: (value: string) => void;
 		class?: string;
 		[k: string]: unknown;
@@ -48,6 +58,17 @@
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const T = styles as Record<string, string>;
 	derived autoCompleteAttr = autoComplete === true ? 'on' : (autoComplete as string) || 'off';
+
+	// internal.js: native/aria/nativeAttributes forwarded to the
+	// <textarea>, not the wrapper. disableBrowserAutocorrect ⇒
+	// autocorrect+autocapitalize 'off' (verbatim).
+	derived controlAttrs = {
+		'aria-describedby': ariaDescribedby,
+		'aria-labelledby': ariaLabelledby,
+		spellcheck: spellcheck === undefined ? undefined : `${spellcheck}`,
+		...(disableBrowserAutocorrect ? { autocorrect: 'off', autocapitalize: 'off' } : {}),
+		...(nativeAttributes ?? {}),
+	};
 </script>
 
 <span class={cx(T.root, extraClass)} {...rest}>
@@ -70,5 +91,6 @@
 		aria-invalid={invalid ? 'true' : undefined}
 		{value}
 		oninput={(e: Event) => onChange?.((e.currentTarget as HTMLTextAreaElement).value)}
+		{...controlAttrs}
 	></textarea>
 </span>

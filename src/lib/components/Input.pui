@@ -42,7 +42,15 @@
 		name = undefined,
 		controlId = undefined,
 		ariaLabel = undefined,
+		ariaLabelledby = undefined,
+		ariaDescribedby = undefined,
 		ariaRequired = false,
+		inputMode = undefined,
+		step = undefined,
+		spellcheck = undefined,
+		disableBrowserAutocorrect = false,
+		nativeInputAttributes = undefined,
+		nativeAttributes = undefined,
 		clearAriaLabel = 'Clear',
 		onChange = undefined,
 		class: extraClass = undefined,
@@ -59,7 +67,15 @@
 		name?: string;
 		controlId?: string;
 		ariaLabel?: string;
+		ariaLabelledby?: string;
+		ariaDescribedby?: string;
 		ariaRequired?: boolean;
+		inputMode?: string;
+		step?: number | string;
+		spellcheck?: boolean;
+		disableBrowserAutocorrect?: boolean;
+		nativeInputAttributes?: Record<string, unknown>;
+		nativeAttributes?: Record<string, unknown>;
 		clearAriaLabel?: string;
 		onChange?: (value: string) => void;
 		class?: string;
@@ -105,6 +121,20 @@
 		effInvalid && S['input-invalid'],
 		effWarning && !effInvalid && S['input-warning'],
 	);
+
+	// internal.js: native/aria/nativeAttributes are forwarded to the
+	// CONTROL (the inner <input>), not the wrapper. disableBrowser
+	// Autocorrect ⇒ autocorrect+autocapitalize 'off' (verbatim).
+	derived controlAttrs = {
+		'aria-describedby': ariaDescribedby,
+		'aria-labelledby': ariaLabelledby,
+		inputmode: inputMode,
+		step,
+		spellcheck: spellcheck === undefined ? undefined : `${spellcheck}`,
+		...(disableBrowserAutocorrect ? { autocorrect: 'off', autocapitalize: 'off' } : {}),
+		...(nativeInputAttributes ?? {}),
+		...(nativeAttributes ?? {}),
+	};
 </script>
 
 <div
@@ -129,6 +159,7 @@
 		aria-required={ariaRequired ? 'true' : undefined}
 		aria-invalid={effInvalid ? 'true' : undefined}
 		oninput={(e: Event) => handleChange((e.currentTarget as HTMLInputElement).value)}
+		{...controlAttrs}
 	/>{#if rightIcon}<span class={S['input-icon-right']}><Button
 				class={S['input-button-right']}
 				variant="inline-icon-pointer-target"
