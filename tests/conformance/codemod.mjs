@@ -183,8 +183,32 @@ function adapt(src, Pascal, kebab) {
     return full;
   });
 
-  // 3. styles map → vendored (only if we actually vendored it)
+  // 3. styles map → vendored. Generalized: ANY identifier (tests
+  //    introspect class names via arbitrary aliases — `stepsStyles`,
+  //    `statusIconStyles`) imported from ANY component's
+  //    `styles.{css,selectors}.js` (incl. CROSS-component, e.g. the
+  //    steps suite reads status-indicator selectors). `.css.js` and
+  //    `.selectors.js` export the identical class-name map; our single
+  //    vendored `<comp>.styles.js` serves both. Path component (not the
+  //    suite kebab) decides which vendored file. Only the suite's OWN
+  //    missing styles flips stylesVendored / annotates; an unvendored
+  //    cross-component selector falls to the honest residual __STUB.
   let stylesVendored = true;
+  s = s.replace(
+    /import\s+([A-Za-z_$][\w$]*)\s+from\s+['"][^'"]*\/lib\/components\/([a-z][\w-]*)\/styles\.(?:css|selectors)\.js['"];?/g,
+    (full, id, comp) => {
+      if (fs.existsSync(path.join(VENDOR, `${comp}.styles.js`))) {
+        return `import ${id} from '@cloudscape/${comp}.styles.js';`;
+      }
+      if (comp === kebab) {
+        stylesVendored = false;
+        return `import ${id} from '@cloudscape/${comp}.styles.js'; // MISSING vendored styles`;
+      }
+      return full; // cross-component, unvendored → residual __STUB
+    },
+  );
+  // Bare `styles` from a non-/lib/components path (internal primitives'
+  // own styles.css.js) — keep the original suite-scoped behavior.
   s = s.replace(/import\s+styles\s+from\s+['"][^'"]*styles\.css\.js['"];?/, () => {
     if (!fs.existsSync(path.join(VENDOR, `${kebab}.styles.js`))) {
       stylesVendored = false;

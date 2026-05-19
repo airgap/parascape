@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/file-dropzone/__tests__/
 // file-dropzone.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/file-dropzone/styles.selectors.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -28,7 +28,7 @@ import Button from '@components/Button.pui';
 import FileDropzone from '@components/FileDropzone.pui';
 import { createWrapper } from '@conformance/adapter';
 
-const selectors = __STUB; // stub: ../../../lib/components/file-dropzone/styles.selectors.js
+import selectors from '@cloudscape/file-dropzone.styles.js';
 
 const file1 = new File([new Blob(['Test content 1'], { type: 'text/plain' })], 'test-file-1.txt', {
   type: 'text/plain',

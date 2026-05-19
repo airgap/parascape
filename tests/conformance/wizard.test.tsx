@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/wizard/__tests__/
 // wizard.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable ../../../lib/components/internal/hooks/container-queries; stubbed unresolvable ../../../lib/components/wizard/wizard-step-list; stubbed unresolvable ./common; stubbed unresolvable ../../../lib/components/live-region/test-classes/styles.css.js; stubbed unresolvable ../../../lib/components/wizard/styles.selectors.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable ../../../lib/components/internal/hooks/container-queries; stubbed unresolvable ../../../lib/components/wizard/wizard-step-list; stubbed unresolvable ./common; stubbed unresolvable ../../../lib/components/live-region/test-classes/styles.css.js; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -35,7 +35,7 @@ const WizardStepList = __STUB; const { handleStepNavigation,
 const { DEFAULT_I18N_SETS, DEFAULT_STEPS } = __STUB; // stub: ./common
 
 const liveRegionStyles = __STUB; // stub: ../../../lib/components/live-region/test-classes/styles.css.js
-const styles = __STUB; // stub: ../../../lib/components/wizard/styles.selectors.js
+import styles from '@cloudscape/wizard.styles.js';
 
 jest.mock('../../../lib/components/internal/hooks/container-queries', () => ({
   ...jest.requireActual('../../../lib/components/internal/hooks/container-queries'),

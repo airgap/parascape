@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/popover/__tests__/
 // popover.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../../lib/components/popover/styles.selectors.js.
+// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing.
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
 // / sibling-test-helper imports. Callable, constructable (so tests can
@@ -32,7 +32,7 @@ const TestI18nProvider = (({ children }: any) => children) as any;
 import Popover from '@components/Popover.pui';
 import { createWrapper, ElementWrapper, PopoverWrapper } from '@conformance/adapter';
 
-const styles = __STUB; // stub: ../../../lib/components/popover/styles.selectors.js
+import styles from '@cloudscape/popover.styles.js';
 
 jest.mock('../../../lib/components/popover/utils/positions', () => ({
   ...jest.requireActual('../../../lib/components/popover/utils/positions'),

@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/calendar/__tests__/
 // calendar.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable mockdate; stubbed unresolvable ../../../lib/components/internal/keycode; stubbed unresolvable ../../../lib/components/calendar/styles.selectors.js; stubbed unresolvable ../../../lib/components/internal/components/screenreader-only/styles.selectors.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, stubbed unresolvable mockdate; stubbed unresolvable ../../../lib/components/internal/keycode; stubbed unresolvable ../../../lib/components/internal/components/screenreader-only/styles.selectors.js; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -33,7 +33,7 @@ import Calendar from '@components/Calendar.pui';
 const { KeyCode } = __STUB; // stub: ../../../lib/components/internal/keycode
 import { createWrapper, CalendarWrapper } from '@conformance/adapter';
 
-const styles = __STUB; // stub: ../../../lib/components/calendar/styles.selectors.js
+import styles from '@cloudscape/calendar.styles.js';
 const screenreaderOnlyStyles = __STUB; // stub: ../../../lib/components/internal/components/screenreader-only/styles.selectors.js
 
 // The calendar is mostly tested here: src/date-picker/__tests__/date-picker-calendar.test.tsx

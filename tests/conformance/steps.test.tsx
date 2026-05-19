@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/steps/__tests__/
 // steps.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/status-indicator/styles.selectors.js; stubbed unresolvable ../../../lib/components/steps/styles.selectors.js.
+// render → adapter, styles → vendored, no extra rules.
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
 // / sibling-test-helper imports. Callable, constructable (so tests can
@@ -26,8 +26,8 @@ import { render } from '@conformance/adapter';
 import Steps from '@components/Steps.pui';
 import { createWrapper } from '@conformance/adapter';
 
-const statusIconStyles = __STUB; // stub: ../../../lib/components/status-indicator/styles.selectors.js
-const stepsStyles = __STUB; // stub: ../../../lib/components/steps/styles.selectors.js
+import statusIconStyles from '@cloudscape/status-indicator.styles.js';
+import stepsStyles from '@cloudscape/steps.styles.js';
 
 const defaultProps: any = {
   steps: [],

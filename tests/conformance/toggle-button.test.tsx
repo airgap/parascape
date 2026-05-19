@@ -30,7 +30,7 @@ import { createWrapper } from '@conformance/adapter';
 import ToggleButton from '@components/ToggleButton.pui';
 const { getToggleIcon } = __STUB; // stub: ../../../lib/components/toggle-button/util
 
-import styles from '@cloudscape/toggle-button.styles.js';
+import styles from '@cloudscape/button.styles.js';
 
 jest.mock('@cloudscape-design/component-toolkit/internal', () => ({
   ...jest.requireActual('@cloudscape-design/component-toolkit/internal'),

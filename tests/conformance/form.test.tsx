@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/form/__tests__/
 // form.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/alert/styles.selectors.js; stubbed unresolvable ../../../lib/components/live-region/test-classes/styles.selectors.js.
+// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/live-region/test-classes/styles.selectors.js.
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
 // / sibling-test-helper imports. Callable, constructable (so tests can
@@ -26,7 +26,7 @@ import { render } from '@conformance/adapter';
 import Form from '@components/Form.pui';
 import { createWrapper } from '@conformance/adapter';
 
-const alertStyles = __STUB; // stub: ../../../lib/components/alert/styles.selectors.js
+import alertStyles from '@cloudscape/alert.styles.js';
 const liveRegionStyles = __STUB; // stub: ../../../lib/components/live-region/test-classes/styles.selectors.js
 
 function renderForm(props: any = {}) {

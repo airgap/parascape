@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/attribute-editor/__tests__/
 // attribute-editor.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, collapsed any<…>→any; i18n/testing → passthrough provider; stubbed unresolvable ../../../lib/components/button/styles.css.js; stubbed unresolvable ../../../lib/components/live-region/test-classes/styles.css.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, collapsed any<…>→any; i18n/testing → passthrough provider; stubbed unresolvable ../../../lib/components/live-region/test-classes/styles.css.js; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -34,7 +34,7 @@ import Input from '@components/Input.pui';
 import { createWrapper, AttributeEditorWrapper } from '@conformance/adapter';
 
 import styles from '@cloudscape/attribute-editor.styles.js';
-const buttonStyles = __STUB; // stub: ../../../lib/components/button/styles.css.js
+import buttonStyles from '@cloudscape/button.styles.js';
 const liveRegionStyles = __STUB; // stub: ../../../lib/components/live-region/test-classes/styles.css.js
 
 let containerQueryBreakpoint = 'm';
