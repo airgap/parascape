@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/modal/__tests__/
 // modal.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/date-picker; stubbed unresolvable ../../../lib/components/date-range-picker; stubbed unresolvable ../../internal/analytics; stubbed unresolvable ../../internal/keycode; interaction (manual-triage tier).
+// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/date-range-picker; stubbed unresolvable ../../internal/analytics; stubbed unresolvable ../../internal/keycode; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -27,7 +27,7 @@ import { act, fireEvent, render } from '@conformance/adapter';
 import Autosuggest from '@components/Autosuggest.pui';
 import Button from '@components/Button.pui';
 import ButtonDropdown from '@components/ButtonDropdown.pui';
-const DatePicker = __STUB; // stub: ../../../lib/components/date-picker
+import DatePicker from '@components/DatePicker.pui';
 const DateRangePicker = __STUB; // stub: ../../../lib/components/date-range-picker
 import FormField from '@components/FormField.pui';
 import Input from '@components/Input.pui';
