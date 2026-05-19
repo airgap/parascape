@@ -14,6 +14,10 @@
 <script lang="pts">
 	import rc from '../cloudscape/radio-button.styles.js';
 	import root from '../cloudscape/radio-button-root.styles.js';
+	// internal/components/radio-button renders clsx(testUtilStyles.root,
+	// className); RadioGroupWrapper.findButtons keys off this stable
+	// test-class (was missing → findButtons returned []).
+	import testClasses from '../cloudscape/radio-button.test-classes.js';
 	import ab from '../cloudscape/abstract-switch.styles.js';
 	import ana from '../cloudscape/abstract-switch-analytics.styles.js';
 	import '../cloudscape/radio-button.scoped.css';
@@ -53,6 +57,7 @@
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const R = rc as Record<string, string>;
 	const RT = root as Record<string, string>;
+	const TC = testClasses as Record<string, string>;
 	const A = ab as Record<string, string>;
 	const AN = ana as Record<string, string>;
 
@@ -67,7 +72,7 @@
 	}
 </script>
 
-<span class={cx(A.wrapper, RT['radio-button'], extraClass)} {...rest}>
+<span class={cx(TC.root, A.wrapper, RT['radio-button'], extraClass)} {...rest}>
 	<span
 		class={A['label-wrapper']}
 		aria-disabled={disabled ? 'true' : undefined}

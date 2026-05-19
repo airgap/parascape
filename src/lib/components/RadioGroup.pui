@@ -11,6 +11,10 @@
 <script lang="pts">
 	import RadioButton from './RadioButton.pui';
 	import styles from '../cloudscape/radio-group.styles.js';
+	// internal.js: clsx(testUtilStyles.root, styles['radio-group'], …) —
+	// RadioGroupWrapper.rootSelector is the stable test-class, not the
+	// visual hash (findRadioGroup was null → ~29 cascade failures).
+	import testClasses from '../cloudscape/radio-group.test-classes.js';
 	import '../cloudscape/radio-group.scoped.css';
 
 	let {
@@ -41,6 +45,7 @@
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
+	const T = testClasses as Record<string, string>;
 	const groupName = name || 'parascape-radio-group';
 </script>
 
@@ -49,7 +54,7 @@
 	aria-label={ariaLabel}
 	aria-required={ariaRequired ? 'true' : undefined}
 	aria-controls={ariaControls}
-	class={cx(extraClass, S['radio-group'], direction === 'horizontal' && S['horizontal-group'])}
+	class={cx(extraClass, T.root, S['radio-group'], direction === 'horizontal' && S['horizontal-group'])}
 	{...rest}
 >
 	{#each items as item (item.value)}
