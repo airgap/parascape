@@ -89,7 +89,7 @@
 		)}
 	>
 		<Button
-			class={S['trigger-button']}
+			class={cx(S['trigger-button'], S['test-utils-button-trigger'])}
 			variant={triggerVariant}
 			iconName={triggerIcon}
 			iconAlign="right"
