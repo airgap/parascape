@@ -23,6 +23,7 @@
 	import Box from './Box.pui';
 	import Button from './Button.pui';
 	import StatusIndicator from './StatusIndicator.pui';
+	import LiveRegion from './LiveRegion.pui';
 	import styles from '../cloudscape/progress-bar.styles.js';
 	import '../cloudscape/progress-bar.scoped.css';
 
@@ -36,6 +37,8 @@
 		resultText = undefined,
 		resultButtonText = undefined,
 		ariaLabel = undefined,
+		ariaLabelledby = undefined,
+		ariaDescribedby = undefined,
 		onResultButtonClick = undefined,
 		class: extraClass = undefined,
 		...rest
@@ -49,6 +52,8 @@
 		resultText?: string;
 		resultButtonText?: string;
 		ariaLabel?: string;
+		ariaLabelledby?: string;
+		ariaDescribedby?: string;
 		onResultButtonClick?: () => void;
 		class?: string;
 		[k: string]: unknown;
@@ -59,19 +64,37 @@
 	const MAX_VALUE = 100;
 	const clamp = (v: number, lo: number, hi: number) => Math.max(Math.min(v, hi), lo);
 
+	// index.js id graph (useUniqueId — stable per instance) + joinStrings
+	let __pbN = 0;
+	const uid = (p: string) => `${p}${(__pbN += 1)}`;
+	const gen = uid('awsui-progress-bar-');
+	const labelId = `${gen}-label`;
+	const descriptionId = uid('progressbar-description-');
+	const additionalInfoId = uid('progressbar-additional-info-');
+	const joinStrings = (...s: (string | undefined)[]) =>
+		s.filter(Boolean).join(' ') || undefined;
+
 	derived isInFlash = variant === 'flash';
 	derived isInProgressState = status === 'in-progress';
 	derived progressValue = clamp(Math.round(value), 0, MAX_VALUE);
 	const snip = (v: unknown) => typeof v === 'function';
+	derived progressLabelledby = joinStrings(labelId, ariaLabelledby);
+	derived progressDescribedby = joinStrings(
+		description ? descriptionId : undefined,
+		additionalInfo ? additionalInfoId : undefined,
+		ariaDescribedby,
+	);
 </script>
 
 <div class={cx(extraClass, S.root, variant && S[variant])} {...rest}>
 	<div class={isInFlash ? S['flash-container'] : undefined}>
 		<div class={cx(S['word-wrap'], S[`label-${variant}`])}
+			id={labelId}
 			>{#if snip(label)}{@render (label as import('svelte').Snippet)()}{:else}{label}{/if}</div
 		>
 		{#if description}<Box
 				class={S['word-wrap']}
+				id={descriptionId}
 				variant="small"
 				display="block"
 				color={isInFlash ? 'inherit' : undefined}
@@ -83,6 +106,8 @@
 						max={MAX_VALUE}
 						value={progressValue}
 						aria-label={ariaLabel}
+					aria-labelledby={!ariaLabel ? progressLabelledby : undefined}
+					aria-describedby={progressDescribedby}
 					></progress><span aria-hidden="true" class={S['percentage-container']}><Box
 							class={S.percentage}
 							variant="small"
@@ -96,10 +121,15 @@
 								formAction="none"
 								onClick={() => onResultButtonClick?.()}>{resultButtonText}</Button
 							></div>{/if}</div>{/if}
+
+			{#if isInProgressState}<LiveRegion hidden tagName="span"
+				>{typeof label === 'string' && label ? label + ': ' : ''}{progressValue}%</LiveRegion
+			>{:else}<LiveRegion tagName="span">{resultText}</LiveRegion>{/if}
 		</div>
 	</div>
 	{#if additionalInfo}<Box
 			class={S['additional-info']}
+			id={additionalInfoId}
 			variant="small"
 			display="block"
 			color={isInFlash ? 'inherit' : undefined}
