@@ -241,16 +241,18 @@ function adapt(src, Pascal, kebab) {
   //    cross-component selector falls to the honest residual __STUB.
   let stylesVendored = true;
   s = s.replace(
-    /import\s+([A-Za-z_$][\w$]*)\s+from\s+['"][^'"]*\/lib\/components\/([a-z][\w-]*)\/(test-classes\/)?styles\.(?:css|selectors)\.js['"];?/g,
-    (full, id, comp, tc) => {
-      // test-classes/styles.selectors.js → vendored <comp>.test-classes.js
-      // (the stable test hooks, distinct from the visual hashes);
-      // plain styles.{css,selectors}.js → vendored <comp>.styles.js.
-      const file = tc ? `${comp}.test-classes.js` : `${comp}.styles.js`;
+    /import\s+([A-Za-z_$][\w$]*)\s+from\s+['"][^'"]*\/lib\/components\/([a-z][\w-]*)\/(?:(?!test-classes\/)([a-z][\w-]*)\/)?(test-classes\/)?styles\.(?:css|selectors)\.js['"];?/g,
+    (full, id, comp, sub, tc) => {
+      // <comp>[/<sub>][/test-classes]/styles.{css,selectors}.js →
+      // vendored <comp>[-<sub>].{styles,test-classes}.js. test-classes
+      // = the stable test hooks (distinct from visual hashes); a <sub>
+      // segment (e.g. breadcrumb-group/item) maps to <comp>-<sub>.
+      const base = sub ? `${comp}-${sub}` : comp;
+      const file = tc ? `${base}.test-classes.js` : `${base}.styles.js`;
       if (fs.existsSync(path.join(VENDOR, file))) {
         return `import ${id} from '@cloudscape/${file}';`;
       }
-      if (comp === kebab && !tc) {
+      if (comp === kebab && !sub && !tc) {
         stylesVendored = false;
         return `import ${id} from '@cloudscape/${file}'; // MISSING vendored styles`;
       }

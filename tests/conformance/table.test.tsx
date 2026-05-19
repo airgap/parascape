@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/table/__tests__/
 // table.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, jest.mock → hoisted vi.mock; stubbed unresolvable ../../../lib/components/internal/hooks/use-mobile; stubbed unresolvable ../../../lib/components/property-filter; stubbed unresolvable ../../../lib/components/select; stubbed unresolvable ../../../lib/components/table/body-cell/styles.css.js; stubbed unresolvable ../../../lib/components/table/header-cell/styles.css.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, jest.mock → hoisted vi.mock; stubbed unresolvable ../../../lib/components/internal/hooks/use-mobile; stubbed unresolvable ../../../lib/components/property-filter; stubbed unresolvable ../../../lib/components/select; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -31,8 +31,8 @@ import Table from '@components/Table.pui';
 import { createWrapper, ElementWrapper, PaginationWrapper, TableWrapper } from '@conformance/adapter';
 
 import popoverStyles from '@cloudscape/popover.styles.js';
-const bodyCellStyles = __STUB; // stub: ../../../lib/components/table/body-cell/styles.css.js
-const headerCellStyles = __STUB; // stub: ../../../lib/components/table/header-cell/styles.css.js
+import bodyCellStyles from '@cloudscape/table-body-cell.styles.js';
+import headerCellStyles from '@cloudscape/table-header-cell.styles.js';
 import styles from '@cloudscape/table.styles.js';
 
 vi.mock('../../../lib/components/internal/hooks/use-mobile', async (importOriginal) => ({
