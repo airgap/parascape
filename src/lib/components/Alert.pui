@@ -26,9 +26,12 @@
 		dismissible = false,
 		header = undefined,
 		children = undefined,
+		action = undefined,
+		buttonText = undefined,
 		dismissAriaLabel = undefined,
 		statusIconAriaLabel = undefined,
 		onDismiss = undefined,
+		onButtonClick = undefined,
 		class: extraClass = undefined,
 		...rest
 	}: {
@@ -37,15 +40,20 @@
 		dismissible?: boolean;
 		header?: import('svelte').Snippet | string;
 		children?: import('svelte').Snippet | string;
+		action?: import('svelte').Snippet | string;
+		buttonText?: string;
 		dismissAriaLabel?: string;
 		statusIconAriaLabel?: string;
 		onDismiss?: () => void;
+		onButtonClick?: () => void;
 		class?: string;
 		[k: string]: unknown;
 	} = $props();
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
+	const snip = (v: unknown) => typeof v === 'function';
+	const has = (v: unknown) => v !== null && v !== undefined;
 
 	// internal.js typeToIcon — verbatim
 	const typeToIcon: Record<string, string> = {
@@ -72,11 +80,18 @@
 					/></div>
 				<div class={cx(S.message, S.text)}>
 					<div class={hasHeader ? S.header : undefined}
-						>{#if hasHeader}{#if typeof header === 'string'}{header}{:else}{@render header?.()}{/if}{/if}</div
+						>{#if hasHeader}{#if snip(header)}{@render (header as import('svelte').Snippet)()}{:else}{header}{/if}{/if}</div
 					>
 					<div class={S.content}
-						>{#if typeof children === 'string'}{children}{:else}{@render children?.()}{/if}</div
-					>
+						>{#if snip(children)}{@render (children as import('svelte').Snippet)()}{:else}{children}{/if}</div
+					>{#if has(action) || buttonText}<div class={S.action}><div
+							class={S['action-slot']}
+							>{#if !has(action) && buttonText}<span><Button
+										class={S['action-button']}
+										formAction="none"
+										onClick={() => onButtonClick?.()}>{buttonText}</Button
+									></span>{:else if snip(action)}{@render (action as import('svelte').Snippet)()}{:else}{action}{/if}</div
+						></div>{/if}
 				</div>
 			</div>
 			{#if dismissible}<div class={S.dismiss}><Button
