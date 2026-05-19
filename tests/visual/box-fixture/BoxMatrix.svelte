@@ -48,6 +48,7 @@
 	import ButtonGroup from '../../../src/lib/components/ButtonGroup.pui';
 	import Calendar from '../../../src/lib/components/Calendar.pui';
 	import Cards from '../../../src/lib/components/Cards.pui';
+	import Wizard from '../../../src/lib/components/Wizard.pui';
 	import TreeView from '../../../src/lib/components/TreeView.pui';
 </script>
 
@@ -439,8 +440,32 @@
 				]}
 			/>
 		</div>
+		<div>
+			<Wizard
+				activeStepIndex={0}
+				i18nStrings={{
+					stepNumberLabel: (n) => `Step ${n}`,
+					collapsedStepsLabel: (n, total) => `Step ${n} of ${total}`,
+					navigationAriaLabel: 'Steps',
+					cancelButton: 'Cancel',
+					previousButton: 'Previous',
+					nextButton: 'Next',
+					submitButton: 'Submit',
+					optional: 'optional',
+				}}
+				steps={[
+					{ title: 'Step one', description: 'First step description', content: wizS1 },
+					{ title: 'Step two', description: 'Second step', content: wizS2 },
+					{ title: 'Review', content: wizS3, isOptional: true },
+				]}
+			/>
+		</div>
 	</div>
 </div>
+
+{#snippet wizS1()}<div>Step one body content.</div>{/snippet}
+{#snippet wizS2()}<div>Step two body content.</div>{/snippet}
+{#snippet wizS3()}<div>Review body content.</div>{/snippet}
 
 {#snippet aeKey(item)}<Input value={item.key} />{/snippet}
 {#snippet aeVal(item)}<Input value={item.value} />{/snippet}

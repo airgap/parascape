@@ -47,7 +47,7 @@ bun run check    # svelte-check
 <!-- AUTOGEN:status (bun run status) -->
 ## Status
 
-**57 / 94** Cloudscape components ported to `.pui` at pixel parity. Verification is mechanical, not by eye: a deterministic Playwright pixel-diff against the **real** `@cloudscape-design/components` (pinned Chromium, fixed viewport/DPR, animations/caret off, fonts settled, built-not-dev). Current residuals — component matrix **≤0.01%**, integrated `Table` **0.70%** — are sub-pixel antialiasing on glyph/text edges with **zero box-model delta** (proven via the computed-box diagnostics, `*-diag.mjs`), i.e. visually indistinguishable. Harnesses: `tests/visual/box-shoot.mjs` (matrix), `shoot.mjs` (Table).
+**58 / 94** Cloudscape components ported to `.pui` at pixel parity. Verification is mechanical, not by eye: a deterministic Playwright pixel-diff against the **real** `@cloudscape-design/components` (pinned Chromium, fixed viewport/DPR, animations/caret off, fonts settled, built-not-dev). Current residuals — component matrix **≤0.01%**, integrated `Table` **0.70%** — are sub-pixel antialiasing on glyph/text edges with **zero box-model delta** (proven via the computed-box diagnostics, `*-diag.mjs`), i.e. visually indistinguishable. Harnesses: `tests/visual/box-shoot.mjs` (matrix), `shoot.mjs` (Table).
 
 > Dep-first by construction: a *pixel-relevant* dep is ported
 > before its consumer. A `✗` dep is **not a gap** — it is a
@@ -115,6 +115,7 @@ bun run check    # svelte-check
 | `ToggleButton` | `@cloudscape-design/components/toggle-button` | — | 1 | button ✅ |
 | `Tooltip` | `@cloudscape-design/components/tooltip` | — | 13 | popover ✅, container ✅ |
 | `TreeView` | `@cloudscape-design/components/tree-view` | 0 | 0 | — |
+| `Wizard` | `@cloudscape-design/components/wizard` | — | 0 | button ✅, space-between ✅, form ✅, header ✅, box ✅, link ✅, expandable-section ✅ |
 
 **Next portable** (deps satisfied, fan-in desc): `plugins`, `annotation-context` (needs alert+box+button+popover+container+space-between ✅), `mixed-line-bar-chart`, `area-chart`, `collection-preferences` (needs toggle+box+button+list+space-between+text-filter+modal+checkbox+column-layout+form-field+radio-group ✅), `content-layout` (needs grid ✅).
 

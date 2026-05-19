@@ -50,6 +50,7 @@ import AttributeEditor from "@cloudscape-design/components/attribute-editor";
 import ButtonGroup from "@cloudscape-design/components/button-group";
 import Calendar from "@cloudscape-design/components/calendar";
 import Cards from "@cloudscape-design/components/cards";
+import Wizard from "@cloudscape-design/components/wizard";
 const noop = () => {};
 
 function M() {
@@ -731,6 +732,33 @@ function M() {
           items={[
             { name: "Item 1", description: "First item description", type: "1A" },
             { name: "Item 2", description: "Second item description", type: "2B" },
+          ]}
+        />
+      </div>
+      <div>
+        <Wizard
+          activeStepIndex={0}
+          onCancel={noop}
+          onSubmit={noop}
+          onNavigate={noop}
+          i18nStrings={{
+            stepNumberLabel: (n: number) => `Step ${n}`,
+            collapsedStepsLabel: (n: number, total: number) => `Step ${n} of ${total}`,
+            navigationAriaLabel: "Steps",
+            cancelButton: "Cancel",
+            previousButton: "Previous",
+            nextButton: "Next",
+            submitButton: "Submit",
+            optional: "optional",
+          }}
+          steps={[
+            {
+              title: "Step one",
+              description: "First step description",
+              content: <div>Step one body content.</div>,
+            },
+            { title: "Step two", description: "Second step", content: <div>Step two body content.</div> },
+            { title: "Review", content: <div>Review body content.</div>, isOptional: true },
           ]}
         />
       </div>

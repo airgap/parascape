@@ -1,24 +1,41 @@
 <!--
   Parascape <ExpandableSection> — faithful port of
   @cloudscape-design/components/expandable-section/internal.js +
-  expandable-section-container.js + expandable-section-header.js,
-  variant='default' path (the headerText / ExpandableHeaderTextWrapper
-  branch). Public defaults: variant='default', defaultExpanded=false.
-  ExpandableSectionContainer(default) = <div clsx(className,
-  styles.root)>{header}{content}</div>. Header (ExpandableHeaderText-
-  Wrapper, no actions/description) = <div clsx(wrapperClassName,
-  expanded&&expanded, !expanded&&wrapper-not-expanded-without-actions)
-  click-target onClick=toggle><div><div styles['header-wrapper']>
-  <span clsx(expand-button, header-button) role=button aria-expanded>
-  <span clsx(icon-container, icon-container-default)>{caret Icon✅}
-  </span><span styles['header-text']>{headerText}</span></span></div>
-  </div></div>. wrapperClassName = clsx(styles.wrapper,
-  styles['wrapper-default'], expanded&&styles['wrapper-expanded']).
+  expandable-section-container.js + expandable-section-header.js.
+  Ports variant='default' AND variant='footer' (the headerText /
+  ExpandableHeaderTextWrapper branch). Public defaults: variant=
+  'default', defaultExpanded=false.
+
+  Both default and footer take the ExpandableSectionContainer "else"
+  path = <div clsx(className, styles.root)>{header}{content}</div>
+  (the container/stacked InternalContainer wrap is a separate variant,
+  omitted). Header (ExpandableHeaderTextWrapper, no actions/
+  description) = <div clsx(headerClassName) [wrapperListeners:onClick]>
+  <div clsx(actions&&header-actions-wrapper) [actions=false ⇒ class
+  ""]><div styles['header-wrapper']><span clsx(expand-button,
+  header-button) role=button tabIndex=0 aria-expanded aria-controls>
+  <span clsx(icon-container, icon-container-${variant})>{caret Icon✅}
+  </span><span id=triggerControlId clsx(header-text)>{headerText}
+  </span></span></div></div></div>.
+
+  Verified-faithful facts (Cloudscape 3.x source):
+  • variantSupportsActions('footer')=false ⇒ no headerActions path,
+    wrapperListeners carries the click (entire header clickable).
+  • styles has NO `header-footer` / `icon-container-footer` /
+    `header-default` keys ⇒ clsx drops them; footer's distinct look
+    comes from `wrapper-footer` + `content-footer` + `styles.header`.
+  • The verified default port omits styles.header + screenReaderText
+    Class and still pixel-matches ⇒ those are visually inert for
+    default; the default branch below is kept BYTE-IDENTICAL to that
+    verified port (zero-regression). footer adds styles.header (the
+    real code includes it; footer-specific rules may live there),
+    swaps the -default tokens for -footer, and sets the content
+    aria-label to headerAriaLabel.
+
   Content div always mounted (CSSTransition only adds a transient
-  enter class — collapse is the CSS content vs content-expanded
-  toggle, no transition class in a static frame). container/stacked/
-  navigation/inline/deprecated variants + headerActions/description/
-  counter/info omitted (default path only; documented).
+  enter class; collapse is the content vs content-expanded CSS
+  toggle). container/stacked/navigation/inline/deprecated variants +
+  headerActions/description/counter/info still omitted (documented).
 -->
 <script lang="pts">
 	import Icon from './Icon.pui';
@@ -26,7 +43,9 @@
 	import '../cloudscape/expandable-section.scoped.css';
 
 	let {
+		variant = 'default',
 		headerText = undefined,
+		headerAriaLabel = undefined,
 		defaultExpanded = false,
 		expanded: controlledExpanded = undefined,
 		onChange = undefined,
@@ -34,7 +53,9 @@
 		class: extraClass = undefined,
 		...rest
 	}: {
+		variant?: 'default' | 'footer';
 		headerText?: string;
+		headerAriaLabel?: string;
 		defaultExpanded?: boolean;
 		expanded?: boolean;
 		onChange?: (e: { expanded: boolean }) => void;
@@ -57,41 +78,82 @@
 		onChange?.({ expanded: next });
 	}
 	const snip = (v: unknown) => typeof v === 'function';
+	derived isFooter = variant === 'footer';
 </script>
 
 <div class={cx(extraClass, S.root)} {...rest}>
-	<div
-		class={cx(
-			S.wrapper,
-			S['wrapper-default'],
-			expanded && S['wrapper-expanded'],
-			expanded && S.expanded,
-			!expanded && S['wrapper-not-expanded-without-actions'],
-			S['click-target'],
-		)}
-		onclick={toggle}
-		role="presentation"
-	>
-		<div>
-			<div class={S['header-wrapper']}>
-				<span
-					class={cx(S['expand-button'], S['header-button'])}
-					role="button"
-					tabindex="0"
-					aria-expanded={expanded}
-					aria-controls={controlId}
-				><span class={cx(S['icon-container'], S['icon-container-default'])}><Icon
-							name="caret-down-filled"
-							size="normal"
-							class={cx(S.icon, expanded && S.expanded)}
-						/></span><span id={triggerControlId} class={S['header-text']}>{headerText}</span></span>
+	{#if isFooter}
+		<div
+			class={cx(
+				S.header,
+				S.wrapper,
+				S['wrapper-footer'],
+				expanded && S['wrapper-expanded'],
+				expanded && S.expanded,
+				!expanded && S['wrapper-not-expanded-without-actions'],
+				S['click-target'],
+			)}
+			onclick={toggle}
+			role="presentation"
+		>
+			<div>
+				<div class={S['header-wrapper']}>
+					<span
+						class={cx(S['expand-button'], S['header-button'])}
+						role="button"
+						tabindex="0"
+						aria-label={headerAriaLabel}
+						aria-expanded={expanded}
+						aria-controls={controlId}
+					><span class={cx(S['icon-container'])}><Icon
+								name="caret-down-filled"
+								size="normal"
+								class={cx(S.icon, expanded && S.expanded)}
+							/></span><span id={triggerControlId} class={S['header-text']}>{headerText}</span></span>
+				</div>
 			</div>
 		</div>
-	</div>
-	<div
-		id={controlId}
-		class={cx(S.content, S['content-default'], expanded && S['content-expanded'])}
-		role="group"
-		>{#if snip(children)}{@render (children as import('svelte').Snippet)()}{:else}{children}{/if}</div
-	>
+		<div
+			id={controlId}
+			class={cx(S.content, S['content-footer'], expanded && S['content-expanded'])}
+			role="group"
+			aria-label={headerAriaLabel}
+			>{#if snip(children)}{@render (children as import('svelte').Snippet)()}{:else}{children}{/if}</div
+		>
+	{:else}
+		<div
+			class={cx(
+				S.wrapper,
+				S['wrapper-default'],
+				expanded && S['wrapper-expanded'],
+				expanded && S.expanded,
+				!expanded && S['wrapper-not-expanded-without-actions'],
+				S['click-target'],
+			)}
+			onclick={toggle}
+			role="presentation"
+		>
+			<div>
+				<div class={S['header-wrapper']}>
+					<span
+						class={cx(S['expand-button'], S['header-button'])}
+						role="button"
+						tabindex="0"
+						aria-expanded={expanded}
+						aria-controls={controlId}
+					><span class={cx(S['icon-container'], S['icon-container-default'])}><Icon
+								name="caret-down-filled"
+								size="normal"
+								class={cx(S.icon, expanded && S.expanded)}
+							/></span><span id={triggerControlId} class={S['header-text']}>{headerText}</span></span>
+				</div>
+			</div>
+		</div>
+		<div
+			id={controlId}
+			class={cx(S.content, S['content-default'], expanded && S['content-expanded'])}
+			role="group"
+			>{#if snip(children)}{@render (children as import('svelte').Snippet)()}{:else}{children}{/if}</div
+		>
+	{/if}
 </div>
