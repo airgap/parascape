@@ -7,3 +7,4 @@ dist
 # test/build artifacts (regenerable)
 tests/visual/__screenshots__/
 tests/visual/cloudscape-ref/dist*/
+tests/conformance/.cache/
