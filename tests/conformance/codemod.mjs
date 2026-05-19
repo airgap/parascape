@@ -91,6 +91,24 @@ async function fetchTest(kebab) {
   return null;
 }
 
+// Sibling test-helper (e.g. `import { renderX } from './utils'`):
+// fetch src/<kebab>/__tests__/<name>.{tsx,ts}. NO isSuite gate (it is
+// a helper module, not a suite). Cached like the main test. null on a
+// real 404 (no such helper → leave the import for the residual stub).
+async function fetchSibling(kebab, name) {
+  const cached = path.join(CACHE, `${kebab}.${name}.src`);
+  if (fs.existsSync(cached)) return fs.readFileSync(cached, "utf8") || null;
+  for (const file of [`${name}.tsx`, `${name}.ts`]) {
+    const t = await fetchOne(kebab, file);
+    if (t) {
+      fs.writeFileSync(cached, t);
+      return t;
+    }
+  }
+  fs.writeFileSync(cached, ""); // negative-cache a real 404
+  return null;
+}
+
 function adapt(src, Pascal, kebab) {
   let s = src;
   const notes = [];
@@ -405,10 +423,28 @@ for (const Pascal of ported.sort()) {
     continue;
   }
   const kebab = pascalToKebab(Pascal);
-  const src = await fetchTest(kebab);
+  let src = await fetchTest(kebab);
   if (!src) {
     summary.noTest.push(`${Pascal} (${kebab})`);
     continue;
+  }
+  // Sibling test-helper resolution (LYK-922): some suites put the
+  // render entry in `src/<kebab>/__tests__/<name>.tsx` and
+  // `import {…} from './<name>'`. Fetch each such helper, run it
+  // through the SAME adapt() pipeline (it becomes a standalone module
+  // with its own __STUB header + component/styles/adapter rewrites),
+  // emit it co-located as `<kebab>.<name>.tsx` (NOT *.test.* → vitest
+  // skips it as a suite), and repoint the import at `@conformance/…`
+  // so the residual-stub pass leaves it alone. Unresolved (404)
+  // siblings stay `./<name>` → honestly __STUB'd as before.
+  for (const name of [...new Set([...src.matchAll(/from\s+['"]\.\/([a-z][\w-]*)(?:\.tsx?)?['"]/g)].map(m => m[1]))]) {
+    const hsrc = await fetchSibling(kebab, name);
+    if (!hsrc) continue;
+    fs.writeFileSync(path.join(OUT, `${kebab}.${name}.tsx`), adapt(hsrc, Pascal, kebab).code);
+    src = src.replace(
+      new RegExp(`from\\s+(['"])\\./${name}(?:\\.tsx?)?\\1`, "g"),
+      `from '@conformance/${kebab}.${name}'`,
+    );
   }
   const { code, interaction, stylesVendored } = adapt(src, Pascal, kebab);
   fs.writeFileSync(path.join(OUT, `${kebab}.test.tsx`), code);

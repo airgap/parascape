@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/annotation-context/__tests__/
 // annotation-context.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/hotspot; stubbed unresolvable ../interfaces; stubbed unresolvable ./data; interaction (manual-triage tier).
+// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/hotspot; stubbed unresolvable ../interfaces; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -28,7 +28,7 @@ import AnnotationContext from '@components/AnnotationContext.pui';
 const Hotspot = __STUB; // stub: ../../../lib/components/hotspot
 import { createWrapper } from '@conformance/adapter';
 const { AnnotationContextProps } = __STUB; // stub: ../interfaces
-const { getTutorial, getTutorialWithMultipleStepsPerHotspot, i18nStrings } = __STUB; // stub: ./data
+import { getTutorial, getTutorialWithMultipleStepsPerHotspot, i18nStrings } from '@conformance/annotation-context.data';
 import Tutorial = AnnotationContextProps.Tutorial;
 
 const noop = () => {};

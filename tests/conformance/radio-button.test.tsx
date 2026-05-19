@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/radio-button/__tests__/
 // radio-button.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/internal/components/radio-button/interfaces; stubbed unresolvable ./common; interaction (manual-triage tier).
+// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/internal/components/radio-button/interfaces; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -27,7 +27,7 @@ import { render } from '@conformance/adapter';
 const { RadioButtonProps } = __STUB; // stub: ../../../lib/components/internal/components/radio-button/interfaces
 import RadioButton from '@components/RadioButton.pui';
 import { createWrapper } from '@conformance/adapter';
-const { renderRadioButton } = __STUB; // stub: ./common
+import { renderRadioButton } from '@conformance/radio-button.common';
 
 describe('Radio Button native attributes from props', () => {
   test('sets the `checked` attribute of the native element to true when `checked` is true', () => {

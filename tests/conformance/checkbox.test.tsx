@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/checkbox/__tests__/
 // checkbox.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../internal/generated/custom-css-properties; stubbed unresolvable ./common-tests; stubbed unresolvable ../../../lib/components/internal/components/abstract-switch/styles.css.js; stubbed unresolvable ../../../lib/components/internal/components/checkbox-icon/styles.selectors.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../internal/generated/custom-css-properties; stubbed unresolvable ../../../lib/components/internal/components/abstract-switch/styles.css.js; stubbed unresolvable ../../../lib/components/internal/components/checkbox-icon/styles.selectors.js; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -32,7 +32,7 @@ import InternalCheckbox from '@components/Checkbox.pui';
 import FormField from '@components/FormField.pui';
 import { createWrapper, CheckboxWrapper } from '@conformance/adapter';
 const customCssProps = __STUB; // stub: ../../internal/generated/custom-css-properties
-const { createCommonTests } = __STUB; // stub: ./common-tests
+import { createCommonTests } from '@conformance/checkbox.common-tests';
 
 const abstractSwitchStyles = __STUB; // stub: ../../../lib/components/internal/components/abstract-switch/styles.css.js
 const styles = __STUB; // stub: ../../../lib/components/internal/components/checkbox-icon/styles.selectors.js

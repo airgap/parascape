@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/segmented-control/__tests__/
 // segmented-control.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ./utils; interaction (manual-triage tier).
+// render → adapter, styles → vendored, interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -28,7 +28,7 @@ import { KeyCode } from '@cloudscape-design/test-utils-core/utils';
 
 import SegmentedControl from '@components/SegmentedControl.pui';
 import { SegmentedControlWrapper } from '@conformance/adapter';
-const { renderSegmentedControl } = __STUB; // stub: ./utils
+import { renderSegmentedControl } from '@conformance/segmented-control.utils';
 
 import styles from '@cloudscape/segmented-control.styles.js';
 

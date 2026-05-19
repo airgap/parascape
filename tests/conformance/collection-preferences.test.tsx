@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/collection-preferences/__tests__/
 // collection-preferences.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable ./shared; interaction (manual-triage tier).
+// render → adapter, styles → vendored, i18n/testing → passthrough provider; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -28,12 +28,14 @@ import CollectionPreferences from '@components/CollectionPreferences.pui';
 const TestI18nProvider = (({ children }: any) => children) as any;
 import { createWrapper } from '@conformance/adapter';
 import { CollectionPreferencesWrapper } from '@conformance/adapter';
-const { contentDisplayPreference,
+import {
+  contentDisplayPreference,
   pageSizePreference,
   renderCollectionPreferences,
   stripedRowsPreference,
   visibleContentPreference,
-  wrapLinesPreference, } = __STUB; // stub: ./shared
+  wrapLinesPreference,
+} from '@conformance/collection-preferences.shared';
 
 const expectVisibleModal = (wrapper: CollectionPreferencesWrapper, visible = true) => {
   if (visible) {
