@@ -32,10 +32,17 @@
     swaps the -default tokens for -footer, and sets the content
     aria-label to headerAriaLabel.
 
-  Content div always mounted (CSSTransition only adds a transient
-  enter class; collapse is the content vs content-expanded CSS
-  toggle). container/stacked/navigation/inline/deprecated variants +
-  headerActions/description/counter/info still omitted (documented).
+  Now ported: headerText branch (ExpandableHeaderTextWrapper, default+
+  footer unified by variant — byte-identical class output, pixel-safe),
+  the !headerText ExpandableDeprecatedHeader path (single <div
+  role=button> with header-deprecated/focusable + the deprecated
+  `header` slot), headerDescription (header/internal <Description>),
+  headingTagOverride, a11y aria wiring, and the unsupported-config
+  warnOnce set. Still omitted (documented): container/stacked
+  (InternalHeader composition), navigation/inline variants,
+  headerActions/headerInfo/headerCounter DOM, expand/collapse
+  interaction. Content div always mounted (CSSTransition only adds a
+  transient enter class; collapse = content vs content-expanded CSS).
 -->
 <script lang="pts">
 	import Icon from './Icon.pui';
@@ -54,6 +61,7 @@
 	let {
 		variant = 'default',
 		headerText = undefined,
+		header = undefined,
 		headingTagOverride = undefined,
 		headerDescription = undefined,
 		headerActions = undefined,
@@ -69,6 +77,7 @@
 	}: {
 		variant?: string;
 		headerText?: string;
+		header?: import('svelte').Snippet | string;
 		headingTagOverride?: string;
 		headerDescription?: import('svelte').Snippet | string;
 		headerActions?: import('svelte').Snippet | string;
@@ -120,6 +129,12 @@
 			'The `headerActions` prop is only supported for the "container" and "default" variants.',
 		);
 	}
+	if (variant === 'container' && header) {
+		warnOnce(
+			componentName,
+			'Use `headerText` instead of `header` to provide the button within the heading for a11y.',
+		);
+	}
 
 	let uncontrolled = $state(defaultExpanded);
 	derived expanded = controlledExpanded ?? uncontrolled;
@@ -143,24 +158,24 @@
 </script>
 
 <div class={cx(extraClass, S.root)} {...rest}>
-	{#if isFooter}
+	{#if headerText}
 		<div
 			class={cx(
 				S.header,
 				S.wrapper,
-				S['wrapper-footer'],
-				expanded && S['wrapper-expanded'],
+				S[`wrapper-${variant}`],
+				expanded && S["wrapper-expanded"],
 				expanded && S.expanded,
-				!expanded && S['wrapper-not-expanded-without-actions'],
-				S['click-target'],
+				!expanded && S["wrapper-not-expanded-without-actions"],
+				S["click-target"],
 			)}
 			onclick={toggle}
 			role="presentation"
 		>
 			<div>
-				<svelte:element this={headingTagOverride || 'div'} class={S['header-wrapper']}>
+				<svelte:element this={headingTagOverride || "div"} class={S["header-wrapper"]}>
 					<span
-						class={cx(S['expand-button'], S['header-button'])}
+						class={cx(S["expand-button"], S["header-button"])}
 						role="button"
 						tabindex="0"
 						aria-label={headerAriaLabel}
@@ -168,74 +183,56 @@
 						aria-controls={controlId}
 						aria-labelledby={hbLabelledBy}
 						aria-describedby={hbDescribedBy}
-					><span class={cx(S['icon-container'])}><Icon
+						><span class={cx(S["icon-container"], S[`icon-container-${variant}`])}><Icon
 								name="caret-down-filled"
 								size="normal"
 								class={cx(S.icon, expanded && S.expanded)}
-							/></span><span id={triggerControlId} class={S['header-text']}>{headerText}</span></span>
+							/></span><span id={triggerControlId} class={S["header-text"]}>{headerText}</span></span
+					>
 				</svelte:element>
 			</div>
-		{#if hasDescription}<p
-				class={cx(H.description, H['description-variant-h3'], H.refresh)}
-				><span id={descriptionId}
-					>{#if snip(headerDescription)}{@render (headerDescription as import('svelte').Snippet)()}{:else}{headerDescription}{/if}</span
-				></p>{/if}
+			{#if hasDescription}<p
+					class={cx(H.description, H["description-variant-h3"], H.refresh)}
+					><span id={descriptionId}
+						>{#if snip(headerDescription)}{@render (headerDescription as import("svelte").Snippet)()}{:else}{headerDescription}{/if}</span
+					></p
+				>{/if}
 		</div>
-		<div
-			id={controlId}
-			class={cx(S.content, S['content-footer'], expanded && S['content-expanded'])}
-			role="group"
-			aria-labelledby={contentLabelledBy}
-			aria-describedby={contentDescribedBy}
-			aria-label={headerAriaLabel}
-			>{#if snip(children)}{@render (children as import('svelte').Snippet)()}{:else}{children}{/if}</div
-		>
 	{:else}
 		<div
+			id={triggerControlId}
+			role="button"
 			class={cx(
 				S.header,
 				S.wrapper,
-				S['wrapper-default'],
-				expanded && S['wrapper-expanded'],
+				S[`wrapper-${variant}`],
+				expanded && S["wrapper-expanded"],
+				S.focusable,
 				expanded && S.expanded,
-				!expanded && S['wrapper-not-expanded-without-actions'],
-				S['click-target'],
+				S["expand-button"],
+				S["click-target"],
+				S["header-deprecated"],
 			)}
-			onclick={toggle}
-			role="presentation"
-		>
-			<div>
-				<svelte:element this={headingTagOverride || 'div'} class={S['header-wrapper']}>
-					<span
-						class={cx(S['expand-button'], S['header-button'])}
-						role="button"
-						tabindex="0"
-						aria-label={headerAriaLabel}
-						aria-expanded={expanded}
-						aria-controls={controlId}
-						aria-labelledby={hbLabelledBy}
-						aria-describedby={hbDescribedBy}
-					><span class={cx(S['icon-container'], S['icon-container-default'])}><Icon
-								name="caret-down-filled"
-								size="normal"
-								class={cx(S.icon, expanded && S.expanded)}
-							/></span><span id={triggerControlId} class={S['header-text']}>{headerText}</span></span>
-				</svelte:element>
-			</div>
-		{#if hasDescription}<p
-				class={cx(H.description, H['description-variant-h3'], H.refresh)}
-				><span id={descriptionId}
-					>{#if snip(headerDescription)}{@render (headerDescription as import('svelte').Snippet)()}{:else}{headerDescription}{/if}</span
-				></p>{/if}
-		</div>
-		<div
-			id={controlId}
-			class={cx(S.content, S['content-default'], expanded && S['content-expanded'])}
-			role="group"
-			aria-labelledby={contentLabelledBy}
-			aria-describedby={contentDescribedBy}
+			tabindex="0"
 			aria-label={headerAriaLabel}
-			>{#if snip(children)}{@render (children as import('svelte').Snippet)()}{:else}{children}{/if}</div
+			aria-controls={controlId}
+			aria-expanded={expanded}
+			onclick={toggle}
 		>
+			<div class={cx(S["icon-container"], S[`icon-container-${variant}`])}><Icon
+					name="caret-down-filled"
+					size="normal"
+					class={cx(S.icon, expanded && S.expanded)}
+				/></div>{#if snip(header)}{@render (header as import("svelte").Snippet)()}{:else}{header}{/if}
+		</div>
 	{/if}
+	<div
+		id={controlId}
+		class={cx(S.content, S[`content-${variant}`], expanded && S["content-expanded"])}
+		role="group"
+		aria-labelledby={contentLabelledBy}
+		aria-describedby={contentDescribedBy}
+		aria-label={headerAriaLabel}
+		>{#if snip(children)}{@render (children as import("svelte").Snippet)()}{:else}{children}{/if}</div
+	>
 </div>
