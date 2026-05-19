@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/button-dropdown/__tests__/
 // button-dropdown.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/internal/keycode; interaction (manual-triage tier).
+// render → adapter, styles → vendored, jest.mock → hoisted vi.mock; stubbed unresolvable ../../../lib/components/internal/keycode; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -34,8 +34,8 @@ import { createWrapper, ButtonWrapper } from '@conformance/adapter';
 import iconStyles from '@cloudscape/icon.styles.js';
 import liveRegionStyles from '@cloudscape/live-region.test-classes.js';
 
-jest.mock('@cloudscape-design/component-toolkit/internal', () => ({
-  ...jest.requireActual('@cloudscape-design/component-toolkit/internal'),
+vi.mock('@cloudscape-design/component-toolkit/internal', async (importOriginal) => ({
+  ...(await importOriginal()),
   warnOnce: jest.fn(),
 }));
 

@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/tabs/__tests__/
 // tabs.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, i18n/testing → passthrough provider; interaction (manual-triage tier).
+// render → adapter, styles → vendored, i18n/testing → passthrough provider; jest.mock → hoisted vi.mock; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -33,8 +33,8 @@ import { createWrapper, TabsWrapper } from '@conformance/adapter';
 import styles from '@cloudscape/tabs.styles.js';
 
 let mockHorizontalOverflow = false;
-jest.mock('../../../lib/components/tabs/scroll-utils', () => {
-  const originalScrollUtilsModule = jest.requireActual('../../../lib/components/tabs/scroll-utils');
+vi.mock('../../../lib/components/tabs/scroll-utils', async (importOriginal) => {
+  const originalScrollUtilsModule = await vi.importActual('../../../lib/components/tabs/scroll-utils');
   return {
     __esModule: true,
     ...originalScrollUtilsModule,

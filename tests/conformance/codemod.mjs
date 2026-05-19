@@ -272,16 +272,43 @@ function adapt(src, Pascal, kebab) {
   //    equivalents (real DOM events + Svelte tick). 'screen'
   //    unsupported (note it).
   s = s.replace(/import\s+\{([^}]*)\}\s+from\s+['"]@testing-library\/react['"];?/, (full, names) => {
-    const want = names
+    const supported = [];
+    const dropped = [];
+    for (const spec of names
       .split(",")
       .map(x => x.trim())
-      .filter(Boolean);
-    const supported = want.filter(n => /^(render|fireEvent|waitFor|act)$/.test(n));
-    const dropped = want.filter(n => !supported.includes(n));
+      .filter(Boolean)) {
+      // `render as testingLibraryRender` — keep the alias; only the
+      // BASE name must be adapter-supported (was dropped → ReferenceError).
+      const mm = spec.match(/^([A-Za-z_$][\w$]*)(?:\s+as\s+([A-Za-z_$][\w$]*))?$/);
+      if (mm && /^(render|fireEvent|waitFor|act)$/.test(mm[1])) {
+        supported.push(mm[2] ? `${mm[1]} as ${mm[2]}` : mm[1]);
+      } else {
+        dropped.push(spec);
+      }
+    }
     return `import { ${supported.join(", ")} } from '@conformance/adapter';${
       dropped.length ? ` // unsupported: ${dropped.join(", ")}` : ""
     }`;
   });
+
+  // 4b. jest.mock hoisting. vitest only hoists a LITERAL `vi.mock(`;
+  //     `jest.mock(` (even with globalThis.jest=vi) runs AFTER imports,
+  //     so the component already bound the real export and the test's
+  //     `.mockImplementation/.mockReset` throws → the WHOLE suite zeroes
+  //     in beforeEach. Rewrite to vitest's hoisted async form; the
+  //     ubiquitous `() => ({ ...jest.requireActual(M), x: jest.fn() })`
+  //     factory → `async (importOriginal) => ({ ...(await
+  //     importOriginal()), x: jest.fn() })` (importOriginal = the real
+  //     module being mocked — exactly what requireActual returned).
+  if (/jest\.mock\(/.test(s)) {
+    s = s
+      .replace(/jest\.mock\(/g, "vi.mock(")
+      .replace(/vi\.mock\(\s*(['"][^'"]+['"])\s*,\s*\(\)\s*=>/g, "vi.mock($1, async (importOriginal) =>")
+      .replace(/\.\.\.\s*jest\.requireActual\([^)]*\)/g, "...(await importOriginal())")
+      .replace(/jest\.requireActual\(/g, "await vi.importActual(");
+    notes.push("jest.mock → hoisted vi.mock");
+  }
 
   // 5. React import → adapter shim (NOT deleted: helpers call
   //    React.createRef/forwardRef; JSX itself goes through h()).

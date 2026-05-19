@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/file-input/__tests__/
 // file-input.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, dropped named types from file-input; interaction (manual-triage tier).
+// render → adapter, styles → vendored, dropped named types from file-input; jest.mock → hoisted vi.mock; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -22,7 +22,7 @@ const __STUB: any = new Proxy(function () {}, {
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 import { React } from '@conformance/adapter';
-import { fireEvent } from '@conformance/adapter'; // unsupported: render as testingLibraryRender, screen
+import { fireEvent, render as testingLibraryRender } from '@conformance/adapter'; // unsupported: screen
 
 import { warnOnce } from '@cloudscape-design/component-toolkit/internal';
 
@@ -31,12 +31,12 @@ import InternalFileInput from '@components/FileInput.pui';
 import { createWrapper } from '@conformance/adapter';
 import { FileInputWrapper } from '@conformance/adapter';
 
-jest.mock('@cloudscape-design/component-toolkit/internal', () => ({
-  ...jest.requireActual('@cloudscape-design/component-toolkit/internal'),
+vi.mock('@cloudscape-design/component-toolkit/internal', async (importOriginal) => ({
+  ...(await importOriginal()),
   warnOnce: jest.fn(),
 }));
 
-jest.mock('../../../lib/components/internal/utils/date-time', () => ({
+vi.mock('../../../lib/components/internal/utils/date-time', async (importOriginal) => ({
   formatDateTime: () => '2020-06-01T00:00:00',
 }));
 

@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/slider/__tests__/
 // slider.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable ../../../lib/components/internal/generated/custom-css-properties; interaction (manual-triage tier).
+// render → adapter, styles → vendored, i18n/testing → passthrough provider; jest.mock → hoisted vi.mock; stubbed unresolvable ../../../lib/components/internal/generated/custom-css-properties; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -35,8 +35,8 @@ import { SliderWrapper } from '@conformance/adapter';
 
 import styles from '@cloudscape/slider.styles.js';
 
-jest.mock('@cloudscape-design/component-toolkit/internal', () => ({
-  ...jest.requireActual('@cloudscape-design/component-toolkit/internal'),
+vi.mock('@cloudscape-design/component-toolkit/internal', async (importOriginal) => ({
+  ...(await importOriginal()),
   warnOnce: jest.fn(),
 }));
 

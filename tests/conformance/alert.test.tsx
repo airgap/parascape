@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/alert/__tests__/
 // alert.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable ../../../lib/components/internal/analytics/selectors; stubbed unresolvable ../../../lib/components/internal/hooks/use-visual-mode; stubbed unresolvable ../../internal/generated/custom-css-properties; interaction (manual-triage tier).
+// render → adapter, styles → vendored, i18n/testing → passthrough provider; jest.mock → hoisted vi.mock; stubbed unresolvable ../../../lib/components/internal/analytics/selectors; stubbed unresolvable ../../../lib/components/internal/hooks/use-visual-mode; stubbed unresolvable ../../internal/generated/custom-css-properties; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -35,8 +35,8 @@ const customCssProps = __STUB; // stub: ../../internal/generated/custom-css-prop
 
 import styles from '@cloudscape/alert.styles.js';
 
-jest.mock('../../../lib/components/internal/hooks/use-visual-mode', () => ({
-  ...jest.requireActual('../../../lib/components/internal/hooks/use-visual-mode'),
+vi.mock('../../../lib/components/internal/hooks/use-visual-mode', async (importOriginal) => ({
+  ...(await importOriginal()),
   useVisualRefresh: jest.fn().mockReturnValue(false),
 }));
 
