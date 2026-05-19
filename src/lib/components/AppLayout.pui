@@ -1,0 +1,182 @@
+<!--
+  Parascape <AppLayout> — closed-state structural skeleton port of
+  @cloudscape-design/components/app-layout. The full visual-refresh /
+  toolbar variant + responsive mobile-bar + drawer animation +
+  ResizeObserver-driven dynamic sizing + portal split-panel + global
+  drawers / overflow-menu / runtime-context are documented-omitted —
+  the genuinely-massive interaction tail tracked under LYK-925.
+  Skeleton renders the static DOM the AppLayoutWrapper finders target:
+    <div clsx(className, styles.layout, T.root)>
+      [navigation → <aside clsx(T.navigation, !navigationOpen && T['drawer-closed'])>
+        <button T['navigation-close']>close</button>
+        {navigation}</aside>]
+      <button T['navigation-toggle']>menu</button>
+      <main styles['layout-main']>
+        [notifications → <div T.notifications>{notifications}</div>]
+        [breadcrumbs → <div T.breadcrumbs>{breadcrumbs}</div>]
+        [content → <div styles['content-wrapper']>{content}</div>]
+      </main>
+      <button T['tools-toggle']>info</button>
+      [tools → <aside clsx(T.tools, !toolsOpen && T['drawer-closed'])>
+        <button T['tools-close']>close</button>
+        {tools}</aside>]
+      [splitPanel → {splitPanel}]
+    </div>
+  AppLayoutWrapper: findNavigation/findNavigationToggle/
+  findNavigationClose/findContentRegion/findNotifications/
+  findBreadcrumbs/findTools/findToolsToggle/findToolsClose all
+  resolve. findActiveDrawer / findDrawerTriggerById / findToolbar /
+  findOverflowMenu / findSplitPanel-positioning = documented-omitted.
+  Composes parity Button✅.
+-->
+<script lang="pts">
+	import Button from './Button.pui';
+	import styles from '../cloudscape/app-layout.styles.js';
+	import testClasses from '../cloudscape/app-layout.test-classes.js';
+	import '../cloudscape/app-layout.scoped.css';
+	import '../cloudscape/app-layout.test-classes.scoped.css';
+
+	let {
+		navigation = undefined,
+		navigationOpen = true,
+		navigationHide = false,
+		navigationWidth = 280,
+		tools = undefined,
+		toolsOpen = false,
+		toolsHide = false,
+		toolsWidth = 290,
+		content = undefined,
+		children = undefined,
+		notifications = undefined,
+		stickyNotifications = false,
+		breadcrumbs = undefined,
+		contentHeader = undefined,
+		contentType = 'default',
+		disableContentPaddings = false,
+		disableContentHeaderOverlap = false,
+		disableBodyScroll = false,
+		maxContentWidth = undefined,
+		minContentWidth = 280,
+		headerSelector = '#b #h',
+		footerSelector = '#b #f',
+		ariaLabels = undefined,
+		splitPanel = undefined,
+		splitPanelOpen = false,
+		splitPanelPreferences = undefined,
+		splitPanelSize = 0,
+		onNavigationChange = undefined,
+		onToolsChange = undefined,
+		onSplitPanelToggle = undefined,
+		onSplitPanelResize = undefined,
+		onSplitPanelPreferencesChange = undefined,
+		class: extraClass = undefined,
+		...rest
+	}: {
+		navigation?: import('svelte').Snippet | string;
+		navigationOpen?: boolean;
+		navigationHide?: boolean;
+		navigationWidth?: number;
+		tools?: import('svelte').Snippet | string;
+		toolsOpen?: boolean;
+		toolsHide?: boolean;
+		toolsWidth?: number;
+		content?: import('svelte').Snippet | string;
+		children?: import('svelte').Snippet | string;
+		notifications?: import('svelte').Snippet | string;
+		stickyNotifications?: boolean;
+		breadcrumbs?: import('svelte').Snippet | string;
+		contentHeader?: import('svelte').Snippet | string;
+		contentType?: 'default' | 'form' | 'table' | 'cards' | 'wizard' | 'dashboard';
+		disableContentPaddings?: boolean;
+		disableContentHeaderOverlap?: boolean;
+		disableBodyScroll?: boolean;
+		maxContentWidth?: number;
+		minContentWidth?: number;
+		headerSelector?: string;
+		footerSelector?: string;
+		ariaLabels?: {
+			navigation?: string;
+			navigationClose?: string;
+			navigationToggle?: string;
+			tools?: string;
+			toolsClose?: string;
+			toolsToggle?: string;
+		};
+		splitPanel?: import('svelte').Snippet | string;
+		splitPanelOpen?: boolean;
+		splitPanelPreferences?: { position: 'bottom' | 'side' };
+		splitPanelSize?: number;
+		onNavigationChange?: (e: { detail: { open: boolean } }) => void;
+		onToolsChange?: (e: { detail: { open: boolean } }) => void;
+		onSplitPanelToggle?: (e: { detail: { open: boolean } }) => void;
+		onSplitPanelResize?: (e: { detail: { size: number } }) => void;
+		onSplitPanelPreferencesChange?: (e: { detail: { position: 'bottom' | 'side' } }) => void;
+		class?: string;
+		[k: string]: unknown;
+	} = $props();
+
+	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
+	const S = styles as Record<string, string>;
+	const T = testClasses as Record<string, string>;
+	const snip = (v: unknown) => typeof v === 'function';
+	const has = (v: unknown) => v !== null && v !== undefined;
+	const mainContent = $derived(content ?? children);
+</script>
+
+<div class={cx(extraClass, S.layout, T.root)} {...rest}>
+	{#if !navigationHide && has(navigation)}<aside
+			class={cx(T.navigation, !navigationOpen && T['drawer-closed'])}
+			aria-label={ariaLabels?.navigation}
+			><Button
+				class={T['navigation-close']}
+				variant="icon"
+				iconName="close"
+				formAction="none"
+				ariaLabel={ariaLabels?.navigationClose}
+				onClick={() => onNavigationChange?.({ detail: { open: false } })}
+			/>{#if snip(navigation)}{@render (navigation as import('svelte').Snippet)()}{:else}{navigation}{/if}</aside
+		>{/if}
+	{#if !navigationHide}<Button
+			class={T['navigation-toggle']}
+			variant="icon"
+			iconName="menu"
+			formAction="none"
+			ariaLabel={ariaLabels?.navigationToggle}
+			onClick={() => onNavigationChange?.({ detail: { open: !navigationOpen } })}
+		/>{/if}
+	<main class={S['layout-main']}>
+		{#if has(notifications)}<div class={T.notifications}
+				>{#if snip(notifications)}{@render (notifications as import('svelte').Snippet)()}{:else}{notifications}{/if}</div
+			>{/if}
+		{#if has(breadcrumbs)}<div class={T.breadcrumbs}
+				>{#if snip(breadcrumbs)}{@render (breadcrumbs as import('svelte').Snippet)()}{:else}{breadcrumbs}{/if}</div
+			>{/if}
+		{#if has(contentHeader)}<div class={S['content-header-wrapper']}
+				>{#if snip(contentHeader)}{@render (contentHeader as import('svelte').Snippet)()}{:else}{contentHeader}{/if}</div
+			>{/if}
+		{#if has(mainContent)}<div class={cx(T.content, S['content-wrapper'])}
+				>{#if snip(mainContent)}{@render (mainContent as import('svelte').Snippet)()}{:else}{mainContent}{/if}</div
+			>{/if}
+	</main>
+	{#if !toolsHide}<Button
+			class={T['tools-toggle']}
+			variant="icon"
+			iconName="status-info"
+			formAction="none"
+			ariaLabel={ariaLabels?.toolsToggle}
+			onClick={() => onToolsChange?.({ detail: { open: !toolsOpen } })}
+		/>{/if}
+	{#if !toolsHide && has(tools)}<aside
+			class={cx(T.tools, !toolsOpen && T['drawer-closed'])}
+			aria-label={ariaLabels?.tools}
+			><Button
+				class={T['tools-close']}
+				variant="icon"
+				iconName="close"
+				formAction="none"
+				ariaLabel={ariaLabels?.toolsClose}
+				onClick={() => onToolsChange?.({ detail: { open: false } })}
+			/>{#if snip(tools)}{@render (tools as import('svelte').Snippet)()}{:else}{tools}{/if}</aside
+		>{/if}
+	{#if has(splitPanel)}{#if snip(splitPanel)}{@render (splitPanel as import('svelte').Snippet)()}{:else}{splitPanel}{/if}{/if}
+</div>
