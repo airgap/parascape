@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/app-layout/__tests__/
 // app-layout.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../../lib/components/internal/generated/custom-css-properties; stubbed unresolvable ../../../lib/components/internal/hooks/use-mobile; stubbed unresolvable ../../../lib/components/split-panel; stubbed unresolvable ../../../lib/components/app-layout/visual-refresh/styles.css.js; stubbed unresolvable ../../../lib/components/app-layout/visual-refresh-toolbar/skeleton/styles.css.js.
+// render → adapter, styles → vendored, stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; shimmed ../../../lib/components/internal/generated/custom-css-properties; stubbed unresolvable ../../../lib/components/internal/hooks/use-mobile; stubbed unresolvable ../../../lib/components/split-panel; stubbed unresolvable ../../../lib/components/app-layout/visual-refresh/styles.css.js; stubbed unresolvable ../../../lib/components/app-layout/visual-refresh-toolbar/skeleton/styles.css.js.
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
 // / sibling-test-helper imports. Callable, constructable (so tests can
@@ -29,7 +29,7 @@ const { clearVisualRefreshState, setGlobalFlag } = __STUB; // stub: @cloudscape-
 import { ComponentWrapper } from '@cloudscape-design/test-utils-core/dom';
 
 import AppLayout from '@components/AppLayout.pui';
-const customCssProps = __STUB; // stub: ../../../lib/components/internal/generated/custom-css-properties
+const customCssProps = {"contentLayoutMaxContentWidth":"--awsui-content-layout-max-content-width-6b9ypa","maxContentWidth":"--awsui-max-content-width-6b9ypa","minContentWidth":"--awsui-min-content-width-6b9ypa","defaultMaxContentWidth":"--awsui-default-max-content-width-6b9ypa","defaultMinContentWidth":"--awsui-default-min-content-width-6b9ypa"}; // shim: ../../../lib/components/internal/generated/custom-css-properties
 const { forceMobileModeSymbol } = __STUB; // stub: ../../../lib/components/internal/hooks/use-mobile
 const { SplitPanelProps } = __STUB; // stub: ../../../lib/components/split-panel
 import { createWrapper, AppLayoutWrapper,

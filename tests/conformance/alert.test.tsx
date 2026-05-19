@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/alert/__tests__/
 // alert.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, i18n/testing → passthrough provider; jest.mock → hoisted vi.mock; stubbed unresolvable ../../../lib/components/internal/analytics/selectors; stubbed unresolvable ../../../lib/components/internal/hooks/use-visual-mode; stubbed unresolvable ../../internal/generated/custom-css-properties; interaction (manual-triage tier).
+// render → adapter, styles → vendored, i18n/testing → passthrough provider; jest.mock → hoisted vi.mock; stubbed unresolvable ../../../lib/components/internal/analytics/selectors; stubbed unresolvable ../../../lib/components/internal/hooks/use-visual-mode; shimmed ../../internal/generated/custom-css-properties; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -31,7 +31,7 @@ const TestI18nProvider = (({ children }: any) => children) as any;
 const { DATA_ATTR_ANALYTICS_ALERT } = __STUB; // stub: ../../../lib/components/internal/analytics/selectors
 const { useVisualRefresh } = __STUB; // stub: ../../../lib/components/internal/hooks/use-visual-mode
 import { createWrapper } from '@conformance/adapter';
-const customCssProps = __STUB; // stub: ../../internal/generated/custom-css-properties
+const customCssProps = {"contentLayoutMaxContentWidth":"--awsui-content-layout-max-content-width-6b9ypa","maxContentWidth":"--awsui-max-content-width-6b9ypa","minContentWidth":"--awsui-min-content-width-6b9ypa","defaultMaxContentWidth":"--awsui-default-max-content-width-6b9ypa","defaultMinContentWidth":"--awsui-default-min-content-width-6b9ypa"}; // shim: ../../internal/generated/custom-css-properties
 
 import styles from '@cloudscape/alert.styles.js';
 

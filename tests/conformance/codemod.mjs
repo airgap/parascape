@@ -425,8 +425,46 @@ function adapt(src, Pascal, kebab) {
   //     fake-pass, never crash, never block the other tests).
   const unresolvable = p =>
     /^\.{1,2}\//.test(p) || /\/lib\/components(\/|['"]|$)/.test(p) || /\/internal\//.test(p) || p === "mockdate";
+  // 5c. Pre-resolution shim for a small set of stable Cloudscape-internal
+  //     paths that ship literal-only constants. The codemod's residual
+  //     __STUB pass otherwise blanks these, which breaks .not.toHaveClass
+  //     and style.getPropertyValue checks across many suites. Each entry
+  //     here is a verbatim copy of the upstream literal (no behavior),
+  //     so the rewrite stays mechanical — no fake-pass risk.
+  const SHIM = {
+    "content-header-utils": "{ highContrastHeaderClassName: 'awsui-context-content-header' }",
+    "custom-css-properties": JSON.stringify({
+      contentLayoutMaxContentWidth: "--awsui-content-layout-max-content-width-6b9ypa",
+      maxContentWidth: "--awsui-max-content-width-6b9ypa",
+      minContentWidth: "--awsui-min-content-width-6b9ypa",
+      defaultMaxContentWidth: "--awsui-default-max-content-width-6b9ypa",
+      defaultMinContentWidth: "--awsui-default-min-content-width-6b9ypa",
+    }),
+  };
+  const shimFor = p => {
+    if (/content-header-utils(\b|$|['"]|\/)/.test(p)) return SHIM["content-header-utils"];
+    if (/custom-css-properties(\b|$|['"]|\/)/.test(p)) return SHIM["custom-css-properties"];
+    return null;
+  };
   s = s.replace(/import\s+(type\s+)?([^;'"]+?)\s+from\s+['"]([^'"]+)['"];?/g, (full, typeOnly, clause, p) => {
     if (!unresolvable(p)) return full;
+    const shimSrc = shimFor(p);
+    if (shimSrc && !typeOnly) {
+      const c = clause.trim();
+      const m = c.match(/^([A-Za-z_$][\w$]*)?\s*,?\s*(\{[^}]*\})?$/);
+      const out = [];
+      if (m) {
+        if (m[1]) out.push(`const ${m[1]} = ${shimSrc};`);
+        if (m[2]) {
+          const names = m[2].replace(/[{}]/g, "").trim();
+          if (names) out.push(`const { ${names.replace(/\s+as\s+/g, ": ")} } = ${shimSrc};`);
+        }
+        if (out.length) {
+          notes.push(`shimmed ${p}`);
+          return `${out.join(" ")} // shim: ${p}`;
+        }
+      }
+    }
     notes.push(`stubbed unresolvable ${p}`);
     if (typeOnly) return `/* stub type import: ${p} */`;
     const out = [];

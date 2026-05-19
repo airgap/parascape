@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/button-group/__tests__/
 // button-group.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../internal/generated/custom-css-properties.
+// render → adapter, styles → vendored, shimmed ../../internal/generated/custom-css-properties.
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
 // / sibling-test-helper imports. Callable, constructable (so tests can
@@ -25,7 +25,7 @@ import { render } from '@conformance/adapter';
 
 import ButtonGroup from '@components/ButtonGroup.pui';
 import { createWrapper } from '@conformance/adapter';
-const customCssProps = __STUB; // stub: ../../internal/generated/custom-css-properties
+const customCssProps = {"contentLayoutMaxContentWidth":"--awsui-content-layout-max-content-width-6b9ypa","maxContentWidth":"--awsui-max-content-width-6b9ypa","minContentWidth":"--awsui-min-content-width-6b9ypa","defaultMaxContentWidth":"--awsui-default-max-content-width-6b9ypa","defaultMinContentWidth":"--awsui-default-min-content-width-6b9ypa"}; // shim: ../../internal/generated/custom-css-properties
 
 function renderButtonGroup(props: any) {
   const renderResult = render(<ButtonGroup {...props} />);

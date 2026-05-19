@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/content-layout/__tests__/
 // content-layout.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, jest.mock → hoisted vi.mock; stubbed unresolvable ../../../lib/components/internal/generated/custom-css-properties; stubbed unresolvable ../../../lib/components/internal/hooks/use-visual-mode; stubbed unresolvable ../../../lib/components/internal/utils/content-header-utils; interaction (manual-triage tier).
+// render → adapter, styles → vendored, jest.mock → hoisted vi.mock; shimmed ../../../lib/components/internal/generated/custom-css-properties; stubbed unresolvable ../../../lib/components/internal/hooks/use-visual-mode; shimmed ../../../lib/components/internal/utils/content-header-utils; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -25,9 +25,9 @@ import { React } from '@conformance/adapter';
 import { render } from '@conformance/adapter';
 
 import ContentLayout from '@components/ContentLayout.pui';
-const customCssProps = __STUB; // stub: ../../../lib/components/internal/generated/custom-css-properties
+const customCssProps = {"contentLayoutMaxContentWidth":"--awsui-content-layout-max-content-width-6b9ypa","maxContentWidth":"--awsui-max-content-width-6b9ypa","minContentWidth":"--awsui-min-content-width-6b9ypa","defaultMaxContentWidth":"--awsui-default-max-content-width-6b9ypa","defaultMinContentWidth":"--awsui-default-min-content-width-6b9ypa"}; // shim: ../../../lib/components/internal/generated/custom-css-properties
 const { useVisualRefresh } = __STUB; // stub: ../../../lib/components/internal/hooks/use-visual-mode
-const { highContrastHeaderClassName } = __STUB; // stub: ../../../lib/components/internal/utils/content-header-utils
+const { highContrastHeaderClassName } = { highContrastHeaderClassName: 'awsui-context-content-header' }; // shim: ../../../lib/components/internal/utils/content-header-utils
 import { createWrapper } from '@conformance/adapter';
 
 import styles from '@cloudscape/content-layout.styles.js';

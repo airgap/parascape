@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/button/__tests__/
 // button.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../__tests__/target-rel-test-helper; stubbed unresolvable ../../internal/generated/custom-css-properties; interaction (manual-triage tier).
+// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../__tests__/target-rel-test-helper; shimmed ../../internal/generated/custom-css-properties; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -33,7 +33,7 @@ import InternalButton from '@components/Button.pui';
 const TestI18nProvider = (({ children }: any) => children) as any;
 import { createWrapper, ButtonWrapper } from '@conformance/adapter';
 const { buttonRelExpectations, buttonTargetExpectations } = __STUB; // stub: ../../__tests__/target-rel-test-helper
-const customCssProps = __STUB; // stub: ../../internal/generated/custom-css-properties
+const customCssProps = {"contentLayoutMaxContentWidth":"--awsui-content-layout-max-content-width-6b9ypa","maxContentWidth":"--awsui-max-content-width-6b9ypa","minContentWidth":"--awsui-min-content-width-6b9ypa","defaultMaxContentWidth":"--awsui-default-max-content-width-6b9ypa","defaultMinContentWidth":"--awsui-default-min-content-width-6b9ypa"}; // shim: ../../internal/generated/custom-css-properties
 
 import styles from '@cloudscape/button.styles.js';
 import testUtilStyles from '@cloudscape/button.test-classes.js';

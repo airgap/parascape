@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/link/__tests__/
 // link.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../../lib/components/internal/analytics; stubbed unresolvable ../../../lib/components/internal/analytics/components/analytics-funnel; stubbed unresolvable ../../__tests__/target-rel-test-helper; stubbed unresolvable ../../internal/analytics/__tests__/mocks; stubbed unresolvable ../../internal/generated/custom-css-properties; firstChild→firstElementChild; interaction (manual-triage tier).
+// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../../lib/components/internal/analytics; stubbed unresolvable ../../../lib/components/internal/analytics/components/analytics-funnel; stubbed unresolvable ../../__tests__/target-rel-test-helper; stubbed unresolvable ../../internal/analytics/__tests__/mocks; shimmed ../../internal/generated/custom-css-properties; firstChild→firstElementChild; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -37,7 +37,7 @@ import Link from '@components/Link.pui';
 import { createWrapper } from '@conformance/adapter';
 const { linkRelExpectations, linkTargetExpectations } = __STUB; // stub: ../../__tests__/target-rel-test-helper
 const { mockedFunnelInteractionId, mockFunnelMetrics } = __STUB; // stub: ../../internal/analytics/__tests__/mocks
-const customCssProps = __STUB; // stub: ../../internal/generated/custom-css-properties
+const customCssProps = {"contentLayoutMaxContentWidth":"--awsui-content-layout-max-content-width-6b9ypa","maxContentWidth":"--awsui-max-content-width-6b9ypa","minContentWidth":"--awsui-min-content-width-6b9ypa","defaultMaxContentWidth":"--awsui-default-max-content-width-6b9ypa","defaultMinContentWidth":"--awsui-default-min-content-width-6b9ypa"}; // shim: ../../internal/generated/custom-css-properties
 
 import styles from '@cloudscape/link.styles.js';
 

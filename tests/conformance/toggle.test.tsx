@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/toggle/__tests__/
 // toggle.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../checkbox/__tests__/common-tests; stubbed unresolvable ../../internal/generated/custom-css-properties; interaction (manual-triage tier).
+// render → adapter, styles → vendored, stubbed unresolvable ../../checkbox/__tests__/common-tests; shimmed ../../internal/generated/custom-css-properties; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -29,7 +29,7 @@ import FormField from '@components/FormField.pui';
 import { createWrapper, ToggleWrapper } from '@conformance/adapter';
 import Toggle from '@components/Toggle.pui';
 const { createCommonTests } = __STUB; // stub: ../../checkbox/__tests__/common-tests
-const customCssProps = __STUB; // stub: ../../internal/generated/custom-css-properties
+const customCssProps = {"contentLayoutMaxContentWidth":"--awsui-content-layout-max-content-width-6b9ypa","maxContentWidth":"--awsui-max-content-width-6b9ypa","minContentWidth":"--awsui-min-content-width-6b9ypa","defaultMaxContentWidth":"--awsui-default-max-content-width-6b9ypa","defaultMinContentWidth":"--awsui-default-min-content-width-6b9ypa"}; // shim: ../../internal/generated/custom-css-properties
 
 import abstractSwitchStyles from '@cloudscape/abstract-switch.styles.js';
 import styles from '@cloudscape/toggle.styles.js';
