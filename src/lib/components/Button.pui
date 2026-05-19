@@ -18,8 +18,17 @@
 <script lang="pts">
 	import Icon from './Icon.pui';
 	import Spinner from './Spinner.pui';
+	import LiveRegion from './LiveRegion.pui';
 	import styles from '../cloudscape/button.styles.js';
+	// test-classes: external-icon (findByClassName target) +
+	// disabled-reason-tooltip (tooltip omitted, key kept for parity).
+	import testClasses from '../cloudscape/button.test-classes.js';
 	import '../cloudscape/button.scoped.css';
+
+	// useUniqueId — stable per instance (useHiddenDescription needs a
+	// deterministic id to wire aria-describedby ↔ the hidden span).
+	let __uidN = 0;
+	const useUniqueId = () => `parascape-button-${(__uidN += 1)}`;
 
 	let {
 		children = undefined,
@@ -41,6 +50,8 @@
 		download = undefined,
 		formAction = 'submit',
 		ariaLabel = undefined,
+		ariaDescribedby = undefined,
+		i18nStrings = undefined,
 		fullWidth = false,
 		onClick = undefined,
 		class: extraClass = undefined,
@@ -65,6 +76,8 @@
 		download?: string;
 		formAction?: 'submit' | 'none';
 		ariaLabel?: string;
+		ariaDescribedby?: string;
+		i18nStrings?: { externalIconAriaLabel?: string };
 		fullWidth?: boolean;
 		onClick?: (e: MouseEvent) => void;
 		class?: string;
@@ -81,6 +94,11 @@
 		(variant === 'normal' || variant === 'primary' || variant === 'icon') &&
 		!!disabledReason &&
 		disabled;
+	// useHiddenDescription(disabledReason): a hidden <span id> holding
+	// the reason + aria-describedby on the control pointing at it.
+	const hiddenDescId = useUniqueId();
+	derived describedBy = isDisabledWithReason ? hiddenDescId : ariaDescribedby;
+	const T = testClasses as Record<string, string>;
 	derived hasIcon = !!(iconName || iconUrl || iconSvg);
 	// icon-helper.js: iconSize = variant === 'modal-dismiss' ? 'medium' : 'normal'
 	derived iconSize = variant === 'modal-dismiss' ? 'medium' : 'normal';
@@ -118,6 +136,7 @@
 		{rel}
 		{download}
 		aria-label={ariaLabel}
+		aria-describedby={describedBy}
 		aria-disabled={isNotInteractive ? 'true' : undefined}
 		onclick={onClick}
 		{...rest}
@@ -131,14 +150,18 @@
 				size={iconSize}
 			/>{/if}{#if shouldHaveContent}<span class={S.content}
 			>{#if typeof children === 'string'}{children}{:else}{@render children?.()}{/if}</span
-			>{#if external}&nbsp;<Icon name="external" />{/if}{/if}{#if hasIcon && effAlign === 'right'}<Icon
+			>{#if external}{' '}<Icon
+						name="external"
+						class={T['external-icon']}
+						ariaLabel={i18nStrings?.externalIconAriaLabel}
+					/>{/if}{/if}{#if hasIcon && effAlign === 'right'}<Icon
 				class={cx(S.icon, S['icon-right'])}
 				name={iconName}
 				url={iconUrl}
 				svg={iconSvg}
 				alt={iconAlt}
 				size={iconSize}
-			/>{/if}
+			/>{/if}{#if isDisabledWithReason}<span id={hiddenDescId} hidden>{disabledReason}</span>{/if}
 	</a>
 {:else}
 	<button
@@ -147,6 +170,7 @@
 		disabled={disabled && !loading}
 		aria-disabled={isNotInteractive ? 'true' : undefined}
 		aria-label={ariaLabel}
+		aria-describedby={describedBy}
 		onclick={onClick}
 		{...rest}
 	>
@@ -159,13 +183,19 @@
 				size={iconSize}
 			/>{/if}{#if shouldHaveContent}<span class={S.content}
 			>{#if typeof children === 'string'}{children}{:else}{@render children?.()}{/if}</span
-			>{#if external}&nbsp;<Icon name="external" />{/if}{/if}{#if hasIcon && effAlign === 'right'}<Icon
+			>{#if external}{' '}<Icon
+						name="external"
+						class={T['external-icon']}
+						ariaLabel={i18nStrings?.externalIconAriaLabel}
+					/>{/if}{/if}{#if hasIcon && effAlign === 'right'}<Icon
 				class={cx(S.icon, S['icon-right'])}
 				name={iconName}
 				url={iconUrl}
 				svg={iconSvg}
 				alt={iconAlt}
 				size={iconSize}
-			/>{/if}
+			/>{/if}{#if isDisabledWithReason}<span id={hiddenDescId} hidden>{disabledReason}</span>{/if}
 	</button>
 {/if}
+
+{#if loading && loadingText}<LiveRegion tagName="span" hidden>{loadingText}</LiveRegion>{/if}
