@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/multiselect/__tests__/
 // multiselect.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, i18n/testing → passthrough provider; jest.mock → hoisted vi.mock; stubbed unresolvable ../../../lib/components/internal/utils/get-dropdown-min-width; stubbed unresolvable ../../../lib/components/select/parts/styles.css.js; stubbed unresolvable ../../../lib/components/token-group/styles.css.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, i18n/testing → passthrough provider; jest.mock → hoisted vi.mock; stubbed unresolvable ../../../lib/components/internal/utils/get-dropdown-min-width; stubbed unresolvable ../../../lib/components/select/parts/styles.css.js; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -35,7 +35,7 @@ import Multiselect from '@components/Multiselect.pui';
 import { createWrapper } from '@conformance/adapter';
 
 const selectPartsStyles = __STUB; // stub: ../../../lib/components/select/parts/styles.css.js
-const tokenGroupStyles = __STUB; // stub: ../../../lib/components/token-group/styles.css.js
+import tokenGroupStyles from '@cloudscape/token-group.styles.js';
 import statusIconStyles from '@cloudscape/status-indicator.styles.js';
 
 const defaultOptions: any.Options = [
