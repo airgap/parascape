@@ -9,16 +9,23 @@
 -->
 <script lang="pts">
 	import MixedLineBarChart from './chart/MixedLineBarChart.pui';
+	// line-chart/index.js: className = clsx(baseProps.className,
+	// styles.root) — the LineChartWrapper root hook.
+	import styles from '../cloudscape/line-chart.styles.js';
 
 	let {
 		series = [],
 		xScaleType = 'linear',
+		class: extraClass = undefined,
 		...rest
 	}: {
 		series?: any[];
 		xScaleType?: any;
+		class?: string;
 		[k: string]: unknown;
 	} = $props();
+	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
+	const S = styles as Record<string, string>;
 </script>
 
-<MixedLineBarChart {series} {xScaleType} {...rest} />
+<MixedLineBarChart {series} {xScaleType} class={cx(extraClass, S.root)} {...rest} />
