@@ -77,11 +77,14 @@ function adapt(src, Pascal, kebab) {
     return null;
   };
 
-  // 2. ANY test-utils/dom import (default `createWrapper` and/or named
-  //    {XxxWrapper, ElementWrapper}) — incl. sub-paths (dom/box,
-  //    dom/tiles/tile) → adapter (re-exports them all).
+  // 2. ANY test-utils/dom import — incl. sub-paths (dom/box,
+  //    dom/tiles/tile). Default may be createWrapper OR a specific
+  //    wrapper (e.g. `import BoxWrapper from '.../dom/box'`); the
+  //    Cloudscape test-utils/dom INDEX re-exports every wrapper by
+  //    name and the adapter `export *`s it, so route the default
+  //    identifier as a NAMED import from the adapter (not dropped).
   s = s.replace(
-    /import\s+(createWrapper)?\s*(?:,\s*)?(\{[^}]*\})?\s*from\s+['"][^'"]*test-utils\/dom(?:\/[\w-]+)*['"];?/g,
+    /import\s+([A-Za-z_$][\w$]*)?\s*(?:,\s*)?(\{[^}]*\})?\s*from\s+['"][^'"]*test-utils\/dom(?:\/[\w-]+)*['"];?/g,
     (full, def, named) => {
       const parts = [];
       if (def) parts.push(def);

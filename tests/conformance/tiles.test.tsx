@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/tiles/__tests__/
 // tiles.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/test-utils/dom/tiles/tile; interaction (manual-triage tier).
+// render → adapter, styles → vendored, interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -25,7 +25,7 @@ import { React } from '@conformance/adapter';
 import { act, render } from '@conformance/adapter';
 
 import { createWrapper, ElementWrapper, TilesWrapper } from '@conformance/adapter';
-const TileWrapper = __STUB; // stub: ../../../lib/components/test-utils/dom/tiles/tile
+import { TileWrapper } from '@conformance/adapter';
 import Tiles from '@components/Tiles.pui';
 
 import styles from '@cloudscape/tiles.styles.js';

@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/wizard/__tests__/
 // wizard.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable ../../../lib/components/internal/hooks/container-queries; stubbed unresolvable ../../../lib/components/test-utils/dom/wizard; stubbed unresolvable ../../../lib/components/wizard/wizard-step-list; stubbed unresolvable ./common; stubbed unresolvable ../../../lib/components/live-region/test-classes/styles.css.js; stubbed unresolvable ../../../lib/components/wizard/styles.selectors.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, i18n/testing → passthrough provider; stubbed unresolvable ../../../lib/components/internal/hooks/container-queries; stubbed unresolvable ../../../lib/components/wizard/wizard-step-list; stubbed unresolvable ./common; stubbed unresolvable ../../../lib/components/live-region/test-classes/styles.css.js; stubbed unresolvable ../../../lib/components/wizard/styles.selectors.js; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -28,7 +28,7 @@ import Button from '@components/Button.pui';
 const TestI18nProvider = (({ children }: any) => children) as any;
 const { useContainerBreakpoints } = __STUB; // stub: ../../../lib/components/internal/hooks/container-queries
 import { createWrapper } from '@conformance/adapter';
-const WizardWrapper = __STUB; // stub: ../../../lib/components/test-utils/dom/wizard
+import { WizardWrapper } from '@conformance/adapter';
 import Wizard from '@components/Wizard.pui';
 const WizardStepList = __STUB; const { handleStepNavigation,
   StepStatusValues, } = __STUB; // stub: ../../../lib/components/wizard/wizard-step-list

@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/radio-group/__tests__/
 // radio-group.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../../lib/components/test-utils/dom/radio-group/radio-button; stubbed unresolvable ../../internal/generated/custom-css-properties; stubbed unresolvable ../../../lib/components/internal/components/abstract-switch/styles.css.js; stubbed unresolvable ../../../lib/components/internal/components/radio-button/styles.selectors.js; interaction (manual-triage tier).
+// render → adapter, styles → vendored, stubbed unresolvable @cloudscape-design/component-toolkit/internal/testing; stubbed unresolvable ../../internal/generated/custom-css-properties; stubbed unresolvable ../../../lib/components/internal/components/abstract-switch/styles.css.js; stubbed unresolvable ../../../lib/components/internal/components/radio-button/styles.selectors.js; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -30,7 +30,7 @@ const { setTestSingleTabStopNavigationTarget,
 import '../../__a11y__/to-validate-a11y';
 import RadioGroup from '@components/RadioGroup.pui';
 import { createWrapper } from '@conformance/adapter';
-const RadioButtonWrapper = __STUB; // stub: ../../../lib/components/test-utils/dom/radio-group/radio-button
+import { RadioButtonWrapper } from '@conformance/adapter';
 const customCssProps = __STUB; // stub: ../../internal/generated/custom-css-properties
 
 const abstractSwitchStyles = __STUB; // stub: ../../../lib/components/internal/components/abstract-switch/styles.css.js

@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/file-input/__tests__/
 // file-input.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, dropped named types from file-input; stubbed unresolvable ../../../lib/components/test-utils/dom/file-input; interaction (manual-triage tier).
+// render → adapter, styles → vendored, dropped named types from file-input; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -29,7 +29,7 @@ import { warnOnce } from '@cloudscape-design/component-toolkit/internal';
 import '../../__a11y__/to-validate-a11y';
 import InternalFileInput from '@components/FileInput.pui';
 import { createWrapper } from '@conformance/adapter';
-const FileInputWrapper = __STUB; // stub: ../../../lib/components/test-utils/dom/file-input
+import { FileInputWrapper } from '@conformance/adapter';
 
 jest.mock('@cloudscape-design/component-toolkit/internal', () => ({
   ...jest.requireActual('@cloudscape-design/component-toolkit/internal'),

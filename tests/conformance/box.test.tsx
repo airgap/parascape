@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/box/__tests__/
 // box.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/test-utils/dom/box; firstChild→firstElementChild.
+// render → adapter, styles → vendored, firstChild→firstElementChild.
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
 // / sibling-test-helper imports. Callable, constructable (so tests can
@@ -24,7 +24,7 @@ import { React } from '@conformance/adapter';
 import { render } from '@conformance/adapter';
 
 import Box from '@components/Box.pui';
-const BoxWrapper = __STUB; // stub: ../../../lib/components/test-utils/dom/box
+import { BoxWrapper } from '@conformance/adapter';
 
 import styles from '@cloudscape/box.styles.js';
 
