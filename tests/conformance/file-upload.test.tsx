@@ -1,0 +1,417 @@
+// AUTO-ADAPTED from cloudscape-design/components src/file-upload/__tests__/
+// file-upload.test.tsx via tests/conformance/codemod.mjs.
+// Mechanical rewrites only: component import → .pui, createWrapper +
+// render → adapter, styles → vendored, i18n/testing → passthrough provider; jest.mock → hoisted vi.mock; interaction (manual-triage tier).
+// JSX is compiled to the adapter h() descriptor by vitest esbuild.
+// ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
+// __STUB: honest recursive no-op for unresolvable Cloudscape-internal
+// / sibling-test-helper imports. Callable, constructable (so tests can
+// extend it), empty-iterable, deep-property-safe — never throws at
+// collection, supplies NO fake data (every access is the stub itself,
+// so dependent value/DOM assertions fail honestly, never fake-pass).
+const __STUB: any = new Proxy(function () {}, {
+	get: (_t, k) =>
+		k === Symbol.iterator
+			? function* () {}
+			: k === Symbol.toPrimitive || k === 'toString' || k === 'valueOf'
+				? () => ''
+				: __STUB,
+	apply: () => __STUB,
+	construct: () => ({}),
+});
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+import { React } from '@conformance/adapter';
+import { fireEvent, render as testingLibraryRender, screen } from '@conformance/adapter';
+
+import { warnOnce } from '@cloudscape-design/component-toolkit/internal';
+
+import '../../__a11y__/to-validate-a11y';
+import FileUpload from '@components/FileUpload.pui';
+const TestI18nProvider = (({ children }: any) => children) as any;
+import { createWrapper } from '@conformance/adapter';
+import { FileDropzoneWrapper } from '@conformance/adapter';
+
+vi.mock('@cloudscape-design/component-toolkit/internal', async (importOriginal) => ({
+  ...(await importOriginal()),
+  warnOnce: jest.fn(),
+}));
+
+vi.mock('../../../lib/components/internal/utils/date-time', async (importOriginal) => ({
+  formatDateTime: () => '2020-06-01T00:00:00',
+}));
+
+const onChange = jest.fn();
+
+afterEach(() => {
+  (warnOnce as jest.Mock).mockReset();
+  onChange.mockReset();
+});
+
+const defaultProps: any = {
+  value: [],
+  onChange,
+  i18nStrings: {
+    uploadButtonText: multiple => (multiple ? 'Choose files' : 'Choose file'),
+    dropzoneText: multiple => (multiple ? 'Drag files to upload' : 'Drag file to upload'),
+    removeFileAriaLabel: fileIndex => `Remove file ${fileIndex + 1}`,
+    errorIconAriaLabel: 'Error',
+    warningIconAriaLabel: 'Warning',
+    limitShowFewer: 'Show fewer files',
+    limitShowMore: 'Show more files',
+  },
+};
+
+const file1 = new File([new Blob(['Test content 1'], { type: 'text/plain' })], 'test-file-1.txt', {
+  type: 'text/plain',
+  lastModified: 1590962400000,
+});
+const file2 = new File([new Blob(['Test content 2'], { type: 'text/plain' })], 'test-file-2.txt', {
+  type: 'image/png',
+  lastModified: 1590962400000,
+});
+
+function render(props: Partial<any>) {
+  const renderResult = testingLibraryRender(
+    <div>
+      <FileUpload {...{ ...defaultProps, ...props }} />
+      <div id="test-label">Test label</div>
+    </div>
+  );
+  return createWrapper(renderResult.container).findFileUpload()!;
+}
+
+function renderStateful(props: Partial<any> = {}) {
+  const { container } = testingLibraryRender(<StatefulFileUpload {...props} />);
+  return createWrapper(container).findFileUpload()!;
+}
+
+function StatefulFileUpload({ value: initialValue = [], ...rest }: Partial<any>) {
+  const [value, setValue] = useState(initialValue);
+  return <FileUpload {...defaultProps} {...rest} value={value} onChange={event => setValue(event.detail.value)} />;
+}
+
+function createDragEvent(type: string, files = [file1, file2]) {
+  const event = new CustomEvent(type, { bubbles: true });
+  (event as any).dataTransfer = {
+    types: ['Files'],
+    files: type === 'drop' ? files : [],
+    items: files.map(() => ({ kind: 'file' })),
+  };
+  return event;
+}
+
+describe('FileUpload input', () => {
+  test('`multiple` property is assigned', () => {
+    expect(render({ multiple: false }).findNativeInput().getElement()).not.toHaveAttribute('multiple');
+    expect(render({ multiple: true }).findNativeInput().getElement()).toHaveAttribute('multiple');
+  });
+
+  test('`accept` property is assigned', () => {
+    expect(render({ accept: 'custom' }).findNativeInput().getElement()).toHaveAttribute('accept', 'custom');
+  });
+
+  test('`uploadButtonText` property is assigned', () => {
+    expect(render({}).findUploadButton().getElement()).toHaveTextContent('Choose file');
+    expect(render({ multiple: true }).findUploadButton().getElement()).toHaveTextContent('Choose files');
+  });
+
+  test('`ariaRequired` property is assigned', () => {
+    expect(render({ ariaRequired: false }).findNativeInput().getElement()).not.toHaveAttribute('aria-required');
+    expect(render({ ariaRequired: true }).findNativeInput().getElement()).toHaveAttribute('aria-required');
+  });
+
+  test('`ariaLabelledby` property is assigned', () => {
+    render({ ariaLabelledby: 'test-label' });
+    expect(screen.getByLabelText('Test label')).toBeDefined();
+  });
+
+  test('`ariaLabelledby` is joined with `uploadButtonText`', () => {
+    const wrapper = render({ ariaLabelledby: 'test-label' });
+    expect(wrapper.findNativeInput().getElement()).toHaveAccessibleName('Test label Choose file');
+  });
+
+  test('`ariaDescribedby` property is assigned', () => {
+    const uploadButton = render({ ariaDescribedby: 'test-label' }).findNativeInput().getElement();
+    expect(uploadButton).toHaveAccessibleDescription('Test label');
+  });
+
+  test('`invalid` property is assigned', () => {
+    expect(render({ invalid: false }).findNativeInput().getElement()).not.toBeInvalid();
+    expect(render({ invalid: true }).findNativeInput().getElement()).toBeInvalid();
+  });
+
+  test('dev warning is issued when `onChange` handler is missing', () => {
+    render({ onChange: undefined });
+
+    expect(warnOnce).toHaveBeenCalledTimes(1);
+    expect(warnOnce).toHaveBeenCalledWith(
+      'FileUpload',
+      'You provided `value` prop without an `onChange` handler. This will render a read-only component. If the component should be mutable, set an `onChange` handler.'
+    );
+  });
+
+  test('error text is set and associated with the upload button', () => {
+    const wrapper = render({ errorText: 'Error text' });
+    expect(wrapper.findError()!.getElement()).toHaveTextContent('Error text');
+    expect(wrapper.findNativeInput().getElement()).toHaveAccessibleDescription('Error text');
+  });
+
+  test('warning text is set and associated with the upload button', () => {
+    const wrapper = render({ warningText: 'Warning text' });
+    expect(wrapper.findWarning()!.getElement()).toHaveTextContent('Warning text');
+    expect(wrapper.findNativeInput().getElement()).toHaveAccessibleDescription('Warning text');
+  });
+
+  test('constraint text is set and associated with the upload button', () => {
+    const wrapper = render({ constraintText: 'Constraint text' });
+    expect(wrapper.findConstraint()!.getElement()).toHaveTextContent('Constraint text');
+    expect(wrapper.findNativeInput().getElement()).toHaveAccessibleDescription('Constraint text');
+  });
+
+  test('error and constraint text are both associated with the upload button', () => {
+    const wrapper = render({ constraintText: 'Constraint text', errorText: 'Error text' });
+    expect(wrapper.findNativeInput().getElement()).toHaveAccessibleDescription('Error text Constraint text');
+  });
+
+  test('warning and constraint text are both associated with the upload button', () => {
+    const wrapper = render({ constraintText: 'Constraint text', warningText: 'Warning text' });
+    expect(wrapper.findNativeInput().getElement()).toHaveAccessibleDescription('Warning text Constraint text');
+  });
+
+  test('when both errorText and warningText exist, errorText takes precedence and a dev warning is issued', () => {
+    const wrapper = render({ errorText: 'Error text', warningText: 'Warning text' });
+
+    expect(wrapper.findError()!.getElement()).toHaveTextContent('Error text');
+    expect(wrapper.findWarning()).toBeNull();
+
+    expect(warnOnce).toHaveBeenCalledTimes(1);
+    expect(warnOnce).toHaveBeenCalledWith(
+      'FileUpload',
+      'Both `errorText` and `warningText` exist. `warningText` will not be shown.'
+    );
+  });
+
+  test('file upload button can be assigned aria-invalid', () => {
+    const wrapper = render({ invalid: true });
+    expect(wrapper.findNativeInput().getElement()).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  test('file upload button is assigned aria-invalid when error text is present', () => {
+    const wrapper = render({ invalid: false, errorText: 'Error text' });
+    expect(wrapper.findNativeInput().getElement()).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  test('file upload button is assigned aria-invalid when at least one file error is present', () => {
+    const wrapperEmptyErrors = render({ invalid: false, fileErrors: [null, null, null] });
+    expect(wrapperEmptyErrors.findNativeInput().getElement()).not.toHaveAttribute('aria-invalid');
+
+    const wrapperWithFileError = render({ invalid: false, fileErrors: [null, 'File error', null] });
+    expect(wrapperWithFileError.findNativeInput().getElement()).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  test('file input fires onChange with files in details', () => {
+    const wrapper = render({ multiple: true });
+    const input = wrapper.findNativeInput().getElement();
+    Object.defineProperty(input, 'files', { value: [file1, file2] });
+    fireEvent(input, new CustomEvent('change', { bubbles: true }));
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ detail: { value: [file1, file2] } }));
+    // additional equality check, because `expect.objectContaining` above thinks file1 === file2
+    expect((onChange as jest.Mock).mock.lastCall[0].detail.value[0]).toBe(file1);
+    expect((onChange as jest.Mock).mock.lastCall[0].detail.value[1]).toBe(file2);
+  });
+
+  test('file input fires onChange with only the first file if not multiple', () => {
+    const wrapper = render({});
+    const input = wrapper.findNativeInput().getElement();
+    Object.defineProperty(input, 'files', { value: [file1, file2] });
+    fireEvent(input, new CustomEvent('change', { bubbles: true }));
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ detail: { value: [file1] } }));
+    expect((onChange as jest.Mock).mock.lastCall[0].detail.value[0]).toBe(file1);
+  });
+});
+
+describe('File upload tokens', () => {
+  test(`when multiple=true all file tokens are shown`, () => {
+    const wrapper = render({ multiple: true, value: [file1, file2] });
+
+    expect(wrapper.findFileTokens()).toHaveLength(2);
+
+    expect(wrapper.findFileTokens()[0].getElement()).toHaveTextContent('test-file-1.txt');
+    expect(wrapper.findFileToken(1)!.getElement()).toHaveTextContent('test-file-1.txt');
+
+    expect(wrapper.findFileTokens()[1].getElement()).toHaveTextContent('test-file-2.txt');
+    expect(wrapper.findFileToken(2)!.getElement()).toHaveTextContent('test-file-2.txt');
+  });
+
+  test('file errors are associated to file tokens', () => {
+    const wrapper = render({ multiple: true, value: [file1, file2], fileErrors: ['Error 1', 'Error 2'] });
+    expect(wrapper.findFileToken(1)!.getElement()).toHaveAccessibleDescription('Error 1');
+    expect(wrapper.findFileToken(2)!.getElement()).toHaveAccessibleDescription('Error 2');
+  });
+
+  test('file warnings are associated to file tokens', () => {
+    const wrapper = render({ multiple: true, value: [file1, file2], fileWarnings: ['Warning 1', 'Warning 2'] });
+    expect(wrapper.findFileToken(1)!.getElement()).toHaveAccessibleDescription('Warning 1');
+    expect(wrapper.findFileToken(2)!.getElement()).toHaveAccessibleDescription('Warning 2');
+  });
+
+  test('file error takes precedence over file warning associated to file tokens', () => {
+    const wrapper = render({
+      multiple: true,
+      value: [file1],
+      fileErrors: ['Error 1'],
+      fileWarnings: ['Warning 1'],
+    });
+    expect(wrapper.findFileToken(1)!.getElement()).toHaveAccessibleDescription('Error 1');
+    expect(wrapper.findFileToken(1)!.getElement()).not.toHaveAccessibleDescription('Warning 1');
+  });
+});
+
+describe('File upload dropzone', () => {
+  test('dropzone is rendered in component', () => {
+    const wrapper = render({ multiple: true });
+    fireEvent(document, createDragEvent('dragover'));
+    expect(wrapper.findByClassName(FileDropzoneWrapper.rootSelector)!.getElement()).toBeInTheDocument();
+  });
+});
+
+describe('Focusing behavior', () => {
+  test.each([false, true])(
+    'Focus is dispatched to the file input when the last token is removed, multiple=%s',
+    multiple => {
+      const wrapper = renderStateful({ multiple, value: [file1] });
+      wrapper.findFileToken(1)!.findRemoveButton().click();
+
+      expect(wrapper.findNativeInput().getElement()).toHaveFocus();
+    }
+  );
+});
+
+describe('i18n', () => {
+  test('supports providing custom i18n strings', () => {
+    const { container } = testingLibraryRender(
+      <TestI18nProvider
+        messages={{
+          'file-upload': {
+            'i18nStrings.removeFileAriaLabel': `Custom remove file {fileIndex}`,
+            'i18nStrings.errorIconAriaLabel': 'Custom error',
+            'i18nStrings.warningIconAriaLabel': 'Custom warning',
+            'i18nStrings.uploadButtonText':
+              '{multiple, select, true {Custom choose files} false {Custom choose file} other {}}',
+            'i18nStrings.dropzoneText':
+              '{multiple, select, true {Custom drop files} false {Custom drop file} other {}}',
+          },
+        }}
+      >
+        <FileUpload
+          value={[file1, file2]}
+          fileErrors={['File 1 error']}
+          fileWarnings={['', 'File 2 warning']}
+          onChange={onChange}
+        />
+      </TestI18nProvider>
+    );
+
+    const wrapper = createWrapper(container).findFileUpload()!;
+
+    expect(wrapper.findFileToken(1)!.findRemoveButton()!.getElement()).toHaveAccessibleName('Custom remove file 1');
+    expect(screen.getByLabelText('Custom error')).not.toBeNull();
+    expect(screen.getByLabelText('Custom warning')).not.toBeNull();
+    expect(wrapper.findUploadButton().getElement()).toHaveTextContent('Custom choose file');
+
+    fireEvent(document, createDragEvent('dragover'));
+    expect(wrapper.getElement()).toHaveTextContent('Custom drop file');
+  });
+});
+
+describe('a11y', () => {
+  test('multiple empty', async () => {
+    const wrapper = render({ multiple: true, value: [] });
+    await expect(wrapper.getElement()).toValidateA11y();
+  });
+
+  test('multiple empty w/ constraint and error', async () => {
+    const wrapper = render({ multiple: true, value: [], constraintText: 'Constraint', errorText: 'Error' });
+    await expect(wrapper.getElement()).toValidateA11y();
+  });
+
+  test('multiple empty w/ constraint and warning', async () => {
+    const wrapper = render({ multiple: true, value: [], constraintText: 'Constraint', warningText: 'Warning' });
+    await expect(wrapper.getElement()).toValidateA11y();
+  });
+
+  test('single w/o errors nor warnings', async () => {
+    const wrapper = render({
+      value: [file1],
+      showFileSize: true,
+      showFileLastModified: true,
+      constraintText: 'Constraint',
+    });
+    await expect(wrapper.getElement()).toValidateA11y();
+  });
+
+  test('single w/ errors', async () => {
+    const wrapper = render({
+      value: [file1],
+      showFileSize: true,
+      showFileLastModified: true,
+      constraintText: 'Constraint',
+      errorText: 'Error',
+      fileErrors: ['File error'],
+    });
+
+    await expect(wrapper.getElement()).toValidateA11y();
+  });
+
+  test('single w/ warnings', async () => {
+    const wrapper = render({
+      value: [file1],
+      showFileSize: true,
+      showFileLastModified: true,
+      constraintText: 'Constraint',
+      warningText: 'Warning',
+      fileWarnings: ['File warning'],
+    });
+
+    await expect(wrapper.getElement()).toValidateA11y();
+  });
+
+  test('multiple w/o errors nor warnings', async () => {
+    const wrapper = render({
+      multiple: true,
+      value: [file1, file2],
+      showFileSize: true,
+      showFileLastModified: true,
+    });
+    await expect(wrapper.getElement()).toValidateA11y();
+  });
+
+  test('multiple w/ errors', async () => {
+    const wrapper = render({
+      multiple: true,
+      value: [file1, file2],
+      showFileSize: true,
+      showFileLastModified: true,
+      constraintText: 'Constraint',
+      errorText: '2 files have error(s)',
+      fileErrors: ['File 1 error', 'File 2 error'],
+    });
+    await expect(wrapper.getElement()).toValidateA11y();
+  });
+
+  test('multiple w/ warnings', async () => {
+    const wrapper = render({
+      multiple: true,
+      value: [file1, file2],
+      showFileSize: true,
+      showFileLastModified: true,
+      constraintText: 'Constraint',
+      warningText: '2 files have warning(s)',
+      fileWarnings: ['File 1 warning', 'File 2 warning'],
+    });
+    await expect(wrapper.getElement()).toValidateA11y();
+  });
+});
