@@ -44,6 +44,11 @@
 	// the conformance suite vi.mock's it and asserts the calls).
 	import { warnOnce } from '@cloudscape-design/component-toolkit/internal';
 	import styles from '../cloudscape/expandable-section.styles.js';
+	// Cloudscape wraps the description in header/internal's <Description>
+	// (<p clsx(header.description, description-variant-h3, refresh)>);
+	// ExpandableSectionWrapper.findHeaderDescription keys off
+	// header.styles.description.
+	import headerStyles from '../cloudscape/header.styles.js';
 	import '../cloudscape/expandable-section.scoped.css';
 
 	let {
@@ -80,6 +85,7 @@
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
+	const H = headerStyles as Record<string, string>;
 
 	const controlId = 'parascape-expandable';
 	const triggerControlId = `${controlId}-trigger`;
@@ -169,6 +175,11 @@
 							/></span><span id={triggerControlId} class={S['header-text']}>{headerText}</span></span>
 				</svelte:element>
 			</div>
+		{#if hasDescription}<p
+				class={cx(H.description, H['description-variant-h3'], H.refresh)}
+				><span id={descriptionId}
+					>{#if snip(headerDescription)}{@render (headerDescription as import('svelte').Snippet)()}{:else}{headerDescription}{/if}</span
+				></p>{/if}
 		</div>
 		<div
 			id={controlId}
@@ -211,6 +222,11 @@
 							/></span><span id={triggerControlId} class={S['header-text']}>{headerText}</span></span>
 				</svelte:element>
 			</div>
+		{#if hasDescription}<p
+				class={cx(H.description, H['description-variant-h3'], H.refresh)}
+				><span id={descriptionId}
+					>{#if snip(headerDescription)}{@render (headerDescription as import('svelte').Snippet)()}{:else}{headerDescription}{/if}</span
+				></p>{/if}
 		</div>
 		<div
 			id={controlId}
