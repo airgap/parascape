@@ -131,7 +131,7 @@
 </script>
 
 <ChartWrapper
-	class={extraClass}
+	class={cx(extraClass, S.root)}
 	contentClassName={cx(S.content, S[`content--${dimensions.size}`])}
 	reserveFilterSpace={!!reserveFilterSpace}
 	reserveLegendSpace={!!reserveLegendSpace}

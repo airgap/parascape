@@ -32,6 +32,11 @@
 	import StructuredItem from './StructuredItem.pui';
 	import Icon from './Icon.pui';
 	import styles from '../cloudscape/tree-view.styles.js';
+	// internal.js: clsx(styles.root, testUtilStyles.root) /
+	// clsx(styles.tree, testUtilStyles.tree) / treeitem+expandable+
+	// expanded — TreeViewWrapper.{rootSelector,findItems} key off these
+	// stable test-classes, not the visual hashes (was findTreeView null).
+	import treeTest from '../cloudscape/tree-view.test-classes.js';
 	import titem from '../cloudscape/tree-item.styles.js';
 	import etb from '../cloudscape/expand-toggle-button.styles.js';
 	import '../cloudscape/tree-view.scoped.css';
@@ -71,6 +76,7 @@
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
+	const TT = treeTest as Record<string, string>;
 	const TI = titem as Record<string, string>;
 	const E = etb as Record<string, string>;
 
@@ -91,7 +97,17 @@
 	{@const kids = getItemChildren(item, index) || []}
 	{@const isExpandable = kids.length > 0}
 	{@const isExpanded = isExpandable && expSet.has(id)}
-	<li role="treeitem" {id} class={cx(TI.treeitem, level > 1 && TI.offset)}>
+	<li
+		role="treeitem"
+		{id}
+		class={cx(
+			TI.treeitem,
+			level > 1 && TI.offset,
+			TT.treeitem,
+			isExpandable && TT.expandable,
+			isExpanded && TT.expanded,
+		)}
+	>
 		<div class={TI['treeitem-content-wrapper']}>
 			<div class={TI['expand-toggle-wrapper']}><div class={TI.toggle}
 					>{#if isExpandable}<button
@@ -122,8 +138,12 @@
 	</li>
 {/snippet}
 
-<div class={cx(extraClass, S.root)} {...rest}>
-	<ul role="tree" class={S.tree} aria-label={ariaLabel} aria-labelledby={ariaLabelledby}
+<div class={cx(extraClass, S.root, TT.root)} {...rest}>
+	<ul
+		role="tree"
+		class={cx(S.tree, TT.tree)}
+		aria-label={ariaLabel}
+		aria-labelledby={ariaLabelledby}
 		>{#each items as item, i (getItemId(item, i))}{@render treeItem(item, 1, i)}{/each}</ul
 	>
 </div>
