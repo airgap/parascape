@@ -83,7 +83,7 @@
 		{#snippet filter()}<TextFilter
 				{filteringText}
 				filteringPlaceholder="Find instances"
-				onChange={(v) => (filteringText = v)}
+				onChange={(v: string) => (filteringText = v)}
 			/>{/snippet}
 	</Table>
 </main>

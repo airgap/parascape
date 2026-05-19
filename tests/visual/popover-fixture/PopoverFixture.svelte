@@ -53,7 +53,11 @@
 -->
 <style>
 	:global([class*='awsui_container']) {
-		position: static !important;
-		inset: auto !important;
+		position: fixed !important;
+		top: 0 !important;
+		left: 0 !important;
+		right: auto !important;
+		bottom: auto !important;
+		transform: none !important;
 	}
 </style>
