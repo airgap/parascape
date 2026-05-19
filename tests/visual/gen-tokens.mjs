@@ -1,67 +1,41 @@
-// Regenerate src/lib/tokens/cloudscape.css's :root{} from the REAL
-// @cloudscape-design/design-tokens (each export is
-// `var(--name-hash, <real default>)` — carries Cloudscape's actual value
-// and stays themable). Keeps my semantic var NAMES so `.pui` components
-// don't change; only the values become authoritative. Unmapped tokens
-// keep the prior approximation and are reported.
-import { createRequire } from 'node:module';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
+// Regenerate src/lib/tokens/cloudscape-tokens.css by lifting the
+// design-token custom-property block VERBATIM from
+// @cloudscape-design/components/internal/base-component/styles.scoped
+// .css (the `body{}` rule inside @layer cloudscape-base-theme — the
+// exact block Cloudscape emits into its own bundle). No mapping, no
+// approximation: identical hashed names + values, scoped to :root,body
+// so var(--token,fallback) resolves to the real value in the app.
+// (Supersedes the old semantic-stand-in mapper — that approach is
+// gone; the visual harnesses don't need this at all: Cloudscape bakes
+// each token's real value as the var() FALLBACK, so both sides already
+// resolve identically — proven by box/popover residuals unchanged
+// with vs without this file. This is purely real-app fidelity.)
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const require = createRequire(import.meta.url);
-const T = require('@cloudscape-design/design-tokens');
-const root = path.resolve(fileURLToPath(import.meta.url), '../../..');
-const cssPath = path.join(root, 'src/lib/tokens/cloudscape.css');
-const css = fs.readFileSync(cssPath, 'utf8');
+const root = path.resolve(fileURLToPath(import.meta.url), "../../..");
+const src = path.join(root, "node_modules/@cloudscape-design/components/internal/base-component/styles.scoped.css");
+const out = path.join(root, "src/lib/tokens/cloudscape-tokens.css");
 
-const kebabToCamel = (s) => s.replace(/^--/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-const SPACE = { xxs: 'Xxs', xs: 'Xs', s: 'S', m: 'M', l: 'L', xl: 'Xl', xxl: 'Xxl' };
+const css = fs.readFileSync(src, "utf8");
+const anchor = css.indexOf("--color-charts-palette-categorical-1-xu0deg:");
+if (anchor < 0) throw new Error("gen-tokens: token anchor not found — Cloudscape layout changed");
+const open = css.lastIndexOf("{", anchor);
+const close = css.indexOf("}", anchor);
+const body = css.slice(open + 1, close).trim();
+const decls = body
+  .split(";")
+  .map(d => d.trim())
+  .filter(Boolean);
 
-// my-name -> ordered candidate Cloudscape export names
-function candidates(name) {
-	const m = name.match(/^--space-(xxs|xs|s|m|l|xl|xxl)$/);
-	if (m) return [`spaceScaled${SPACE[m[1]]}`, `spaceStatic${SPACE[m[1]]}`];
-	const c = kebabToCamel(name); // color-background-... -> colorBackground...
-	const extra = [];
-	if (name === '--color-text-button-primary') extra.push('colorTextButtonPrimaryDefault');
-	if (name === '--color-border-container-default')
-		extra.push('colorBorderContainerTop', 'colorBorderDividerDefault');
-	if (name === '--color-border-item-focused')
-		extra.push('colorBorderItemFocused', 'colorBorderItemFocusedDefault');
-	if (name === '--color-background-button-primary-default')
-		extra.push('colorBackgroundButtonPrimaryDefault');
-	if (name === '--color-background-button-primary-hover')
-		extra.push('colorBackgroundButtonPrimaryHover');
-	return [c, ...extra];
-}
-
-const names = [...new Set([...css.matchAll(/(--[a-z0-9-]+):/g)].map((x) => x[1]))];
-const prior = Object.fromEntries(
-	[...css.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)].map((x) => [x[1], x[2].trim()]),
-);
-
-const lines = [];
-const unmapped = [];
-for (const n of names) {
-	let val;
-	for (const cand of candidates(n)) {
-		if (T[cand] != null) {
-			val = T[cand];
-			break;
-		}
-	}
-	if (val == null) {
-		val = prior[n];
-		unmapped.push(n);
-	}
-	lines.push(`\t${n}: ${val};`);
-}
-
-const rootBlock = `:root {\n${lines.join('\n')}\n}`;
-const next = css.replace(/:root\s*\{[\s\S]*?\n\}/, rootBlock);
-fs.writeFileSync(cssPath, next);
+const header = `/* Vendored VERBATIM from @cloudscape-design/components/internal/
+   base-component/styles.scoped.css — the design-token custom-property
+   block Cloudscape emits (README fidelity lever #1). Applied to :root,
+   body so var(--token,fallback) resolves to the REAL value on the
+   Parascape side too. Mechanical lift, no edits. Regenerate with
+   \`bun tests/visual/gen-tokens.mjs\`. */\n`;
+fs.writeFileSync(out, `${header}:root, body {\n${decls.map(d => `\t${d};`).join("\n")}\n}\n`);
 console.log(
-	`tokens: ${names.length}, real-mapped: ${names.length - unmapped.length}, kept-approx: ${unmapped.length}`,
+  `cloudscape-tokens.css regenerated: ${decls.length} token decls, ${(fs.statSync(out).size / 1024).toFixed(1)}KB`,
 );
-if (unmapped.length) console.log('unmapped (kept approximation):', unmapped.join(', '));
