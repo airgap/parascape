@@ -12,6 +12,7 @@
     "status": "bun tests/visual/gen-status.mjs",
     "visual": "bun tests/visual/box-shoot.mjs",
     "visual:wide": "bun tests/visual/wide-shoot.mjs",
+    "visual:cp": "bun tests/visual/cp-shoot.mjs",
     "conformance": "vitest run",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
