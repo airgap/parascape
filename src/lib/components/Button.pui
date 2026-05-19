@@ -98,6 +98,22 @@
 	// the reason + aria-describedby on the control pointing at it.
 	const hiddenDescId = useUniqueId();
 	derived describedBy = isDisabledWithReason ? hiddenDescId : ariaDescribedby;
+	// internal.js handleClick — no onClick/onFollow when non-interactive.
+	function handleClick(e: MouseEvent) {
+		if (isNotInteractive) {
+			e.preventDefault();
+			return;
+		}
+		onClick?.(e);
+	}
+	// internal.js: button native `disabled` only when truly disabled and
+	// NOT disabled-with-reason (with-reason stays focusable for the
+	// tooltip, signalled via aria-disabled); aria-disabled =
+	// (loading&&!disabled) || isDisabledWithReason. Anchor tabindex −1
+	// when non-interactive unless disabled-with-reason (then 0).
+	derived nativeDisabled = disabled && !isDisabledWithReason;
+	derived ariaDisabled = (loading && !disabled) || isDisabledWithReason ? 'true' : undefined;
+	derived anchorTabIndex = isNotInteractive ? (isDisabledWithReason ? 0 : -1) : undefined;
 	const T = testClasses as Record<string, string>;
 	derived hasIcon = !!(iconName || iconUrl || iconSvg);
 	// icon-helper.js: iconSize = variant === 'modal-dismiss' ? 'medium' : 'normal'
@@ -137,8 +153,9 @@
 		{download}
 		aria-label={ariaLabel}
 		aria-describedby={describedBy}
-		aria-disabled={isNotInteractive ? 'true' : undefined}
-		onclick={onClick}
+		aria-disabled={ariaDisabled}
+		tabindex={anchorTabIndex}
+		onclick={handleClick}
 		{...rest}
 	>
 		{#if loading}<Spinner class={cx(S.icon, S['icon-left'])} />{:else if hasIcon && effAlign === 'left'}<Icon
@@ -167,11 +184,11 @@
 	<button
 		class={buttonClass}
 		type={btnType}
-		disabled={disabled && !loading}
-		aria-disabled={isNotInteractive ? 'true' : undefined}
+		disabled={nativeDisabled}
+		aria-disabled={ariaDisabled}
 		aria-label={ariaLabel}
 		aria-describedby={describedBy}
-		onclick={onClick}
+		onclick={handleClick}
 		{...rest}
 	>
 		{#if loading}<Spinner class={cx(S.icon, S['icon-left'])} />{:else if hasIcon && effAlign === 'left'}<Icon
