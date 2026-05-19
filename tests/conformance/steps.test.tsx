@@ -1,8 +1,23 @@
 // AUTO-ADAPTED from cloudscape-design/components src/steps/__tests__/
 // steps.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, no extra rules.
+// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/status-indicator/styles.selectors.js; stubbed unresolvable ../../../lib/components/steps/styles.selectors.js.
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
+// __STUB: honest recursive no-op for unresolvable Cloudscape-internal
+// / sibling-test-helper imports. Callable, constructable (so tests can
+// extend it), empty-iterable, deep-property-safe — never throws at
+// collection, supplies NO fake data (every access is the stub itself,
+// so dependent value/DOM assertions fail honestly, never fake-pass).
+const __STUB: any = new Proxy(function () {}, {
+	get: (_t, k) =>
+		k === Symbol.iterator
+			? function* () {}
+			: k === Symbol.toPrimitive || k === 'toString' || k === 'valueOf'
+				? () => ''
+				: __STUB,
+	apply: () => __STUB,
+	construct: () => ({}),
+});
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 import { React } from '@conformance/adapter';
@@ -11,253 +26,230 @@ import { render } from '@conformance/adapter';
 import Steps from '@components/Steps.pui';
 import { createWrapper } from '@conformance/adapter';
 
-import statusIconStyles from '../../../lib/components/status-indicator/styles.selectors.js';
-import stepsStyles from '../../../lib/components/steps/styles.selectors.js';
+const statusIconStyles = __STUB; // stub: ../../../lib/components/status-indicator/styles.selectors.js
+const stepsStyles = __STUB; // stub: ../../../lib/components/steps/styles.selectors.js
 
 const defaultProps: any = {
-	steps: [],
-	ariaLabel: 'Steps Execution',
-	ariaDescribedby: 'steps-description',
+  steps: [],
+  ariaLabel: 'Steps Execution',
+  ariaDescribedby: 'steps-description',
 };
 
 const successfullSteps: ReadonlyArray<any.Step> = [
-	{
-		header: 'Listed EC2 instances',
-		details: (
-			<div>
-				EC2 Instances IDs:
-				<ul>
-					<li>ec2InstanceID1</li>
-					<li>ec2InstanceID2</li>
-					<li>ec2InstanceID3</li>
-					<li>ec2InstanceID4</li>
-				</ul>
-			</div>
-		),
-		status: 'success',
-	},
-	{
-		header: 'Gathered Security Group IDs',
-		details: (
-			<div>
-				Security Groups IDs:
-				<ul>
-					<li>securityGroupID1</li>
-					<li>securityGroupID2</li>
-					<li>securityGroupID3</li>
-				</ul>
-			</div>
-		),
-		status: 'success',
-	},
-	{
-		header: 'Checked Cross Region Consent',
-		status: 'success',
-	},
-	{
-		header: 'Analyzing security rules',
-		status: 'loading',
-	},
+  {
+    header: 'Listed EC2 instances',
+    details: (
+      <div>
+        EC2 Instances IDs:
+        <ul>
+          <li>ec2InstanceID1</li>
+          <li>ec2InstanceID2</li>
+          <li>ec2InstanceID3</li>
+          <li>ec2InstanceID4</li>
+        </ul>
+      </div>
+    ),
+    status: 'success',
+  },
+  {
+    header: 'Gathered Security Group IDs',
+    details: (
+      <div>
+        Security Groups IDs:
+        <ul>
+          <li>securityGroupID1</li>
+          <li>securityGroupID2</li>
+          <li>securityGroupID3</li>
+        </ul>
+      </div>
+    ),
+    status: 'success',
+  },
+  {
+    header: 'Checked Cross Region Consent',
+    status: 'success',
+  },
+  {
+    header: 'Analyzing security rules',
+    status: 'loading',
+  },
 ];
 
 const stepsWithIconAriaLabel: ReadonlyArray<any.Step> = [
-	{
-		header: 'Checked Cross Region Consent',
-		status: 'success',
-		statusIconAriaLabel: 'test icon aria label 1',
-	},
-	{
-		header: 'Analyzing security rules',
-		status: 'loading',
-		statusIconAriaLabel: 'test icon aria label 2',
-	},
+  {
+    header: 'Checked Cross Region Consent',
+    status: 'success',
+    statusIconAriaLabel: 'test icon aria label 1',
+  },
+  {
+    header: 'Analyzing security rules',
+    status: 'loading',
+    statusIconAriaLabel: 'test icon aria label 2',
+  },
 ];
 
 const stepsForCustomRender: ReadonlyArray<any.Step> = [
-	{
-		header: 'Checked Cross Region Consent',
-		status: 'success',
-	},
-	{
-		header: 'Analyzing security rules',
-		status: 'loading',
-		details: 'Step details',
-	},
+  {
+    header: 'Checked Cross Region Consent',
+    status: 'success',
+  },
+  {
+    header: 'Analyzing security rules',
+    status: 'loading',
+    details: 'Step details',
+  },
 ];
 
 const renderSteps = (props: Partial<any>) => {
-	const renderResult = render(<Steps {...defaultProps} {...props} />);
-	return createWrapper(renderResult.container).findSteps()!;
+  const renderResult = render(<Steps {...defaultProps} {...props} />);
+  return createWrapper(renderResult.container).findSteps()!;
 };
 
 describe('Steps', () => {
-	test('renders no steps when none are provided', () => {
-		const wrapper = renderSteps({ steps: [] });
+  test('renders no steps when none are provided', () => {
+    const wrapper = renderSteps({ steps: [] });
 
-		expect(wrapper.findItems()).toHaveLength(0);
-	});
+    expect(wrapper.findItems()).toHaveLength(0);
+  });
 
-	test('renders correct count of steps', () => {
-		const wrapper = renderSteps({ steps: successfullSteps });
+  test('renders correct count of steps', () => {
+    const wrapper = renderSteps({ steps: successfullSteps });
 
-		expect(wrapper.findItems()).toHaveLength(4);
-	});
+    expect(wrapper.findItems()).toHaveLength(4);
+  });
 
-	test('renders correct steps headers', () => {
-		const wrapper = renderSteps({ steps: successfullSteps });
+  test('renders correct steps headers', () => {
+    const wrapper = renderSteps({ steps: successfullSteps });
 
-		expect(wrapper.findItems()[0]!.findHeader()!.getElement()).toHaveTextContent(
-			'Listed EC2 instances',
-		);
-		expect(wrapper.findItems()[1]!.findHeader()!.getElement()).toHaveTextContent(
-			'Gathered Security Group IDs',
-		);
-		expect(wrapper.findItems()[2]!.findHeader()!.getElement()).toHaveTextContent(
-			'Checked Cross Region Consent',
-		);
-		expect(wrapper.findItems()[3]!.findHeader()!.getElement()).toHaveTextContent(
-			'Analyzing security rules',
-		);
-	});
+    expect(wrapper.findItems()[0]!.findHeader()!.getElement()).toHaveTextContent('Listed EC2 instances');
+    expect(wrapper.findItems()[1]!.findHeader()!.getElement()).toHaveTextContent('Gathered Security Group IDs');
+    expect(wrapper.findItems()[2]!.findHeader()!.getElement()).toHaveTextContent('Checked Cross Region Consent');
+    expect(wrapper.findItems()[3]!.findHeader()!.getElement()).toHaveTextContent('Analyzing security rules');
+  });
 
-	test('renders correct steps details', () => {
-		const wrapper = renderSteps({ steps: successfullSteps });
+  test('renders correct steps details', () => {
+    const wrapper = renderSteps({ steps: successfullSteps });
 
-		expect(wrapper.findItems()[0]!.findDetails()!.getElement()).toHaveTextContent(
-			'EC2 Instances IDs:',
-		);
-		expect(wrapper.findItems()[1]!.findDetails()!.getElement()).toHaveTextContent(
-			'Security Groups IDs:',
-		);
-		expect(wrapper.findItems()[2]!.findDetails()).toBeNull();
-		expect(wrapper.findItems()[3]!.findDetails()).toBeNull();
-	});
+    expect(wrapper.findItems()[0]!.findDetails()!.getElement()).toHaveTextContent('EC2 Instances IDs:');
+    expect(wrapper.findItems()[1]!.findDetails()!.getElement()).toHaveTextContent('Security Groups IDs:');
+    expect(wrapper.findItems()[2]!.findDetails()).toBeNull();
+    expect(wrapper.findItems()[3]!.findDetails()).toBeNull();
+  });
 
-	describe('Accessibility', () => {
-		test('applies ARIA label to steps', () => {
-			const testAriaLabel = 'Test aria label';
-			const wrapper = renderSteps({ steps: successfullSteps, ariaLabel: testAriaLabel });
+  describe('Accessibility', () => {
+    test('applies ARIA label to steps', () => {
+      const testAriaLabel = 'Test aria label';
+      const wrapper = renderSteps({ steps: successfullSteps, ariaLabel: testAriaLabel });
 
-			expect(wrapper.findByClassName(stepsStyles.list)!.getElement()).toHaveAccessibleName(
-				testAriaLabel,
-			);
-		});
+      expect(wrapper.findByClassName(stepsStyles.list)!.getElement()).toHaveAccessibleName(testAriaLabel);
+    });
 
-		test('applies ARIA labelledby to steps', () => {
-			const testAriaLabelledBy = 'test-id';
-			const wrapper = renderSteps({ steps: successfullSteps, ariaLabelledby: testAriaLabelledBy });
+    test('applies ARIA labelledby to steps', () => {
+      const testAriaLabelledBy = 'test-id';
+      const wrapper = renderSteps({ steps: successfullSteps, ariaLabelledby: testAriaLabelledBy });
 
-			expect(wrapper.findByClassName(stepsStyles.list)!.getElement()).toHaveAttribute(
-				'aria-labelledby',
-				testAriaLabelledBy,
-			);
-		});
+      expect(wrapper.findByClassName(stepsStyles.list)!.getElement()).toHaveAttribute(
+        'aria-labelledby',
+        testAriaLabelledBy
+      );
+    });
 
-		test('applies ARIA describedby to steps', () => {
-			const testAriaDescribedBy = 'test-id';
-			const wrapper = renderSteps({
-				steps: successfullSteps,
-				ariaDescribedby: testAriaDescribedBy,
-			});
+    test('applies ARIA describedby to steps', () => {
+      const testAriaDescribedBy = 'test-id';
+      const wrapper = renderSteps({ steps: successfullSteps, ariaDescribedby: testAriaDescribedBy });
 
-			expect(wrapper.findByClassName(stepsStyles.list)!.getElement()).toHaveAttribute(
-				'aria-describedby',
-				testAriaDescribedBy,
-			);
-		});
+      expect(wrapper.findByClassName(stepsStyles.list)!.getElement()).toHaveAttribute(
+        'aria-describedby',
+        testAriaDescribedBy
+      );
+    });
 
-		test('applies ARIA label to steps status indicators', () => {
-			const wrapper = renderSteps({ steps: stepsWithIconAriaLabel });
+    test('applies ARIA label to steps status indicators', () => {
+      const wrapper = renderSteps({ steps: stepsWithIconAriaLabel });
 
-			stepsWithIconAriaLabel.forEach((step, index) => {
-				expect(
-					wrapper
-						.findItems()
-						[index]!.findHeader()!
-						.findByClassName(statusIconStyles.icon)!
-						.getElement(),
-				).toHaveAccessibleName(step.statusIconAriaLabel);
-			});
-		});
-	});
+      stepsWithIconAriaLabel.forEach((step, index) => {
+        expect(
+          wrapper.findItems()[index]!.findHeader()!.findByClassName(statusIconStyles.icon)!.getElement()
+        ).toHaveAccessibleName(step.statusIconAriaLabel);
+      });
+    });
+  });
 
-	describe('orientation', () => {
-		test('renders with default vertical orientation', () => {
-			const wrapper = renderSteps({ steps: successfullSteps });
+  describe('orientation', () => {
+    test('renders with default vertical orientation', () => {
+      const wrapper = renderSteps({ steps: successfullSteps });
 
-			expect(wrapper.getElement()).not.toHaveClass(stepsStyles.horizontal);
-		});
+      expect(wrapper.getElement()).not.toHaveClass(stepsStyles.horizontal);
+    });
 
-		test('renders with horizontal orientation when explicitly set', () => {
-			const wrapper = renderSteps({
-				steps: successfullSteps,
-				orientation: 'horizontal',
-			});
+    test('renders with horizontal orientation when explicitly set', () => {
+      const wrapper = renderSteps({
+        steps: successfullSteps,
+        orientation: 'horizontal',
+      });
 
-			expect(wrapper.getElement()).toHaveClass(stepsStyles.horizontal);
-		});
+      expect(wrapper.getElement()).toHaveClass(stepsStyles.horizontal);
+    });
 
-		test('renders with vertical orientation', () => {
-			const wrapper = renderSteps({
-				steps: successfullSteps,
-				orientation: 'vertical',
-			});
+    test('renders with vertical orientation', () => {
+      const wrapper = renderSteps({
+        steps: successfullSteps,
+        orientation: 'vertical',
+      });
 
-			expect(wrapper.getElement()).not.toHaveClass(stepsStyles.horizontal);
-		});
-	});
+      expect(wrapper.getElement()).not.toHaveClass(stepsStyles.horizontal);
+    });
+  });
 
-	describe('renderStep', () => {
-		const customRenderStep = (step: any.Step) => ({
-			header: <span data-testid="custom-header">Custom: {step.header}</span>,
-			details: step.details ? (
-				<div data-testid="custom-details">Details: {step.details}</div>
-			) : undefined,
-			icon: <span data-testid="custom-icon">icon</span>,
-		});
+  describe('renderStep', () => {
+    const customRenderStep = (step: any.Step) => ({
+      header: <span data-testid="custom-header">Custom: {step.header}</span>,
+      details: step.details ? <div data-testid="custom-details">Details: {step.details}</div> : undefined,
+      icon: <span data-testid="custom-icon">icon</span>,
+    });
 
-		test('renders custom content when using renderStep', () => {
-			const wrapper = renderSteps({ steps: stepsForCustomRender, renderStep: customRenderStep });
+    test('renders custom content when using renderStep', () => {
+      const wrapper = renderSteps({ steps: stepsForCustomRender, renderStep: customRenderStep });
 
-			const customHeaders = wrapper.findAll('[data-testid="custom-header"]');
-			expect(customHeaders).toHaveLength(stepsForCustomRender.length);
+      const customHeaders = wrapper.findAll('[data-testid="custom-header"]');
+      expect(customHeaders).toHaveLength(stepsForCustomRender.length);
 
-			expect(customHeaders[0].getElement()).toHaveTextContent('Checked Cross Region Consent');
-			expect(customHeaders[1].getElement()).toHaveTextContent('Analyzing security rules');
-		});
+      expect(customHeaders[0].getElement()).toHaveTextContent('Checked Cross Region Consent');
+      expect(customHeaders[1].getElement()).toHaveTextContent('Analyzing security rules');
+    });
 
-		test('renders custom details when using renderStep', () => {
-			const wrapper = renderSteps({ steps: stepsForCustomRender, renderStep: customRenderStep });
+    test('renders custom details when using renderStep', () => {
+      const wrapper = renderSteps({ steps: stepsForCustomRender, renderStep: customRenderStep });
 
-			const customDetails = wrapper.findAll('[data-testid="custom-details"]');
-			// Only last step has details
-			expect(customDetails).toHaveLength(1);
-			expect(customDetails[0].getElement()).toHaveTextContent('Step details');
-		});
+      const customDetails = wrapper.findAll('[data-testid="custom-details"]');
+      // Only last step has details
+      expect(customDetails).toHaveLength(1);
+      expect(customDetails[0].getElement()).toHaveTextContent('Step details');
+    });
 
-		test('renders custom icon when using renderStep', () => {
-			const wrapper = renderSteps({ steps: stepsForCustomRender, renderStep: customRenderStep });
+    test('renders custom icon when using renderStep', () => {
+      const wrapper = renderSteps({ steps: stepsForCustomRender, renderStep: customRenderStep });
 
-			const customHeaders = wrapper.findAll('[data-testid="custom-icon"]');
-			expect(customHeaders).toHaveLength(stepsForCustomRender.length);
-		});
+      const customHeaders = wrapper.findAll('[data-testid="custom-icon"]');
+      expect(customHeaders).toHaveLength(stepsForCustomRender.length);
+    });
 
-		test('renders custom content in horizontal mode', () => {
-			const wrapper = renderSteps({
-				steps: stepsForCustomRender,
-				orientation: 'horizontal',
-				renderStep: customRenderStep,
-			});
+    test('renders custom content in horizontal mode', () => {
+      const wrapper = renderSteps({
+        steps: stepsForCustomRender,
+        orientation: 'horizontal',
+        renderStep: customRenderStep,
+      });
 
-			expect(wrapper.findAll('[data-testid="custom-header"]')).not.toHaveLength(0);
-			expect(wrapper.findAll('[data-testid="custom-details"]')).not.toHaveLength(0);
-			expect(wrapper.findAll('[data-testid="custom-icon"]')).not.toHaveLength(0);
-		});
+      expect(wrapper.findAll('[data-testid="custom-header"]')).not.toHaveLength(0);
+      expect(wrapper.findAll('[data-testid="custom-details"]')).not.toHaveLength(0);
+      expect(wrapper.findAll('[data-testid="custom-icon"]')).not.toHaveLength(0);
+    });
 
-		test('does not render status indicators when using renderStep with icon', () => {
-			const wrapper = renderSteps({ steps: stepsForCustomRender, renderStep: customRenderStep });
+    test('does not render status indicators when using renderStep with icon', () => {
+      const wrapper = renderSteps({ steps: stepsForCustomRender, renderStep: customRenderStep });
 
-			expect(wrapper.findItems()[0].findHeader()?.findStatusIndicator()).toBeNull();
-		});
-	});
+      expect(wrapper.findItems()[0].findHeader()?.findStatusIndicator()).toBeNull();
+    });
+  });
 });

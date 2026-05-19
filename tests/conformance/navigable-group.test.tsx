@@ -1,9 +1,24 @@
 // AUTO-ADAPTED from cloudscape-design/components src/navigable-group/__tests__/
 // navigable-group.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, unported dep button-dropdown; interaction (manual-triage tier).
+// render → adapter, styles → vendored, interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
+// __STUB: honest recursive no-op for unresolvable Cloudscape-internal
+// / sibling-test-helper imports. Callable, constructable (so tests can
+// extend it), empty-iterable, deep-property-safe — never throws at
+// collection, supplies NO fake data (every access is the stub itself,
+// so dependent value/DOM assertions fail honestly, never fake-pass).
+const __STUB: any = new Proxy(function () {}, {
+	get: (_t, k) =>
+		k === Symbol.iterator
+			? function* () {}
+			: k === Symbol.toPrimitive || k === 'toString' || k === 'valueOf'
+				? () => ''
+				: __STUB,
+	apply: () => __STUB,
+	construct: () => ({}),
+});
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 import { React } from '@conformance/adapter';
@@ -12,7 +27,7 @@ import { fireEvent, render } from '@conformance/adapter';
 import { KeyCode } from '@cloudscape-design/test-utils-core/dist/utils';
 
 import Button from '@components/Button.pui';
-const ButtonDropdown = (() => null) as any; // unported dep: button-dropdown
+import ButtonDropdown from '@components/ButtonDropdown.pui';
 import Checkbox from '@components/Checkbox.pui';
 import Link from '@components/Link.pui';
 import NavigableGroup from '@components/NavigableGroup.pui';
@@ -20,328 +35,323 @@ import { createWrapper } from '@conformance/adapter';
 import ToggleButton from '@components/ToggleButton.pui';
 
 function renderNavigableGroup(props: Partial<any> = {}) {
-	const ref = React.createRef<any.Ref>();
-	const blurRef = React.createRef<HTMLButtonElement>();
-	const children = (
-		<>
-			<Button id="button1">Button 1</Button>
-			<Button id="button2">Button 2</Button>
-			<Button id="button3">Button 3</Button>
-		</>
-	);
+  const ref = React.createRef<any.Ref>();
+  const blurRef = React.createRef<HTMLButtonElement>();
+  const children = (
+    <>
+      <Button id="button1">Button 1</Button>
+      <Button id="button2">Button 2</Button>
+      <Button id="button3">Button 3</Button>
+    </>
+  );
 
-	const renderResult = render(
-		<>
-			<button ref={blurRef}>other focusable</button>
-			<NavigableGroup getItemKey={(element) => element.id} ref={ref} {...props}>
-				{props.children ?? children}
-			</NavigableGroup>
-		</>,
-	);
+  const renderResult = render(
+    <>
+      <button ref={blurRef}>other focusable</button>
+      <NavigableGroup getItemKey={element => element.id} ref={ref} {...props}>
+        {props.children ?? children}
+      </NavigableGroup>
+    </>
+  );
 
-	return {
-		...renderResult,
-		ref,
-		blurRef,
-		wrapper: createWrapper(renderResult.container).findNavigableGroup()!,
-	};
+  return { ...renderResult, ref, blurRef, wrapper: createWrapper(renderResult.container).findNavigableGroup()! };
 }
 
 function renderNavigableGroupWithDisabledElements(allDisabled = false, ref?: React.Ref<any.Ref>) {
-	const children = (
-		<>
-			<Button id="button1" disabled={allDisabled}>
-				Button 1
-			</Button>
-			<Button id="button2" disabled={true}>
-				Button 2
-			</Button>
-			<Button id="button3" disabled={allDisabled}>
-				Button 3
-			</Button>
-		</>
-	);
+  const children = (
+    <>
+      <Button id="button1" disabled={allDisabled}>
+        Button 1
+      </Button>
+      <Button id="button2" disabled={true}>
+        Button 2
+      </Button>
+      <Button id="button3" disabled={allDisabled}>
+        Button 3
+      </Button>
+    </>
+  );
 
-	const renderResult = render(
-		<NavigableGroup getItemKey={(element) => element.id} ref={ref}>
-			{children}
-		</NavigableGroup>,
-	);
+  const renderResult = render(
+    <NavigableGroup getItemKey={element => element.id} ref={ref}>
+      {children}
+    </NavigableGroup>
+  );
 
-	return { ...renderResult, wrapper: createWrapper(renderResult.container).findNavigableGroup()! };
+  return { ...renderResult, wrapper: createWrapper(renderResult.container).findNavigableGroup()! };
 }
 
 function renderNavigableGroupWithMixedElements(props: Partial<any> = {}) {
-	const children = (
-		<>
-			<Button id="button1">Save</Button>
-			<ButtonDropdown id="dropdown1" items={[{ id: 'item1', text: 'Item 1' }]}>
-				Actions
-			</ButtonDropdown>
-			<Checkbox id="checkbox1" checked={false}>
-				Check me
-			</Checkbox>
-			<ToggleButton pressed={false} id="toggle">
-				Toggle
-			</ToggleButton>
-			<Link id="link1" href="#">
-				Link
-			</Link>
-		</>
-	);
+  const children = (
+    <>
+      <Button id="button1">Save</Button>
+      <ButtonDropdown id="dropdown1" items={[{ id: 'item1', text: 'Item 1' }]}>
+        Actions
+      </ButtonDropdown>
+      <Checkbox id="checkbox1" checked={false}>
+        Check me
+      </Checkbox>
+      <ToggleButton pressed={false} id="toggle">
+        Toggle
+      </ToggleButton>
+      <Link id="link1" href="#">
+        Link
+      </Link>
+    </>
+  );
 
-	const renderResult = render(
-		<NavigableGroup getItemKey={(element) => element.id} {...props}>
-			{children}
-		</NavigableGroup>,
-	);
+  const renderResult = render(
+    <NavigableGroup getItemKey={element => element.id} {...props}>
+      {children}
+    </NavigableGroup>
+  );
 
-	return { ...renderResult, wrapper: createWrapper(renderResult.container).findNavigableGroup()! };
+  return { ...renderResult, wrapper: createWrapper(renderResult.container).findNavigableGroup()! };
 }
 
 describe('NavigableGroup', () => {
-	describe('Basic rendering', () => {
-		test('renders children', () => {
-			const { wrapper } = renderNavigableGroup();
+  describe('Basic rendering', () => {
+    test('renders children', () => {
+      const { wrapper } = renderNavigableGroup();
 
-			expect(wrapper.findContent().findAllButtons().length).toBe(3);
-		});
-	});
+      expect(wrapper.findContent().findAllButtons().length).toBe(3);
+    });
+  });
 
-	describe('Keyboard navigation', () => {
-		describe('Horizontal direction (default)', () => {
-			test('navigates right with ArrowRight key', () => {
-				const { wrapper } = renderNavigableGroup();
+  describe('Keyboard navigation', () => {
+    describe('Horizontal direction (default)', () => {
+      test('navigates right with ArrowRight key', () => {
+        const { wrapper } = renderNavigableGroup();
 
-				const button1 = wrapper.findContent().findAllButtons()[0];
-				const button2 = wrapper.findContent().findAllButtons()[1];
+        const button1 = wrapper.findContent().findAllButtons()[0];
+        const button2 = wrapper.findContent().findAllButtons()[1];
 
-				button1.focus();
-				button1.keydown(KeyCode.right);
+        button1.focus();
+        button1.keydown(KeyCode.right);
 
-				expect(button2.getElement()).toHaveFocus();
-			});
+        expect(button2.getElement()).toHaveFocus();
+      });
 
-			test('navigates left with ArrowLeft key', () => {
-				const { wrapper } = renderNavigableGroup();
+      test('navigates left with ArrowLeft key', () => {
+        const { wrapper } = renderNavigableGroup();
 
-				const button1 = wrapper.findContent().findAllButtons()[0];
-				const button2 = wrapper.findContent().findAllButtons()[1];
+        const button1 = wrapper.findContent().findAllButtons()[0];
+        const button2 = wrapper.findContent().findAllButtons()[1];
 
-				button2.focus();
-				button2.keydown(KeyCode.left);
+        button2.focus();
+        button2.keydown(KeyCode.left);
 
-				expect(button1.getElement()).toHaveFocus();
-			});
+        expect(button1.getElement()).toHaveFocus();
+      });
 
-			test('does not navigate with ArrowUp/ArrowDown keys in horizontal mode', () => {
-				const { wrapper } = renderNavigableGroup();
+      test('does not navigate with ArrowUp/ArrowDown keys in horizontal mode', () => {
+        const { wrapper } = renderNavigableGroup();
 
-				const button2 = wrapper.findContent().findAllButtons()[1];
+        const button2 = wrapper.findContent().findAllButtons()[1];
 
-				button2.focus();
-				button2.keydown(KeyCode.down);
-				expect(button2.getElement()).toHaveFocus();
-				button2.keydown(KeyCode.up);
-				expect(button2.getElement()).toHaveFocus();
-			});
-		});
+        button2.focus();
+        button2.keydown(KeyCode.down);
+        expect(button2.getElement()).toHaveFocus();
+        button2.keydown(KeyCode.up);
+        expect(button2.getElement()).toHaveFocus();
+      });
+    });
 
-		describe('Vertical direction', () => {
-			test('navigates down with ArrowDown key', () => {
-				const { wrapper } = renderNavigableGroup({ navigationDirection: 'vertical' });
+    describe('Vertical direction', () => {
+      test('navigates down with ArrowDown key', () => {
+        const { wrapper } = renderNavigableGroup({ navigationDirection: 'vertical' });
 
-				const button1 = wrapper.findContent().findAllButtons()[0];
-				const button2 = wrapper.findContent().findAllButtons()[1];
+        const button1 = wrapper.findContent().findAllButtons()[0];
+        const button2 = wrapper.findContent().findAllButtons()[1];
 
-				button1.focus();
-				button1.keydown(KeyCode.down);
+        button1.focus();
+        button1.keydown(KeyCode.down);
 
-				expect(button2.getElement()).toHaveFocus();
-			});
+        expect(button2.getElement()).toHaveFocus();
+      });
 
-			test('navigates up with ArrowUp key', () => {
-				const { wrapper } = renderNavigableGroup({ navigationDirection: 'vertical' });
+      test('navigates up with ArrowUp key', () => {
+        const { wrapper } = renderNavigableGroup({ navigationDirection: 'vertical' });
 
-				const button1 = wrapper.findContent().findAllButtons()[0];
-				const button2 = wrapper.findContent().findAllButtons()[1];
+        const button1 = wrapper.findContent().findAllButtons()[0];
+        const button2 = wrapper.findContent().findAllButtons()[1];
 
-				button2.focus();
-				button2.keydown(KeyCode.up);
+        button2.focus();
+        button2.keydown(KeyCode.up);
 
-				expect(button1.getElement()).toHaveFocus();
-			});
+        expect(button1.getElement()).toHaveFocus();
+      });
 
-			test('does not navigate with ArrowLeft/ArrowRight keys in vertical mode', () => {
-				const { wrapper } = renderNavigableGroup({ navigationDirection: 'vertical' });
+      test('does not navigate with ArrowLeft/ArrowRight keys in vertical mode', () => {
+        const { wrapper } = renderNavigableGroup({ navigationDirection: 'vertical' });
 
-				const button2 = wrapper.findContent().findAllButtons()[1];
+        const button2 = wrapper.findContent().findAllButtons()[1];
 
-				button2.focus();
-				button2.keydown(KeyCode.left);
-				expect(button2.getElement()).toHaveFocus();
-				button2.keydown(KeyCode.right);
-				expect(button2.getElement()).toHaveFocus();
-			});
-		});
+        button2.focus();
+        button2.keydown(KeyCode.left);
+        expect(button2.getElement()).toHaveFocus();
+        button2.keydown(KeyCode.right);
+        expect(button2.getElement()).toHaveFocus();
+      });
+    });
 
-		describe('Both directions', () => {
-			test('navigates with all arrow keys when direction is "both"', () => {
-				const { wrapper } = renderNavigableGroup({ navigationDirection: 'both' });
+    describe('Both directions', () => {
+      test('navigates with all arrow keys when direction is "both"', () => {
+        const { wrapper } = renderNavigableGroup({ navigationDirection: 'both' });
 
-				const button1 = wrapper.findContent().findAllButtons()[0];
-				const button2 = wrapper.findContent().findAllButtons()[1];
-				const button3 = wrapper.findContent().findAllButtons()[2];
+        const button1 = wrapper.findContent().findAllButtons()[0];
+        const button2 = wrapper.findContent().findAllButtons()[1];
+        const button3 = wrapper.findContent().findAllButtons()[2];
 
-				button2.focus();
-				button2.keydown(KeyCode.up);
-				expect(button1.getElement()).toHaveFocus();
-				button1.keydown(KeyCode.down);
-				expect(button2.getElement()).toHaveFocus();
-				button2.keydown(KeyCode.right);
-				expect(button3.getElement()).toHaveFocus();
-				button3.keydown(KeyCode.left);
-				expect(button2.getElement()).toHaveFocus();
-			});
-		});
+        button2.focus();
+        button2.keydown(KeyCode.up);
+        expect(button1.getElement()).toHaveFocus();
+        button1.keydown(KeyCode.down);
+        expect(button2.getElement()).toHaveFocus();
+        button2.keydown(KeyCode.right);
+        expect(button3.getElement()).toHaveFocus();
+        button3.keydown(KeyCode.left);
+        expect(button2.getElement()).toHaveFocus();
+      });
+    });
 
-		describe('Home and End keys', () => {
-			test('navigates to last item with end key', () => {
-				const { wrapper } = renderNavigableGroup();
+    describe('Home and End keys', () => {
+      test('navigates to last item with end key', () => {
+        const { wrapper } = renderNavigableGroup();
 
-				const button1 = wrapper.findContent().findAllButtons()[0];
-				const button3 = wrapper.findContent().findAllButtons()[2];
+        const button1 = wrapper.findContent().findAllButtons()[0];
+        const button3 = wrapper.findContent().findAllButtons()[2];
 
-				button1.focus();
-				button1.keydown(KeyCode.end);
-				expect(button3.getElement()).toHaveFocus();
-			});
+        button1.focus();
+        button1.keydown(KeyCode.end);
+        expect(button3.getElement()).toHaveFocus();
+      });
 
-			test('navigates to first item with home key', () => {
-				const { wrapper } = renderNavigableGroup();
+      test('navigates to first item with home key', () => {
+        const { wrapper } = renderNavigableGroup();
 
-				const button1 = wrapper.findContent().findAllButtons()[0];
-				const button3 = wrapper.findContent().findAllButtons()[2];
+        const button1 = wrapper.findContent().findAllButtons()[0];
+        const button3 = wrapper.findContent().findAllButtons()[2];
 
-				button3.focus();
-				button3.keydown(KeyCode.home);
-				expect(button1.getElement()).toHaveFocus();
-			});
-		});
+        button3.focus();
+        button3.keydown(KeyCode.home);
+        expect(button1.getElement()).toHaveFocus();
+      });
+    });
 
-		test('loops focus', () => {
-			const { wrapper } = renderNavigableGroup();
+    test('loops focus', () => {
+      const { wrapper } = renderNavigableGroup();
 
-			const button1 = wrapper.findContent().findAllButtons()[0];
-			const button3 = wrapper.findContent().findAllButtons()[2];
+      const button1 = wrapper.findContent().findAllButtons()[0];
+      const button3 = wrapper.findContent().findAllButtons()[2];
 
-			button3.focus();
-			button3.keydown(KeyCode.right);
-			expect(button1.getElement()).toHaveFocus();
-			button1.keydown(KeyCode.left);
-			expect(button3.getElement()).toHaveFocus();
-		});
+      button3.focus();
+      button3.keydown(KeyCode.right);
+      expect(button1.getElement()).toHaveFocus();
+      button1.keydown(KeyCode.left);
+      expect(button3.getElement()).toHaveFocus();
+    });
 
-		test('works with custom getItemKey function', () => {
-			const { container } = render(
-				<NavigableGroup getItemKey={(element) => element.getAttribute('data-custom-id')!}>
-					<Button data-custom-id="custom1">Button 1</Button>
-					<Button data-custom-id="custom2">Button 2</Button>
-				</NavigableGroup>,
-			);
-			const wrapper = createWrapper(container).findNavigableGroup()!;
+    test('works with custom getItemKey function', () => {
+      const { container } = render(
+        <NavigableGroup getItemKey={element => element.getAttribute('data-custom-id')!}>
+          <Button data-custom-id="custom1">Button 1</Button>
+          <Button data-custom-id="custom2">Button 2</Button>
+        </NavigableGroup>
+      );
+      const wrapper = createWrapper(container).findNavigableGroup()!;
 
-			const button1 = wrapper.findContent().findAllButtons()[0];
-			const button2 = wrapper.findContent().findAllButtons()[1];
+      const button1 = wrapper.findContent().findAllButtons()[0];
+      const button2 = wrapper.findContent().findAllButtons()[1];
 
-			button1.focus();
-			button1.keydown(KeyCode.right);
+      button1.focus();
+      button1.keydown(KeyCode.right);
 
-			expect(button2.getElement()).toHaveFocus();
-		});
+      expect(button2.getElement()).toHaveFocus();
+    });
 
-		describe('Focus management', () => {
-			test('focuses first element when focus() is called on ref', () => {
-				const { wrapper, ref } = renderNavigableGroup();
+    describe('Focus management', () => {
+      test('focuses first element when focus() is called on ref', () => {
+        const { wrapper, ref } = renderNavigableGroup();
 
-				const button1 = wrapper.findContent().findAllButtons()[0];
-				ref.current!.focus();
+        const button1 = wrapper.findContent().findAllButtons()[0];
+        ref.current!.focus();
 
-				expect(button1.getElement()).toHaveFocus();
-			});
+        expect(button1.getElement()).toHaveFocus();
+      });
 
-			test('focuses previously focused element when focus() is called', () => {
-				const { wrapper, ref, blurRef } = renderNavigableGroup();
+      test('focuses previously focused element when focus() is called', () => {
+        const { wrapper, ref, blurRef } = renderNavigableGroup();
 
-				const button3 = wrapper.findContent().findAllButtons()[2];
+        const button3 = wrapper.findContent().findAllButtons()[2];
 
-				button3.focus();
-				blurRef.current!.focus();
-				expect(button3.getElement()).not.toHaveFocus();
-				ref.current!.focus();
-				expect(button3.getElement()).toHaveFocus();
-			});
-		});
+        button3.focus();
+        blurRef.current!.focus();
+        expect(button3.getElement()).not.toHaveFocus();
+        ref.current!.focus();
+        expect(button3.getElement()).toHaveFocus();
+      });
+    });
 
-		describe('Disabled elements', () => {
-			test('skips disabled buttons during navigation', () => {
-				const { wrapper } = renderNavigableGroupWithDisabledElements();
+    describe('Disabled elements', () => {
+      test('skips disabled buttons during navigation', () => {
+        const { wrapper } = renderNavigableGroupWithDisabledElements();
 
-				const button1 = wrapper.findContent().findAllButtons()[0];
-				const button3 = wrapper.findContent().findAllButtons()[2];
+        const button1 = wrapper.findContent().findAllButtons()[0];
+        const button3 = wrapper.findContent().findAllButtons()[2];
 
-				button1.focus();
-				button1.keydown(KeyCode.right);
+        button1.focus();
+        button1.keydown(KeyCode.right);
 
-				expect(button3.getElement()).toHaveFocus();
-			});
-			test('skips entirely if all elements disabled', () => {
-				const ref: { current: any.Ref | null } = { current: null };
-				renderNavigableGroupWithDisabledElements(true, ref);
-				ref.current!.focus();
-				expect(document.body).toHaveFocus();
-			});
-		});
+        expect(button3.getElement()).toHaveFocus();
+      });
+      test('skips entirely if all elements disabled', () => {
+        const ref: { current: any.Ref | null } = { current: null };
+        renderNavigableGroupWithDisabledElements(true, ref);
+        ref.current!.focus();
+        expect(document.body).toHaveFocus();
+      });
+    });
 
-		describe('non-supported children', () => {
-			it('handles plain buttons without errors', () => {
-				const { container } = renderNavigableGroup({
-					children: [
-						<button key="1" id="one">
-							Button 1
-						</button>,
-					],
-				});
-				const button = container.querySelector('#one')! as HTMLButtonElement;
-				button.focus();
-				fireEvent.keyDown(button, { keyCode: KeyCode.right });
-				expect(button).toHaveFocus();
-			});
-		});
+    describe('non-supported children', () => {
+      it('handles plain buttons without errors', () => {
+        const { container } = renderNavigableGroup({
+          children: [
+            <button key="1" id="one">
+              Button 1
+            </button>,
+          ],
+        });
+        const button = container.querySelector('#one')! as HTMLButtonElement;
+        button.focus();
+        fireEvent.keyDown(button, { keyCode: KeyCode.right });
+        expect(button).toHaveFocus();
+      });
+    });
 
-		describe('Mixed element types', () => {
-			test('navigates between different types of focusable elements', () => {
-				const { wrapper } = renderNavigableGroupWithMixedElements();
+    describe('Mixed element types', () => {
+      test('navigates between different types of focusable elements', () => {
+        const { wrapper } = renderNavigableGroupWithMixedElements();
 
-				const saveButton = wrapper.findContent().findButton()!;
-				const actionsDropdown = wrapper.findContent().findButtonDropdown()!.findTriggerButton()!;
-				const checkbox = wrapper.findContent().findCheckbox()!.findNativeInput();
-				const toggle = wrapper.findContent().findToggleButton('#toggle')!;
-				const link = wrapper.findContent().findLink()!;
+        const saveButton = wrapper.findContent().findButton()!;
+        const actionsDropdown = wrapper.findContent().findButtonDropdown()!.findTriggerButton()!;
+        const checkbox = wrapper.findContent().findCheckbox()!.findNativeInput();
+        const toggle = wrapper.findContent().findToggleButton('#toggle')!;
+        const link = wrapper.findContent().findLink()!;
 
-				saveButton.focus();
-				saveButton.keydown(KeyCode.right);
-				expect(actionsDropdown.getElement()).toHaveFocus();
+        saveButton.focus();
+        saveButton.keydown(KeyCode.right);
+        expect(actionsDropdown.getElement()).toHaveFocus();
 
-				actionsDropdown.keydown(KeyCode.right);
-				expect(checkbox.getElement()).toHaveFocus();
+        actionsDropdown.keydown(KeyCode.right);
+        expect(checkbox.getElement()).toHaveFocus();
 
-				checkbox.keydown(KeyCode.right);
-				expect(toggle.getElement()).toHaveFocus();
+        checkbox.keydown(KeyCode.right);
+        expect(toggle.getElement()).toHaveFocus();
 
-				toggle.keydown(KeyCode.right);
-				expect(link.getElement()).toHaveFocus();
-			});
-		});
-	});
+        toggle.keydown(KeyCode.right);
+        expect(link.getElement()).toHaveFocus();
+      });
+    });
+  });
 });

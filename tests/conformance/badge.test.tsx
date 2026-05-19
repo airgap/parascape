@@ -3,6 +3,21 @@
 // Mechanical rewrites only: component import → .pui, createWrapper +
 // render → adapter, styles → vendored, firstChild→firstElementChild.
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
+// __STUB: honest recursive no-op for unresolvable Cloudscape-internal
+// / sibling-test-helper imports. Callable, constructable (so tests can
+// extend it), empty-iterable, deep-property-safe — never throws at
+// collection, supplies NO fake data (every access is the stub itself,
+// so dependent value/DOM assertions fail honestly, never fake-pass).
+const __STUB: any = new Proxy(function () {}, {
+	get: (_t, k) =>
+		k === Symbol.iterator
+			? function* () {}
+			: k === Symbol.toPrimitive || k === 'toString' || k === 'valueOf'
+				? () => ''
+				: __STUB,
+	apply: () => __STUB,
+	construct: () => ({}),
+});
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 import { React } from '@conformance/adapter';
@@ -14,91 +29,91 @@ import { createWrapper } from '@conformance/adapter';
 import styles from '@cloudscape/badge.styles.js';
 
 function getNativeSpan(container: HTMLElement) {
-	const wrapper = createWrapper(container);
+  const wrapper = createWrapper(container);
 
-	return wrapper.findBadge()!.getElement();
+  return wrapper.findBadge()!.getElement();
 }
 
 function renderBadge(component: React.ReactElement) {
-	const { container } = render(component);
-	return getNativeSpan(container);
+  const { container } = render(component);
+  return getNativeSpan(container);
 }
 
 describe('Badge', () => {
-	describe('content (children)', () => {
-		test('can be set to empty', () => {
-			const badgeContent = '';
-			const emptyBadge = renderBadge(<Badge>{badgeContent}</Badge>);
-			expect(emptyBadge).toHaveTextContent('');
-		});
+  describe('content (children)', () => {
+    test('can be set to empty', () => {
+      const badgeContent = '';
+      const emptyBadge = renderBadge(<Badge>{badgeContent}</Badge>);
+      expect(emptyBadge).toHaveTextContent('');
+    });
 
-		test('can be set to text', () => {
-			const badgeWithContent = renderBadge(<Badge>This is the badge content</Badge>);
-			expect(badgeWithContent).toHaveTextContent('This is the badge content');
-		});
-	});
+    test('can be set to text', () => {
+      const badgeWithContent = renderBadge(<Badge>This is the badge content</Badge>);
+      expect(badgeWithContent).toHaveTextContent('This is the badge content');
+    });
+  });
 
-	(
-		[
-			'blue',
-			'grey',
-			'green',
-			'red',
-			'severity-critical',
-			'severity-high',
-			'severity-medium',
-			'severity-low',
-			'severity-neutral',
-		] as Array<any['color']>
-	).forEach((color) => {
-		test(`renders color ${color} correctly`, () => {
-			const badge = renderBadge(<Badge color={color}>20</Badge>);
-			expect(badge).toHaveClass(styles[`badge-color-${color}`]);
-		});
-	});
+  (
+    [
+      'blue',
+      'grey',
+      'green',
+      'red',
+      'severity-critical',
+      'severity-high',
+      'severity-medium',
+      'severity-low',
+      'severity-neutral',
+    ] as Array<any['color']>
+  ).forEach(color => {
+    test(`renders color ${color} correctly`, () => {
+      const badge = renderBadge(<Badge color={color}>20</Badge>);
+      expect(badge).toHaveClass(styles[`badge-color-${color}`]);
+    });
+  });
 
-	test(`renders default color (grey) correctly`, () => {
-		const badge = renderBadge(<Badge>20</Badge>);
-		expect(badge).toHaveClass(styles[`badge-color-grey`]);
-	});
+  test(`renders default color (grey) correctly`, () => {
+    const badge = renderBadge(<Badge>20</Badge>);
+    expect(badge).toHaveClass(styles[`badge-color-grey`]);
+  });
 });
 
 describe('Style API', () => {
-	test('all style properties', () => {
-		const badge = renderBadge(
-			<Badge
-				style={{
-					root: {
-						background: 'rgb(255, 255, 255)',
-						borderColor: 'rgb(0, 0, 0)',
-						borderRadius: '8px',
-						borderWidth: '2px',
-						paddingBlock: '4px',
-						paddingInline: '8px',
-					},
-				}}
-			>
-				Badge
-			</Badge>,
-		);
+  test('all style properties', () => {
+    const badge = renderBadge(
+      <Badge
+        style={{
+          root: {
+            background: 'rgb(255, 255, 255)',
+            borderColor: 'rgb(0, 0, 0)',
+            borderRadius: '8px',
+            borderWidth: '2px',
+            paddingBlock: '4px',
+            paddingInline: '8px',
+          },
+        }}
+      >
+        Badge
+      </Badge>
+    );
 
-		expect(getComputedStyle(badge).getPropertyValue('background')).toBe('rgb(255, 255, 255)');
-		expect(getComputedStyle(badge).getPropertyValue('border-color')).toBe('rgb(0, 0, 0)');
-		expect(getComputedStyle(badge).getPropertyValue('border-radius')).toBe('8px');
-		expect(getComputedStyle(badge).getPropertyValue('border-width')).toBe('2px');
-		expect(getComputedStyle(badge).getPropertyValue('padding-block')).toBe('4px');
-		expect(getComputedStyle(badge).getPropertyValue('padding-inline')).toBe('8px');
-	});
+    expect(getComputedStyle(badge).getPropertyValue('background')).toBe('rgb(255, 255, 255)');
+    expect(getComputedStyle(badge).getPropertyValue('border-color')).toBe('rgb(0, 0, 0)');
+    expect(getComputedStyle(badge).getPropertyValue('border-radius')).toBe('8px');
+    expect(getComputedStyle(badge).getPropertyValue('border-width')).toBe('2px');
+    expect(getComputedStyle(badge).getPropertyValue('padding-block')).toBe('4px');
+    expect(getComputedStyle(badge).getPropertyValue('padding-inline')).toBe('8px');
+  });
 });
 
 describe('native attributes', () => {
-	it('adds native attributes', () => {
-		const { container } = render(<Badge nativeAttributes={{ 'data-testid': 'my-test-id' }} />);
-		expect(container.querySelector('[data-testid="my-test-id"]')).not.toBeNull();
-	});
-	it('concatenates class names', () => {
-		const { container } = render(<Badge nativeAttributes={{ className: 'additional-class' }} />);
-		expect(container.firstElementChild).toHaveClass(styles.badge);
-		expect(container.firstElementChild).toHaveClass('additional-class');
-	});
+  it('adds native attributes', () => {
+    const { container } = render(<Badge nativeAttributes={{ 'data-testid': 'my-test-id' }} />);
+    expect(container.querySelector('[data-testid="my-test-id"]')).not.toBeNull();
+  });
+  it('concatenates class names', () => {
+    const { container } = render(<Badge nativeAttributes={{ className: 'additional-class' }} />);
+    expect(container.firstElementChild).toHaveClass(styles.badge);
+    expect(container.firstElementChild).toHaveClass('additional-class');
+  });
 });

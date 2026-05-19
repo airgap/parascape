@@ -1,14 +1,29 @@
 // AUTO-ADAPTED from cloudscape-design/components src/list/__tests__/
 // list.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, no extra rules.
+// render → adapter, styles → vendored, collapsed any<…>→any; stubbed unresolvable ../../../lib/components.
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
+// __STUB: honest recursive no-op for unresolvable Cloudscape-internal
+// / sibling-test-helper imports. Callable, constructable (so tests can
+// extend it), empty-iterable, deep-property-safe — never throws at
+// collection, supplies NO fake data (every access is the stub itself,
+// so dependent value/DOM assertions fail honestly, never fake-pass).
+const __STUB: any = new Proxy(function () {}, {
+	get: (_t, k) =>
+		k === Symbol.iterator
+			? function* () {}
+			: k === Symbol.toPrimitive || k === 'toString' || k === 'valueOf'
+				? () => ''
+				: __STUB,
+	apply: () => __STUB,
+	construct: () => ({}),
+});
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 import { React } from '@conformance/adapter';
 import { render } from '@conformance/adapter';
 
-import { Icon } from '../../../lib/components';
+const { Icon } = __STUB; // stub: ../../../lib/components
 import List from '@components/List.pui';
 import { createWrapper } from '@conformance/adapter';
 
@@ -22,7 +37,7 @@ const defaultItems: Item[] = [
   { id: 'item3', content: 'Item 3' },
 ];
 
-const renderList = (props: Partial<any<Item>> = {}) => {
+const renderList = (props: Partial<any> = {}) => {
   const defaultProps = {
     items: defaultItems,
     renderItem: (item: Item) => ({ id: item.id, content: item.content }),
