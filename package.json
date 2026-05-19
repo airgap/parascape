@@ -17,7 +17,8 @@
 		"conformance": "vitest run",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
-		"visual:chart": "bun tests/visual/chart-shoot.mjs"
+		"visual:chart": "bun tests/visual/chart-shoot.mjs",
+		"visual:area": "bun tests/visual/area-shoot.mjs"
 	},
 	"devDependencies": {
 		"@cloudscape-design/components": "^3.0.1297",

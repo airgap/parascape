@@ -38,9 +38,9 @@
 
 	derived items = series
 		.filter((s: any) => !visibleSeries || visibleSeries.indexOf(s.series) !== -1)
-		.map(({ series, color }: any) => ({
+		.map(({ series, color, _mk }: any) => ({
 			label: series.title,
-			type: chartLegendMap[series.type],
+			type: _mk ?? chartLegendMap[series.type],
 			color,
 			datum: series,
 		}));
