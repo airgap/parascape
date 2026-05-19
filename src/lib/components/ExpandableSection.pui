@@ -45,6 +45,7 @@
 	let {
 		variant = 'default',
 		headerText = undefined,
+		headingTagOverride = undefined,
 		headerAriaLabel = undefined,
 		defaultExpanded = false,
 		expanded: controlledExpanded = undefined,
@@ -55,6 +56,7 @@
 	}: {
 		variant?: 'default' | 'footer';
 		headerText?: string;
+		headingTagOverride?: string;
 		headerAriaLabel?: string;
 		defaultExpanded?: boolean;
 		expanded?: boolean;
@@ -97,7 +99,7 @@
 			role="presentation"
 		>
 			<div>
-				<div class={S['header-wrapper']}>
+				<svelte:element this={headingTagOverride || 'div'} class={S['header-wrapper']}>
 					<span
 						class={cx(S['expand-button'], S['header-button'])}
 						role="button"
@@ -110,7 +112,7 @@
 								size="normal"
 								class={cx(S.icon, expanded && S.expanded)}
 							/></span><span id={triggerControlId} class={S['header-text']}>{headerText}</span></span>
-				</div>
+				</svelte:element>
 			</div>
 		</div>
 		<div
@@ -123,6 +125,7 @@
 	{:else}
 		<div
 			class={cx(
+				S.header,
 				S.wrapper,
 				S['wrapper-default'],
 				expanded && S['wrapper-expanded'],
@@ -134,7 +137,7 @@
 			role="presentation"
 		>
 			<div>
-				<div class={S['header-wrapper']}>
+				<svelte:element this={headingTagOverride || 'div'} class={S['header-wrapper']}>
 					<span
 						class={cx(S['expand-button'], S['header-button'])}
 						role="button"
@@ -146,7 +149,7 @@
 								size="normal"
 								class={cx(S.icon, expanded && S.expanded)}
 							/></span><span id={triggerControlId} class={S['header-text']}>{headerText}</span></span>
-				</div>
+				</svelte:element>
 			</div>
 		</div>
 		<div
