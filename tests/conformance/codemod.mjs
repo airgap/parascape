@@ -32,7 +32,11 @@ const RAW = (c, file) =>
   `https://raw.githubusercontent.com/cloudscape-design/components/main/src/${c}/__tests__/${file}`;
 // Cloudscape's primary suite is usually `<kebab>.test.tsx`, but some
 // components name it `index.test.tsx` (e.g. link). Try both.
-const TEST_FILES = c => [`${c}.test.tsx`, "index.test.tsx"];
+// Primary suite is usually `<kebab>.test.tsx`; some components use
+// `index.test.tsx` (link) or split by surface (segmented-control →
+// desktop/mobile/styles). `desktop.test.tsx` is the parity-relevant
+// one for our desktop ports (mobile/styles are separate surfaces).
+const TEST_FILES = c => [`${c}.test.tsx`, "index.test.tsx", "desktop.test.tsx"];
 
 const CACHE = path.join(OUT, ".cache");
 fs.mkdirSync(CACHE, { recursive: true });
