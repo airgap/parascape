@@ -208,6 +208,7 @@
 					constraintText={def.constraintText}
 					errorText={def.errorText?.(item, index)}
 					warningText={def.warningText?.(item, index)}
+					__hideLabel={index !== 0 && onSameLine}
 					stretch
 				>{@render def.control(item, index)}</FormField>{/each}<div
 				class={cx(

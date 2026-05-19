@@ -37,6 +37,7 @@
 		warningText = undefined,
 		secondaryControl = undefined,
 		stretch = false,
+		__hideLabel = false,
 		errorIconAriaLabel = undefined,
 		warningIconAriaLabel = undefined,
 		children = undefined,
@@ -52,6 +53,7 @@
 		warningText?: import('svelte').Snippet | string;
 		secondaryControl?: import('svelte').Snippet;
 		stretch?: boolean;
+		__hideLabel?: boolean;
 		errorIconAriaLabel?: string;
 		warningIconAriaLabel?: string;
 		children?: import('svelte').Snippet;
@@ -86,17 +88,17 @@
 </script>
 
 <div class={cx(extraClass, S.root)} {...rest}>
-	<div class={S['label-wrapper']}>
+	<div class={cx(S['label-wrapper'], __hideLabel && S['visually-hidden'])}>
 		{#if hasLabel}<label class={S.label} for={id} id={`${id}-label`}
 				>{#if snip(label)}{@render (label as import('svelte').Snippet)()}{:else}{label}{/if}</label
-			>{/if}{#if hasInfo}<span class={S.info}
+			>{/if}{#if hasInfo && !__hideLabel}<span class={S.info}
 				>{#if snip(info)}{@render (info as import('svelte').Snippet)()}{:else}{info}{/if}</span
 			>{/if}
 	</div>
 	{#if description}<div class={S.description} id={`${id}-description`}
 			>{#if snip(description)}{@render (description as import('svelte').Snippet)()}{:else}{description}{/if}</div
 		>{/if}
-	<div class={S.controls}>
+	<div class={cx(S.controls, __hideLabel && S['label-hidden'])}>
 		<Grid columns={[{ colspan: 12, content: controlCol }]}>
 		</Grid>
 	</div>
