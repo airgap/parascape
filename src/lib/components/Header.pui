@@ -20,6 +20,7 @@
 		headingTagOverride = undefined,
 		counter = undefined,
 		description = undefined,
+		info = undefined,
 		actions = undefined,
 		disableActionsWrapping = false,
 		class: extraClass = undefined,
@@ -28,15 +29,18 @@
 	}: {
 		variant?: string;
 		headingTagOverride?: string;
-		counter?: string;
-		description?: string;
-		actions?: import('svelte').Snippet;
+		counter?: import('svelte').Snippet | string;
+		description?: import('svelte').Snippet | string;
+		info?: import('svelte').Snippet | string;
+		actions?: import('svelte').Snippet | string;
 		disableActionsWrapping?: boolean;
 		class?: string;
 		children?: import('svelte').Snippet;
 		[k: string]: unknown;
 	} = $props();
 
+	const snip = (val: unknown) => typeof val === 'function';
+	const has = (val: unknown) => val !== null && val !== undefined;
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
 	const ANA = ana as Record<string, string>;
@@ -71,9 +75,19 @@
 				this={HeadingTag}
 				class={headingClass}
 				tabindex={v === 'h1' ? -1 : undefined}
-			><span class={headingTextClass} id={headingId}>{@render children?.()}</span>{#if counter !== undefined}<span class={S.counter}>{' '}{counter}</span>{/if}</svelte:element>
+			><span class={headingTextClass} id={headingId}>{@render children?.()}</span>{#if has(counter)}<span
+					class={S.counter}
+					>{' '}{#if snip(counter)}{@render (counter as import('svelte').Snippet)()}{:else}{counter}{/if}</span
+				>{/if}</svelte:element
+			>{#if has(info)}<span class={S['virtual-space']}>{' '}&nbsp;</span><span class={S.info}
+				>{#if snip(info)}{@render (info as import('svelte').Snippet)()}{:else}{info}{/if}</span
+			>{/if}
 		</div>
-		{#if hasActions}<div class={actionsClass}>{@render actions?.()}</div>{/if}
+		{#if hasActions}<div class={actionsClass}
+				>{#if snip(actions)}{@render (actions as import('svelte').Snippet)()}{:else}{actions}{/if}</div
+			>{/if}
 	</div>
-	{#if description}<p class={descriptionClass}>{description}</p>{/if}
+	{#if has(description)}<p class={descriptionClass}
+			>{#if snip(description)}{@render (description as import('svelte').Snippet)()}{:else}{description}{/if}</p
+		>{/if}
 </div>
