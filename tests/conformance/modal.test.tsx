@@ -1,7 +1,7 @@
 // AUTO-ADAPTED from cloudscape-design/components src/modal/__tests__/
 // modal.test.tsx via tests/conformance/codemod.mjs.
 // Mechanical rewrites only: component import → .pui, createWrapper +
-// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/autosuggest; stubbed unresolvable ../../../lib/components/date-picker; stubbed unresolvable ../../../lib/components/date-range-picker; stubbed unresolvable ../../../lib/components/multiselect; stubbed unresolvable ../../internal/analytics; stubbed unresolvable ../../internal/keycode; interaction (manual-triage tier).
+// render → adapter, styles → vendored, stubbed unresolvable ../../../lib/components/date-picker; stubbed unresolvable ../../../lib/components/date-range-picker; stubbed unresolvable ../../../lib/components/multiselect; stubbed unresolvable ../../internal/analytics; stubbed unresolvable ../../internal/keycode; interaction (manual-triage tier).
 // JSX is compiled to the adapter h() descriptor by vitest esbuild.
 // ⚠ interaction tests present — see conformance summary; not all are mechanically valid.
 // __STUB: honest recursive no-op for unresolvable Cloudscape-internal
@@ -24,7 +24,7 @@ const __STUB: any = new Proxy(function () {}, {
 import { React } from '@conformance/adapter';
 import { act, fireEvent, render } from '@conformance/adapter';
 
-const Autosuggest = __STUB; // stub: ../../../lib/components/autosuggest
+import Autosuggest from '@components/Autosuggest.pui';
 import Button from '@components/Button.pui';
 import ButtonDropdown from '@components/ButtonDropdown.pui';
 const DatePicker = __STUB; // stub: ../../../lib/components/date-picker
