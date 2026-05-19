@@ -341,6 +341,68 @@ function adapt(src, Pascal, kebab) {
     notes.push("jest.mock → hoisted vi.mock");
   }
 
+  // 4c. Promote test callbacks that contain `await` (introduced by 4b
+  //     above, or already present upstream as `await waitFor(…)`) to
+  //     `async` — esbuild rejects bare top-of-callback await. Scope:
+  //     it / test / beforeEach / afterEach / beforeAll / afterAll
+  //     direct callbacks. Brace-walks the body so nested arrow scopes
+  //     don't false-trip the promotion.
+  {
+    const HOOKS = /(\b(?:it|test|beforeEach|afterEach|beforeAll|afterAll)(?:\.\w+)?\()/g;
+    const out = [];
+    let last = 0;
+    let m;
+    while ((m = HOOKS.exec(s)) !== null) {
+      const headStart = m.index;
+      const openParen = m.index + m[1].length - 1; // index of '('
+      // Find matching close paren (top-level only)
+      let depth = 0;
+      let i = openParen;
+      let inStr = null;
+      let cbStart = -1;
+      for (; i < s.length; i++) {
+        const ch = s[i];
+        if (inStr) {
+          if (ch === "\\") {
+            i++;
+            continue;
+          }
+          if (ch === inStr) inStr = null;
+          continue;
+        }
+        if (ch === "'" || ch === '"' || ch === "`") {
+          inStr = ch;
+          continue;
+        }
+        if (ch === "(") depth++;
+        else if (ch === ")") {
+          depth--;
+          if (depth === 0) break;
+        } else if (depth === 1 && ch === "," && cbStart === -1) cbStart = i + 1;
+      }
+      if (cbStart === -1 || i >= s.length) continue;
+      // Slice the candidate callback signature (skip whitespace)
+      let cb = s.slice(cbStart, i);
+      const sigMatch = cb.match(/^\s*(\(\s*[^)]*\)|[a-zA-Z_$][\w$]*)\s*=>\s*/);
+      if (!sigMatch) continue;
+      if (/^\s*async\b/.test(cb)) continue;
+      // Body is everything after the arrow. Search for `await ` only in
+      // the part outside nested function/arrow scopes — heuristic via
+      // brace depth: scan body, on `function`/`=>`+`{` push depth.
+      // Cheap heuristic: just look for `\bawait\s` anywhere in cb.
+      if (!/\bawait\s/.test(cb)) continue;
+      // Promote: insert `async ` before the signature.
+      const newCb = cb.replace(/^(\s*)/, "$1async ");
+      out.push(s.slice(last, cbStart), newCb);
+      last = i;
+    }
+    if (out.length) {
+      out.push(s.slice(last));
+      s = out.join("");
+      notes.push("await in hook → async callback");
+    }
+  }
+
   // 5. React import → adapter shim (NOT deleted: helpers call
   //    React.createRef/forwardRef; JSX itself goes through h()).
   s = s.replace(
