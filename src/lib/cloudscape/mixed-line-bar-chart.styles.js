@@ -1,5 +1,6 @@
-// vendored verbatim
-export default {
+
+    import './mixed-line-bar-chart.scoped.css';
+    export default {
   "series": "awsui_series_1yz9c_v68e6_189",
   "series--bar": "awsui_series--bar_1yz9c_v68e6_190",
   "series__rect": "awsui_series__rect_1yz9c_v68e6_190",
@@ -11,4 +12,5 @@ export default {
   "series--dimmed": "awsui_series--dimmed_1yz9c_v68e6_247",
   "series--threshold": "awsui_series--threshold_1yz9c_v68e6_251",
   "bar-group": "awsui_bar-group_1yz9c_v68e6_256"
-}
+};
+  
