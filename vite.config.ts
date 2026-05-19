@@ -16,6 +16,7 @@ export default defineConfig({
         ann: resolve(__dirname, "tests/visual/ann-fixture/ann.html"),
         chart: resolve(__dirname, "tests/visual/chart-fixture/chart.html"),
         area: resolve(__dirname, "tests/visual/area-fixture/area.html"),
+        pie: resolve(__dirname, "tests/visual/pie-fixture/pie.html"),
         popover: resolve(__dirname, "tests/visual/popover-fixture/popover.html"),
       },
     },

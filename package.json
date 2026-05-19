@@ -18,7 +18,8 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"visual:chart": "bun tests/visual/chart-shoot.mjs",
-		"visual:area": "bun tests/visual/area-shoot.mjs"
+		"visual:area": "bun tests/visual/area-shoot.mjs",
+		"visual:pie": "bun tests/visual/pie-shoot.mjs"
 	},
 	"devDependencies": {
 		"@cloudscape-design/components": "^3.0.1297",
