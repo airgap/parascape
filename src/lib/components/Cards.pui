@@ -50,8 +50,10 @@
   consistent with all prior ports).
 -->
 <script lang="pts">
+	import Checkbox from './Checkbox.pui';
 	import Container from './Container.pui';
 	import ItemCard from './ItemCard.pui';
+	import RadioButton from './RadioButton.pui';
 	import styles from '../cloudscape/cards.styles.js';
 	import thStyles from '../cloudscape/table.styles.js';
 	import '../cloudscape/cards.scoped.css';
@@ -226,12 +228,16 @@
 								<div class={cx(S['card-header-inner'], selectable && S['card-header-inner-selectable'])}
 									>{cardDefinition.header ? cardDefinition.header(item) : ''}</div
 								>
-								{#if selectable}<div class={S['selection-control']}><input
-											type={selectionType === 'single' ? 'radio' : 'checkbox'}
-											checked={selected}
-											aria-label={ariaLabels?.itemSelectionLabel}
-											onchange={() => toggleSelection(item, index)}
-										/></div>{/if}
+								{#if selectable}<div class={S['selection-control']}
+										>{#if selectionType === 'single'}<RadioButton
+												checked={selected}
+												ariaLabel={ariaLabels?.itemSelectionLabel}
+												onChange={() => toggleSelection(item, index)}
+											/>{:else}<Checkbox
+												checked={selected}
+												ariaLabel={ariaLabels?.itemSelectionLabel}
+												onChange={() => toggleSelection(item, index)}
+											/>{/if}</div>{/if}
 							</div>
 						{/snippet}
 						<li class={cx(S.card, selected && S['card-selected'])}>
