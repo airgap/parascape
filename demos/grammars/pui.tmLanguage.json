@@ -1,7 +1,9 @@
 {
   "name": "Para UI Component",
   "scopeName": "source.pui",
-  "fileTypes": ["pui"],
+  "fileTypes": [
+    "pui"
+  ],
   "uuid": "7582b62f-51d9-4a84-8c8d-fc189530faf6",
   "injections": {
     "L:(meta.script.svelte | meta.style.svelte) (meta.lang.js | meta.lang.javascript) - (meta source)": {
@@ -217,6 +219,47 @@
         {
           "match": "(?<![_$./'\"[:alnum:]])(\\$\\$)(?=props|restProps|slots)",
           "name": "punctuation.definition.variable.svelte"
+        }
+      ]
+    },
+    "L:(meta.script.svelte) (meta.lang.pts | meta.lang.parabun) - (meta source)": {
+      "patterns": [
+        {
+          "begin": "(?<=>)(?=[^\\n]+</script[\\s>])",
+          "end": "(?=</script[\\s>])",
+          "name": "meta.embedded.block.svelte",
+          "contentName": "source.pts",
+          "patterns": [
+            {
+              "include": "source.pts"
+            }
+          ]
+        },
+        {
+          "begin": "(?<=>)(?!</)",
+          "end": "(?=</)",
+          "name": "meta.embedded.block.svelte",
+          "contentName": "source.pts",
+          "patterns": [
+            {
+              "include": "source.pts"
+            }
+          ]
+        }
+      ]
+    },
+    "L:(meta.script.svelte) (meta.lang.pjs) - (meta source)": {
+      "patterns": [
+        {
+          "begin": "(?<=>)(?!</)",
+          "end": "(?=</)",
+          "name": "meta.embedded.block.svelte",
+          "contentName": "source.pjs",
+          "patterns": [
+            {
+              "include": "source.pjs"
+            }
+          ]
         }
       ]
     }

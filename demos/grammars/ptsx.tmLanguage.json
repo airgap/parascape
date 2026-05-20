@@ -4,6 +4,21 @@
   "scopeName": "source.ptsx",
   "patterns": [
     {
+      "include": "#parabun-provide-inject"
+    },
+    {
+      "include": "#parabun-using"
+    },
+    {
+      "include": "#parabun-mount"
+    },
+    {
+      "include": "#parabun-prop"
+    },
+    {
+      "include": "#parabun-derived"
+    },
+    {
       "include": "#parabun-is"
     },
     {
@@ -59,7 +74,7 @@
     "parabun-model": {
       "patterns": [
         {
-          "comment": "export model NAME from <expr> — ingest existing JSON Schema",
+          "comment": "export model NAME from <expr> \u2014 ingest existing JSON Schema",
           "match": "\\b(export)\\s+(schema)\\s+([A-Za-z_$][\\w$]*)\\s+(from)\\b",
           "captures": {
             "1": {
@@ -77,7 +92,7 @@
           }
         },
         {
-          "comment": "model NAME from <expr> — ingest existing JSON Schema",
+          "comment": "model NAME from <expr> \u2014 ingest existing JSON Schema",
           "match": "\\b(schema)\\s+([A-Za-z_$][\\w$]*)\\s+(from)\\b",
           "captures": {
             "1": {
@@ -92,7 +107,7 @@
           }
         },
         {
-          "comment": "export model NAME { ... } — declaration",
+          "comment": "export model NAME { ... } \u2014 declaration",
           "match": "\\b(export)\\s+(schema)\\s+([A-Za-z_$][\\w$]*)\\b(?=\\s*\\{)",
           "captures": {
             "1": {
@@ -107,7 +122,7 @@
           }
         },
         {
-          "comment": "model NAME { ... } — declaration",
+          "comment": "model NAME { ... } \u2014 declaration",
           "match": "\\b(schema)\\s+([A-Za-z_$][\\w$]*)\\b(?=\\s*\\{)",
           "captures": {
             "1": {
@@ -119,7 +134,7 @@
           }
         },
         {
-          "comment": "schema { ... } — inline JSON Schema literal",
+          "comment": "schema { ... } \u2014 inline JSON Schema literal",
           "match": "\\b(schema)\\b(?=\\s*\\{)",
           "captures": {
             "1": {
@@ -128,7 +143,7 @@
           }
         },
         {
-          "comment": "Bare `schema` keyword fallback — highlights as soon as the user types it, the way `class` / `interface` / `enum` do. Skipped when followed by `=` / `(` / `.` so an identifier named `schema` doesn't false-positive.",
+          "comment": "Bare `schema` keyword fallback \u2014 highlights as soon as the user types it, the way `class` / `interface` / `enum` do. Skipped when followed by `=` / `(` / `.` so an identifier named `schema` doesn't false-positive.",
           "match": "\\b(schema)\\b(?![\\s]*[=.(])",
           "captures": {
             "1": {
@@ -141,7 +156,7 @@
     "parabun-match": {
       "patterns": [
         {
-          "comment": "match EXPR { ... } — pattern matching expression",
+          "comment": "match EXPR { ... } \u2014 pattern matching expression",
           "match": "\\b(match)\\b(?=\\s+[A-Za-z_$(])",
           "captures": {
             "1": {
@@ -154,7 +169,7 @@
     "parabun-effect": {
       "patterns": [
         {
-          "comment": "effect { ... } — signal effect block",
+          "comment": "effect { ... } \u2014 signal effect block",
           "match": "\\b(effect)\\b(?=\\s*\\{)",
           "captures": {
             "1": {
@@ -179,7 +194,7 @@
           }
         },
         {
-          "comment": "when EXPR { ... } — guarded block",
+          "comment": "when EXPR { ... } \u2014 guarded block",
           "match": "\\b(when)\\b(?=\\s+[!A-Za-z_$(])",
           "captures": {
             "1": {
@@ -192,7 +207,7 @@
     "parabun-arena": {
       "patterns": [
         {
-          "comment": "arena { ... } — DeferGC scope",
+          "comment": "arena { ... } \u2014 DeferGC scope",
           "match": "\\b(arena)\\b(?=\\s*\\{)",
           "captures": {
             "1": {
@@ -205,7 +220,7 @@
     "parabun-signal": {
       "patterns": [
         {
-          "comment": "signal NAME = ... — reactive cell declaration",
+          "comment": "signal NAME = ... \u2014 reactive cell declaration",
           "match": "\\b(signal)\\s+([A-Za-z_$][\\w$]*)\\b",
           "captures": {
             "1": {
@@ -217,7 +232,7 @@
           }
         },
         {
-          "comment": "Bare `signal` keyword fallback — highlights as soon as the user types it. Skipped when followed by `=` / `(` / `.` so an identifier named `signal` doesn't false-positive.",
+          "comment": "Bare `signal` keyword fallback \u2014 highlights as soon as the user types it. Skipped when followed by `=` / `(` / `.` so an identifier named `signal` doesn't false-positive.",
           "match": "\\b(signal)\\b(?![\\s]*[=.(])",
           "captures": {
             "1": {
@@ -230,7 +245,7 @@
     "parabun-validation-marker": {
       "patterns": [
         {
-          "comment": ":: per-arg validation marker — `(req:: User)` runs User.parse at fn entry",
+          "comment": ":: per-arg validation marker \u2014 `(req:: User)` runs User.parse at fn entry",
           "name": "keyword.operator.validate.parabun",
           "match": "::"
         }
@@ -239,7 +254,7 @@
     "parabun-result-ctors": {
       "patterns": [
         {
-          "comment": "Ok / Err / Some / None — Result/Option constructor application",
+          "comment": "Ok / Err / Some / None \u2014 Result/Option constructor application",
           "match": "\\b(Ok|Err|Some)\\b(?=\\s*\\()",
           "captures": {
             "1": {
@@ -248,7 +263,7 @@
           }
         },
         {
-          "comment": "None — bare Option constant",
+          "comment": "None \u2014 bare Option constant",
           "match": "\\b(None)\\b(?!\\s*[\\.\\[\\(])",
           "captures": {
             "1": {
@@ -418,7 +433,7 @@
     "parabun-parallel": {
       "patterns": [
         {
-          "comment": "parallel/para let/const — statement form, fan-out promise composition",
+          "comment": "parallel/para let/const \u2014 statement form, fan-out promise composition",
           "match": "\\b(parallel|para)\\s+(let|const)\\b",
           "captures": {
             "1": {
@@ -430,7 +445,7 @@
           }
         },
         {
-          "comment": "parallel/para { … } — expression form, fan-out promise composition",
+          "comment": "parallel/para { \u2026 } \u2014 expression form, fan-out promise composition",
           "match": "\\b(parallel|para)\\b(?=\\s*\\{)",
           "captures": {
             "1": {
@@ -443,7 +458,7 @@
     "parabun-decimal-literal": {
       "patterns": [
         {
-          "comment": "Nd decimal literal — base-10 number followed by `d` suffix",
+          "comment": "Nd decimal literal \u2014 base-10 number followed by `d` suffix",
           "match": "(?<![\\w$.])((?:\\.\\d+|\\d+(?:\\.\\d*)?)(?:[eE][+-]?\\d+)?)(d)(?![\\w$])",
           "captures": {
             "1": {
@@ -459,7 +474,7 @@
     "parabun-is": {
       "patterns": [
         {
-          "comment": "expr is not Type — runtime negated type-guard",
+          "comment": "expr is not Type \u2014 runtime negated type-guard",
           "match": "\\b(is)\\s+(not)\\b(?=\\s+[A-Z])",
           "captures": {
             "1": {
@@ -471,7 +486,7 @@
           }
         },
         {
-          "comment": "expr is Type — runtime type-guard, lowers to Type.parse(expr).tag === \"Ok\"",
+          "comment": "expr is Type \u2014 runtime type-guard, lowers to Type.parse(expr).tag === \"Ok\"",
           "match": "\\b(is)\\b(?=\\s+[A-Z])",
           "captures": {
             "1": {
@@ -538,6 +553,71 @@
         },
         {
           "include": "source.tsx#function-body"
+        }
+      ]
+    },
+    "parabun-derived": {
+      "patterns": [
+        {
+          "comment": "derived NAME = EXPR or derived NAME { \u2026 }",
+          "match": "\\b(derived)\\b(?=\\s+[A-Za-z_$][\\w$]*\\s*[=,;:!{])",
+          "captures": {
+            "1": {
+              "name": "storage.type.derived.parabun"
+            }
+          }
+        }
+      ]
+    },
+    "parabun-prop": {
+      "patterns": [
+        {
+          "comment": "prop NAME: TYPE = DEFAULT",
+          "match": "\\b(prop)\\b(?=\\s+[A-Za-z_$][\\w$]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.prop.parabun"
+            }
+          }
+        }
+      ]
+    },
+    "parabun-mount": {
+      "patterns": [
+        {
+          "comment": "mount { \u2026 } lifecycle block",
+          "match": "\\b(mount)\\b(?=\\s*\\{)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.mount.parabun"
+            }
+          }
+        }
+      ]
+    },
+    "parabun-using": {
+      "patterns": [
+        {
+          "comment": "using NAME = EXPR \u2014 auto-dispose",
+          "match": "\\b(using)\\b(?=\\s+[A-Za-z_$][\\w$]*\\s*=)",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.using.parabun"
+            }
+          }
+        }
+      ]
+    },
+    "parabun-provide-inject": {
+      "patterns": [
+        {
+          "comment": "provide NAME = EXPR / inject NAME: TYPE \u2014 DI",
+          "match": "\\b(provide|inject)\\b(?=\\s+[A-Za-z_$][\\w$]*)",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.di.parabun"
+            }
+          }
         }
       ]
     }

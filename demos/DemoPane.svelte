@@ -193,14 +193,36 @@
 		background: rgba(96, 165, 250, 0.35);
 		color: transparent;
 	}
+	/* Shiki emits `<pre class="shiki"><code><span class="line">A</span>\n
+	   <span class="line">B</span>…</code></pre>`. The `\n` text nodes
+	   between line-spans are the issue: with `white-space: pre` on the
+	   outer pane (so the textarea overlay's spaces match), those \n
+	   bytes render as visible empty lines and each visual row ends up
+	   2-3× the expected line height.
+
+	   Fix: override `white-space: normal` on the inner `<pre.shiki>`
+	   and its `<code>` so inter-line whitespace collapses; then put
+	   `white-space: pre` back on each `.line` so in-line indentation
+	   stays preserved. Each `.line` is `display: block` so they still
+	   stack vertically without the trailing newline characters.
+
+	   The textarea still uses `white-space: pre` (for its own cursor
+	   layout) — the row-by-row alignment works because every `.line`
+	   is exactly one font line-height tall, same as a textarea row. */
 	:global(.editor-wrap pre.shiki) {
 		background: transparent !important;
 		margin: 0;
 		padding: 0;
 		display: block;
+		white-space: normal;
+	}
+	:global(.editor-wrap pre.shiki code) {
+		white-space: normal;
+		display: block;
 	}
 	:global(.editor-wrap pre.shiki .line) {
 		display: block;
+		white-space: pre;
 		min-height: 1.55em;
 	}
 	.render {
