@@ -122,12 +122,18 @@
 	}
 
 	type Pair = { cs: number; ps: number };
+	const pct = (cs: number, ps: number) => (cs > 0 ? Math.round((100 * (cs - ps)) / cs) : 0);
 	derived stat {
 		const c = { cs: chars(active.csSrc), ps: chars(active.psSrc) };
 		const b = { cs: bindings(active.csSrc, "cs"), ps: bindings(active.psSrc, "ps") };
-		const d = c.cs - c.ps;
-		const p = c.cs > 0 ? Math.round((100 * d) / c.cs) : 0;
-		return { chars: c, bindings: b, bytesDelta: d, bytesPct: p };
+		return {
+			chars: c,
+			bindings: b,
+			bytesDelta: c.cs - c.ps,
+			bytesPct: pct(c.cs, c.ps),
+			bindingsDelta: b.cs - b.ps,
+			bindingsPct: pct(b.cs, b.ps),
+		};
 	}
 	const totals = scenarios.reduce(
 		(a, s) => ({
@@ -138,8 +144,56 @@
 		}),
 		{ cs: 0, ps: 0, bcs: 0, bps: 0 },
 	);
-	const totalPct = Math.round((100 * (totals.cs - totals.ps)) / totals.cs);
+	const totalCharsPct = pct(totals.cs, totals.ps);
+	const totalBindPct = pct(totals.bcs, totals.bps);
 
+	// Scroll-sync between the two demo panes. When the user scrolls
+	// one pane's render area (or one pane's code textarea), mirror
+	// the scroll to the sibling so the eye can compare like-for-like
+	// without reaching for both scrollbars. The {#key active.id}
+	// block re-mounts the panes on scenario switch, so we re-attach
+	// listeners every time `gridEl` settles on a new fragment.
+	signal gridEl: HTMLElement | null = null;
+	effect {
+		const root = gridEl;
+		if (!root) return;
+		// Pair up siblings by CSS class — `.render` for the demo
+		// renders, `.editor-input` for the code textareas. Both come
+		// in pairs because the grid always renders two DemoPane
+		// children. Anything else is left alone.
+		const pair = (selector: string) => {
+			const els = [...root.querySelectorAll(selector)] as HTMLElement[];
+			if (els.length !== 2) return () => {};
+			// Suppress the re-emit when WE'RE the ones setting
+			// scrollTop on the partner — otherwise scroll events
+			// ping-pong forever.
+			let suppress = false;
+			const onScroll = (src: HTMLElement, dst: HTMLElement) => () => {
+				if (suppress) return;
+				suppress = true;
+				dst.scrollTop = src.scrollTop;
+				dst.scrollLeft = src.scrollLeft;
+				// release on next frame so the dst's resulting scroll
+				// event fires AFTER suppress flips back.
+				requestAnimationFrame(() => (suppress = false));
+			};
+			const aB = onScroll(els[0]!, els[1]!);
+			const bA = onScroll(els[1]!, els[0]!);
+			els[0]!.addEventListener("scroll", aB, { passive: true });
+			els[1]!.addEventListener("scroll", bA, { passive: true });
+			return () => {
+				els[0]!.removeEventListener("scroll", aB);
+				els[1]!.removeEventListener("scroll", bA);
+			};
+		};
+		// Reactive trigger — re-pair whenever the scenario changes
+		// (active.id) so the just-mounted DemoPane elements get
+		// fresh listeners. Reference `active.id` to mark the effect
+		// dependent on it.
+		const _scenarioKey = active.id;
+		const dispose = [pair(".render"), pair(".editor-input")];
+		return () => dispose.forEach((d) => d());
+	}
 </script>
 
 <div class="layout">
@@ -174,15 +228,21 @@
 					<td class="cell-num">{totals.bcs}</td>
 					<td class="cell-num">{totals.bps}</td>
 					<td class="cell-num delta" class:better={totals.bcs > totals.bps}
-						>{totals.bcs === totals.bps ? "0" : (totals.bcs > totals.bps ? "−" : "+") + Math.abs(totals.bcs - totals.bps)}</td>
+						>{totals.bcs === totals.bps
+							? "0"
+							: (totals.bcs > totals.bps ? "−" : "+") + Math.abs(totals.bcs - totals.bps)}
+						({Math.abs(totalBindPct)}%)</td>
 				</tr>
 				<tr>
 					<th scope="row">Chars</th>
 					<td class="cell-num">{totals.cs.toLocaleString()}</td>
 					<td class="cell-num">{totals.ps.toLocaleString()}</td>
 					<td class="cell-num delta" class:better={totals.cs > totals.ps}
-						>{totals.cs === totals.ps ? "0" : (totals.cs > totals.ps ? "−" : "+") + Math.abs(totals.cs - totals.ps).toLocaleString()}
-						({totalPct}%)</td>
+						>{totals.cs === totals.ps
+							? "0"
+							: (totals.cs > totals.ps ? "−" : "+") +
+								Math.abs(totals.cs - totals.ps).toLocaleString()}
+						({Math.abs(totalCharsPct)}%)</td>
 				</tr>
 			</tbody>
 		</table>
@@ -213,6 +273,19 @@
 				</thead>
 				<tbody>
 					<tr>
+						<th scope="row">Bindings</th>
+						<td class="cell-num">{stat.bindings.cs}</td>
+						<td class="cell-num">{stat.bindings.ps}</td>
+						<td
+							class="cell-num delta"
+							class:better={stat.bindingsDelta > 0}
+							class:worse={stat.bindingsDelta < 0}
+							>{stat.bindingsDelta === 0
+								? "0"
+								: (stat.bindingsDelta > 0 ? "−" : "+") + Math.abs(stat.bindingsDelta)}
+							{stat.bindings.cs > 0 ? `(${Math.abs(stat.bindingsPct)}%)` : ""}</td>
+					</tr>
+					<tr>
 						<th scope="row">Chars</th>
 						<td class="cell-num">{stat.chars.cs.toLocaleString()}</td>
 						<td class="cell-num">{stat.chars.ps.toLocaleString()}</td>
@@ -224,24 +297,11 @@
 								: (stat.bytesDelta > 0 ? "−" : "+") + Math.abs(stat.bytesDelta).toLocaleString()}
 							({Math.abs(stat.bytesPct)}%)</td>
 					</tr>
-					<tr>
-						<th scope="row">Bindings</th>
-						<td class="cell-num">{stat.bindings.cs}</td>
-						<td class="cell-num">{stat.bindings.ps}</td>
-						<td
-							class="cell-num delta"
-							class:better={stat.bindings.cs > stat.bindings.ps}
-							class:worse={stat.bindings.cs < stat.bindings.ps}
-							>{stat.bindings.cs === stat.bindings.ps
-								? "0"
-								: (stat.bindings.cs > stat.bindings.ps ? "−" : "+") +
-									Math.abs(stat.bindings.cs - stat.bindings.ps)}</td>
-					</tr>
 				</tbody>
 			</table>
 		</header>
 
-		<section class="grid">
+		<section class="grid" bind:this={gridEl}>
 			{#key active.id}
 				<DemoPane side="cs" initialSource={active.csSrc} label="Cloudscape (React)" ext=".tsx" />
 				<DemoPane side="ps" initialSource={active.psSrc} label="Parascape (.pui)" ext=".pui" />
