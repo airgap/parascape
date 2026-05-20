@@ -1,0 +1,51 @@
+<script lang="pts">
+	import Box from '@components/Box.pui';
+	import Button from '@components/Button.pui';
+	import Header from '@components/Header.pui';
+	import SpaceBetween from '@components/SpaceBetween.pui';
+	import Table from '@components/Table.pui';
+	import TextFilter from '@components/TextFilter.pui';
+
+	type Row = { id: string; name: string; type: string; state: 'Running' | 'Stopped' | 'Pending'; az: string };
+	const data: Row[] = [
+		{ id: 'i-0a1', name: 'web-1', type: 't3.medium', state: 'Running', az: 'us-east-1a' },
+		{ id: 'i-0b2', name: 'web-2', type: 't3.medium', state: 'Running', az: 'us-east-1b' },
+		{ id: 'i-0c3', name: 'worker-1', type: 'c6i.xlarge', state: 'Stopped', az: 'us-east-1a' },
+		{ id: 'i-0d4', name: 'db-primary', type: 'r6g.large', state: 'Running', az: 'us-east-1c' },
+		{ id: 'i-0e5', name: 'db-replica', type: 'r6g.large', state: 'Pending', az: 'us-east-1b' },
+	];
+	let filter = $state('');
+	const items = $derived(data.filter((r) => r.name.toLowerCase().includes(filter.toLowerCase())));
+</script>
+
+<Table
+	{items}
+	variant="container"
+	header={tableHeader}
+	filter={tableFilter}
+	columnDefinitions={[
+		{ id: 'name', header: 'Name', cell: (r: Row) => r.name },
+		{ id: 'type', header: 'Type', cell: (r: Row) => r.type },
+		{ id: 'state', header: 'State', cell: (r: Row) => r.state },
+		{ id: 'az', header: 'AZ', cell: (r: Row) => r.az },
+	]}
+	empty={empty}
+/>
+
+{#snippet tableHeader()}
+	<Header counter={`(${items.length})`} actions={tableActions}>Instances</Header>
+{/snippet}
+{#snippet tableActions()}
+	<SpaceBetween direction="horizontal" size="xs">
+		<Button>Refresh</Button>
+		<Button variant="primary">Launch</Button>
+	</SpaceBetween>
+{/snippet}
+{#snippet tableFilter()}
+	<TextFilter
+		filteringText={filter}
+		filteringPlaceholder="Find instance"
+		onChange={(e) => (filter = e.detail.filteringText)}
+	/>
+{/snippet}
+{#snippet empty()}<Box textAlign="center">No instances match the filter.</Box>{/snippet}

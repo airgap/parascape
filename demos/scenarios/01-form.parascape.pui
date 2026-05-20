@@ -1,0 +1,44 @@
+<script lang="pts">
+	import Button from '@components/Button.pui';
+	import Container from '@components/Container.pui';
+	import Form from '@components/Form.pui';
+	import FormField from '@components/FormField.pui';
+	import Header from '@components/Header.pui';
+	import Input from '@components/Input.pui';
+	import SpaceBetween from '@components/SpaceBetween.pui';
+
+	let email = $state('');
+	let password = $state('');
+	let submitted = $state<string | null>(null);
+	const valid = $derived(email.includes('@') && password.length >= 8);
+	const onSubmit = (e: Event) => {
+		e.preventDefault();
+		if (valid) submitted = email;
+	};
+</script>
+
+<form onsubmit={onSubmit}>
+	<Form header={header} actions={actions}>
+		<Container>
+			<SpaceBetween size="l">
+				<FormField label="Email" description="Use the address on your account.">
+					<Input value={email} type="email" onChange={(e) => (email = e.detail.value)} />
+				</FormField>
+				<FormField label="Password" constraintText="Minimum 8 characters.">
+					<Input value={password} type="password" onChange={(e) => (password = e.detail.value)} />
+				</FormField>
+				{#if submitted}
+					<FormField label="Submitted as"><Input value={submitted} readOnly /></FormField>
+				{/if}
+			</SpaceBetween>
+		</Container>
+	</Form>
+</form>
+
+{#snippet header()}<Header variant="h2">Sign in</Header>{/snippet}
+{#snippet actions()}
+	<SpaceBetween direction="horizontal" size="xs">
+		<Button variant="link">Cancel</Button>
+		<Button variant="primary" disabled={!valid}>Sign in</Button>
+	</SpaceBetween>
+{/snippet}

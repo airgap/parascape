@@ -1,0 +1,107 @@
+// Single source of truth for the demo set. Each scenario points at:
+//   • cloudscape — the React Cloudscape component (eager-imported so
+//     React mounts on first paint, not on tab switch)
+//   • parascape  — the .pui Svelte component (likewise)
+//   • cs / ps    — the file's RAW source text (via Vite's ?raw query),
+//     used both for the syntax-highlighted code pane and for the LOC
+//     stats the viewer displays
+import type { Component as SvelteComponent } from "svelte";
+import type { ComponentType as ReactComponent } from "react";
+
+// Cloudscape sides — React components.
+import Form_cs from "./01-form.cloudscape";
+import Table_cs from "./02-table.cloudscape";
+import Modal_cs from "./03-modal.cloudscape";
+import Tabs_cs from "./04-tabs.cloudscape";
+import Cards_cs from "./05-cards.cloudscape";
+import AppShell_cs from "./06-app-shell.cloudscape";
+
+// Parascape sides — Svelte components.
+import Form_ps from "./01-form.parascape.pui";
+import Table_ps from "./02-table.parascape.pui";
+import Modal_ps from "./03-modal.parascape.pui";
+import Tabs_ps from "./04-tabs.parascape.pui";
+import Cards_ps from "./05-cards.parascape.pui";
+import AppShell_ps from "./06-app-shell.parascape.pui";
+
+// Raw source for the code panes + LOC stats.
+import Form_cs_src from "./01-form.cloudscape.tsx?raw";
+import Table_cs_src from "./02-table.cloudscape.tsx?raw";
+import Modal_cs_src from "./03-modal.cloudscape.tsx?raw";
+import Tabs_cs_src from "./04-tabs.cloudscape.tsx?raw";
+import Cards_cs_src from "./05-cards.cloudscape.tsx?raw";
+import AppShell_cs_src from "./06-app-shell.cloudscape.tsx?raw";
+
+import Form_ps_src from "./01-form.parascape.pui?raw";
+import Table_ps_src from "./02-table.parascape.pui?raw";
+import Modal_ps_src from "./03-modal.parascape.pui?raw";
+import Tabs_ps_src from "./04-tabs.parascape.pui?raw";
+import Cards_ps_src from "./05-cards.parascape.pui?raw";
+import AppShell_ps_src from "./06-app-shell.parascape.pui?raw";
+
+export type Scenario = {
+  id: string;
+  title: string;
+  subtitle: string;
+  cloudscape: ReactComponent<Record<string, unknown>>;
+  parascape: SvelteComponent;
+  csSrc: string;
+  psSrc: string;
+};
+
+export const scenarios: Scenario[] = [
+  {
+    id: "01-form",
+    title: "Login form",
+    subtitle: "FormField + Input + validation + Button actions",
+    cloudscape: Form_cs,
+    parascape: Form_ps,
+    csSrc: Form_cs_src,
+    psSrc: Form_ps_src,
+  },
+  {
+    id: "02-table",
+    title: "Filtered instance table",
+    subtitle: "Table + TextFilter + Header counter + StatusIndicator",
+    cloudscape: Table_cs,
+    parascape: Table_ps,
+    csSrc: Table_cs_src,
+    psSrc: Table_ps_src,
+  },
+  {
+    id: "03-modal",
+    title: "Create-resource modal",
+    subtitle: "Modal + FormField + footer actions",
+    cloudscape: Modal_cs,
+    parascape: Modal_ps,
+    csSrc: Modal_cs_src,
+    psSrc: Modal_ps_src,
+  },
+  {
+    id: "04-tabs",
+    title: "Order detail with tabs",
+    subtitle: "Tabs + KeyValuePairs + StatusIndicator",
+    cloudscape: Tabs_cs,
+    parascape: Tabs_ps,
+    csSrc: Tabs_cs_src,
+    psSrc: Tabs_ps_src,
+  },
+  {
+    id: "05-cards",
+    title: "Cards grid (multi-select)",
+    subtitle: "Cards + selectionType + Badge + Link",
+    cloudscape: Cards_cs,
+    parascape: Cards_ps,
+    csSrc: Cards_cs_src,
+    psSrc: Cards_ps_src,
+  },
+  {
+    id: "06-app-shell",
+    title: "App shell",
+    subtitle: "AppLayout + SideNavigation + ContentLayout + HelpPanel",
+    cloudscape: AppShell_cs,
+    parascape: AppShell_ps,
+    csSrc: AppShell_cs_src,
+    psSrc: AppShell_ps_src,
+  },
+];

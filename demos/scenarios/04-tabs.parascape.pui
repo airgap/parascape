@@ -1,0 +1,38 @@
+<script lang="pts">
+	import Box from '@components/Box.pui';
+	import Container from '@components/Container.pui';
+	import Header from '@components/Header.pui';
+	import KeyValuePairs from '@components/KeyValuePairs.pui';
+	import StatusIndicator from '@components/StatusIndicator.pui';
+	import Tabs from '@components/Tabs.pui';
+
+	let active = $state('overview');
+</script>
+
+<Container header={containerHeader}>
+	<Tabs
+		activeTabId={active}
+		onChange={(e) => (active = e.detail.activeTabId)}
+		tabs={[
+			{ id: 'overview', label: 'Overview', content: overview },
+			{ id: 'items', label: 'Items', content: itemsTab },
+			{ id: 'shipping', label: 'Shipping', content: shippingTab },
+		]}
+	/>
+</Container>
+
+{#snippet containerHeader()}<Header variant="h2">order-1024</Header>{/snippet}
+{#snippet overview()}
+	<KeyValuePairs
+		columns={2}
+		items={[
+			{ label: 'Status', value: paidStatus },
+			{ label: 'Customer', value: 'acme.corp' },
+			{ label: 'Total', value: '$1,248.00' },
+			{ label: 'Items', value: '12' },
+		]}
+	/>
+{/snippet}
+{#snippet paidStatus()}<StatusIndicator type="success">Paid</StatusIndicator>{/snippet}
+{#snippet itemsTab()}<Box>List of order items goes here.</Box>{/snippet}
+{#snippet shippingTab()}<Box>Shipping events go here.</Box>{/snippet}

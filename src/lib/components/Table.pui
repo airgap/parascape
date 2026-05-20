@@ -117,6 +117,18 @@
 	function toggleAll() {
 		selectedItems = allSelected ? [] : [...items];
 	}
+	// Cloudscape's column.cell is `(item) => ReactNode`; in .pui that
+	// returned-VDOM path is naturally expressed as either (a) a plain
+	// `(item) => string|number` or (b) a Svelte 5 snippet that takes
+	// `(item)`. Svelte 5 doesn't expose a public is-snippet predicate,
+	// so we sniff the compiled snippet signature — every snippet emits
+	// `($$anchor, …) => …` so its `.toString()` starts with the anchor
+	// param. Plain arrow callbacks never do. Safe because the only
+	// false-positive would be a hand-written function literally named
+	// `$$anchor`, which user code never has.
+	function isCellSnippet(c: unknown): c is (i: unknown) => unknown {
+		return typeof c === 'function' && /^[^(]*\(\s*\$\$anchor/.test(c.toString());
+	}
 </script>
 
 <Container
@@ -224,7 +236,9 @@
 									BC['is-visual-refresh'],
 									selectionType && BC['has-selection'],
 								)}
-							><div class={BC['body-cell-content']}>{col.cell(item)}</div></td>
+							><div class={BC['body-cell-content']}
+									>{#if isCellSnippet(col.cell)}{@render col.cell(item)}{:else}{col.cell?.(item) ?? ''}{/if}</div
+								></td>
 						{/each}
 					</tr>
 				{/each}
