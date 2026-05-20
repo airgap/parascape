@@ -22,7 +22,11 @@
 		{ id: 'i-0e5', name: 'db-replica', type: 'r6g.large', state: 'Pending', az: 'us-east-1b' },
 	];
 	const stateType = (s: Row['state']) =>
-		s === 'Running' ? 'success' : s === 'Stopped' ? 'stopped' : 'in-progress';
+		match s {
+			'Running' => 'success',
+			'Stopped' => 'stopped',
+			_ => 'in-progress',
+		};
 
 	signal filter = '';
 	derived items = data.filter((r) => r.name.toLowerCase().includes(filter.toLowerCase()));
