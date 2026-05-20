@@ -10,7 +10,7 @@
       thrash; errors stay scoped to this pane and don't break the
       other side.
 -->
-<script lang="ts">
+<script lang="pts">
 	import { onDestroy } from "svelte";
 	import { highlight as shikiHighlight, ready as shikiReady } from "./pui-shiki";
 	import {
@@ -29,39 +29,39 @@
 	};
 	let { side, initialSource, label, ext }: Props = $props();
 
-	let source = $state(initialSource);
-	let error = $state<string | null>(null);
-	let highlighted = $state("");
-	let renderTarget = $state<HTMLDivElement | null>(null);
-	let textareaEl = $state<HTMLTextAreaElement | null>(null);
-	let preEl = $state<HTMLPreElement | null>(null);
+	signal source = initialSource;
+	signal error: string | null = null;
+	signal highlighted = "";
+	signal renderTarget: HTMLDivElement | null = null;
+	signal textareaEl: HTMLTextAreaElement | null = null;
+	signal preEl: HTMLPreElement | null = null;
 	let teardown: (() => void) | null = null;
 
 	const shikiLang = side === "cs" ? "tsx" : "pui";
 
 	// Reset to a new initial source when the parent swaps it (scenario nav).
-	$effect(() => {
+	effect {
 		const next = initialSource;
 		source = next;
 		error = null;
-	});
+	}
 
 	// Re-highlight whenever source changes. Shiki init is async — until
 	// it resolves, fall back to escaped raw text.
-	let shikiReadyFlag = $state(false);
+	signal shikiReadyFlag = false;
 	shikiReady.then(() => (shikiReadyFlag = true));
-	$effect(() => {
+	effect {
 		const src = source;
 		if (!shikiReadyFlag) {
 			highlighted = `<pre><code>${src.replace(/[<&]/g, (c) => (c === "<" ? "&lt;" : "&amp;"))}</code></pre>`;
 			return;
 		}
 		shikiHighlight(src, shikiLang).then((html) => (highlighted = html));
-	});
+	}
 
 	// Debounced compile + mount.
 	let debounceHandle: ReturnType<typeof setTimeout> | undefined;
-	$effect(() => {
+	effect {
 		const src = source;
 		const target = renderTarget;
 		if (!target) return;
@@ -70,13 +70,16 @@
 			try {
 				const Component = side === "cs" ? compileCloudscape(src) : compileParascape(src);
 				teardown?.();
-				teardown = side === "cs" ? mountReact(Component as never, target) : mountSvelte(Component as never, target);
+				teardown =
+					side === "cs"
+						? mountReact(Component as never, target)
+						: mountSvelte(Component as never, target);
 				error = null;
 			} catch (e: unknown) {
 				error = (e as { message?: string })?.message ?? String(e);
 			}
 		}, 300);
-	});
+	}
 
 	// Keep the highlighted overlay's scroll position in sync with the
 	// textarea — without this, the colored text drifts off the visible
@@ -88,7 +91,7 @@
 		}
 	};
 
-	// Tab → insert two spaces (the repo prettier uses tabs but a
+	// Tab → insert a literal tab (the repo prettier uses tabs but a
 	// textarea Tab keypress moves focus; intercept and insert literal
 	// tab so users editing the .pui scenarios keep the tab indentation).
 	const onKeydown = (e: KeyboardEvent) => {

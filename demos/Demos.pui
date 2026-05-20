@@ -22,12 +22,12 @@
      state slot — `[email, setEmail]` — Para's `signal email = …`
      costs one).
 -->
-<script lang="ts">
+<script lang="pts">
 	import { scenarios } from "./scenarios";
-	import DemoPane from "./DemoPane.svelte";
+	import DemoPane from "./DemoPane.pui";
 
-	let activeId = $state(scenarios[0].id);
-	const active = $derived(scenarios.find((s) => s.id === activeId) ?? scenarios[0]);
+	signal activeId = scenarios[0].id;
+	derived active = scenarios.find((s) => s.id === activeId) ?? scenarios[0];
 
 	// Theme switcher — light / dark / auto. "auto" delegates to the
 	// OS via prefers-color-scheme. The choice is stored in localStorage
@@ -38,9 +38,9 @@
 	// window / localStorage.
 	type Theme = "light" | "dark" | "auto";
 	const themes: Theme[] = ["light", "dark", "auto"];
-	let theme = $state<Theme>("auto");
+	signal theme: Theme = "auto";
 	const cycleTheme = () => (theme = themes[(themes.indexOf(theme) + 1) % themes.length]!);
-	$effect(() => {
+	effect {
 		if (typeof document === "undefined") return;
 		const apply = (t: Theme) => {
 			const resolved =
@@ -67,18 +67,16 @@
 		const onChange = () => apply("auto");
 		mql.addEventListener("change", onChange);
 		return () => mql.removeEventListener("change", onChange);
-	});
-	$effect(() => {
+	}
+	effect {
 		// Hydrate the persisted choice once at startup.
 		try {
 			const saved = localStorage.getItem("parascape-demos-theme") as Theme | null;
 			if (saved && themes.includes(saved)) theme = saved;
 		} catch {}
-	});
-	const themeIcon = $derived(theme === "light" ? "☀" : theme === "dark" ? "☾" : "◐");
-	const themeLabel = $derived(
-		theme === "light" ? "Light" : theme === "dark" ? "Dark" : "Auto",
-	);
+	}
+	derived themeIcon = theme === "light" ? "☀" : theme === "dark" ? "☾" : "◐";
+	derived themeLabel = theme === "light" ? "Light" : theme === "dark" ? "Dark" : "Auto";
 
 	// Byte count, comments stripped — what the author actually typed
 	// past the documentation. JS comments (//, /* */) and HTML comments
@@ -124,13 +122,13 @@
 	}
 
 	type Pair = { cs: number; ps: number };
-	const stat = $derived.by<{ chars: Pair; bindings: Pair; bytesDelta: number; bytesPct: number }>(() => {
+	derived stat {
 		const c = { cs: chars(active.csSrc), ps: chars(active.psSrc) };
 		const b = { cs: bindings(active.csSrc, "cs"), ps: bindings(active.psSrc, "ps") };
 		const d = c.cs - c.ps;
 		const p = c.cs > 0 ? Math.round((100 * d) / c.cs) : 0;
 		return { chars: c, bindings: b, bytesDelta: d, bytesPct: p };
-	});
+	}
 	const totals = scenarios.reduce(
 		(a, s) => ({
 			cs: a.cs + chars(s.csSrc),
@@ -495,74 +493,9 @@
 		gap: 18px;
 		min-width: 0;
 	}
-	.cell {
-		display: grid;
-		grid-template-rows: auto 1fr auto;
-		background: var(--bg-elev);
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		overflow: hidden;
-		min-width: 0;
-	}
-	.cell-head {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 8px 12px;
-		background: var(--bg-pane-head);
-		border-bottom: 1px solid var(--border);
-		font-size: 12px;
-		color: var(--fg-muted);
-	}
-	.cell-head b {
-		color: var(--fg-strong);
-		font-size: 13px;
-	}
-	.cell-head span {
-		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-		color: var(--fg-subtle);
-	}
-	pre.code {
-		margin: 0;
-		padding: 14px 16px;
-		font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-		color: var(--fg-strong);
-		background: var(--bg-code);
-		border-bottom: 1px solid var(--border);
-		overflow: auto;
-		max-height: 420px;
-		white-space: pre;
-		tab-size: 2;
-	}
-	pre.code code {
-		display: block;
-	}
-	.render {
-		padding: 16px;
-		background: var(--bg-elev);
-		min-height: 200px;
-		overflow: auto;
-	}
-	/* Shiki renders its own `<pre class="shiki …">` with inline
-	   `style="color:…"` on every token, so we don't need a Prism
-	   color theme here. We DO want our `pre.code` wrapper styling
-	   (padding, max-height, border-bottom) to win over Shiki's
-	   `<pre class="shiki">`, so we wrap the highlighted output in
-	   our own `pre.code` and let Shiki's inner `<pre>` (which we
-	   override to display: contents) just provide the token spans. */
-	pre.code :global(pre.shiki) {
-		background: transparent !important;
-		margin: 0;
-		padding: 0;
-		font: inherit;
-		color: inherit;
-		display: block;
-	}
-	pre.code :global(pre.shiki code) {
-		font: inherit;
-	}
-	pre.code :global(.shiki .line) {
-		display: block;
-		min-height: 1.55em;
-	}
+	/* The .cell / .cell-head / pre.code / .render rules used to live
+	   here too; they moved to DemoPane.pui with the rest of the pane
+	   chrome when the viewer split into its own .pui module. The
+	   Shiki <pre> overrides live alongside them. Demos.pui only owns
+	   the outer layout (sidebar + main + grid) and the theme tokens. */
 </style>

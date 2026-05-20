@@ -11,7 +11,7 @@ import "../src/lib/tokens/cloudscape-tokens.css";
 // block wins source order over the light `body { … }` baseline.
 import "../src/lib/tokens/cloudscape-tokens-dark.css";
 import { mount } from "svelte";
-import Demos from "./Demos.svelte";
+import Demos from "./Demos.pui";
 
 const target = document.getElementById("app");
 if (!target) throw new Error("demos: #app mount target not found");
