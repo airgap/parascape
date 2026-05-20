@@ -188,6 +188,7 @@ import CsHelpPanel from "@cloudscape-design/components/help-panel";
 import CsInput from "@cloudscape-design/components/input";
 import CsKeyValuePairs from "@cloudscape-design/components/key-value-pairs";
 import CsModal from "@cloudscape-design/components/modal";
+import CsProgressBar from "@cloudscape-design/components/progress-bar";
 import CsSideNavigation from "@cloudscape-design/components/side-navigation";
 import CsSpaceBetween from "@cloudscape-design/components/space-between";
 import CsStatusIndicator from "@cloudscape-design/components/status-indicator";
@@ -210,6 +211,7 @@ const cloudscapeComponents: Record<string, { default: unknown }> = {
   "@cloudscape-design/components/input": { default: CsInput },
   "@cloudscape-design/components/key-value-pairs": { default: CsKeyValuePairs },
   "@cloudscape-design/components/modal": { default: CsModal },
+  "@cloudscape-design/components/progress-bar": { default: CsProgressBar },
   "@cloudscape-design/components/side-navigation": { default: CsSideNavigation },
   "@cloudscape-design/components/space-between": { default: CsSpaceBetween },
   "@cloudscape-design/components/status-indicator": { default: CsStatusIndicator },

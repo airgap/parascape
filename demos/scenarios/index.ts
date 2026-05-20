@@ -16,6 +16,8 @@ import Tabs_cs from "./04-tabs.cloudscape";
 import Cards_cs from "./05-cards.cloudscape";
 import AppShell_cs from "./06-app-shell.cloudscape";
 import Tags_cs from "./07-tags.cloudscape";
+import Timer_cs from "./08-timer.cloudscape";
+import Cart_cs from "./09-cart.cloudscape";
 
 // Parascape sides — Svelte components.
 import Form_ps from "./01-form.parascape.pui";
@@ -25,6 +27,8 @@ import Tabs_ps from "./04-tabs.parascape.pui";
 import Cards_ps from "./05-cards.parascape.pui";
 import AppShell_ps from "./06-app-shell.parascape.pui";
 import Tags_ps from "./07-tags.parascape.pui";
+import Timer_ps from "./08-timer.parascape.pui";
+import Cart_ps from "./09-cart.parascape.pui";
 
 // Raw source for the code panes + LOC stats.
 import Form_cs_src from "./01-form.cloudscape.tsx?raw";
@@ -34,6 +38,8 @@ import Tabs_cs_src from "./04-tabs.cloudscape.tsx?raw";
 import Cards_cs_src from "./05-cards.cloudscape.tsx?raw";
 import AppShell_cs_src from "./06-app-shell.cloudscape.tsx?raw";
 import Tags_cs_src from "./07-tags.cloudscape.tsx?raw";
+import Timer_cs_src from "./08-timer.cloudscape.tsx?raw";
+import Cart_cs_src from "./09-cart.cloudscape.tsx?raw";
 
 import Form_ps_src from "./01-form.parascape.pui?raw";
 import Table_ps_src from "./02-table.parascape.pui?raw";
@@ -42,6 +48,8 @@ import Tabs_ps_src from "./04-tabs.parascape.pui?raw";
 import Cards_ps_src from "./05-cards.parascape.pui?raw";
 import AppShell_ps_src from "./06-app-shell.parascape.pui?raw";
 import Tags_ps_src from "./07-tags.parascape.pui?raw";
+import Timer_ps_src from "./08-timer.parascape.pui?raw";
+import Cart_ps_src from "./09-cart.parascape.pui?raw";
 
 export type Scenario = {
   id: string;
@@ -116,5 +124,23 @@ export const scenarios: Scenario[] = [
     parascape: Tags_ps,
     csSrc: Tags_cs_src,
     psSrc: Tags_ps_src,
+  },
+  {
+    id: "08-timer",
+    title: "Live timer",
+    subtitle: "Interval effect with cleanup → derived display, progress, status",
+    cloudscape: Timer_cs,
+    parascape: Timer_ps,
+    csSrc: Timer_cs_src,
+    psSrc: Timer_ps_src,
+  },
+  {
+    id: "09-cart",
+    title: "Cart totals",
+    subtitle: "List state + derived chain: subtotal → discount → tax → total",
+    cloudscape: Cart_cs,
+    parascape: Cart_ps,
+    csSrc: Cart_cs_src,
+    psSrc: Cart_ps_src,
   },
 ];
