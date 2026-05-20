@@ -79,6 +79,10 @@
 		visibleSections = undefined,
 		ariaLabels = undefined,
 		variant = 'container',
+		selectionType = undefined,
+		selectedItems = [],
+		onSelectionChange = undefined,
+		trackBy = undefined,
 		class: extraClass = undefined,
 		...rest
 	}: {
@@ -93,6 +97,10 @@
 		visibleSections?: string[];
 		ariaLabels?: { cardsLabel?: string; itemSelectionLabel?: string };
 		variant?: 'container' | 'cards' | 'full-page';
+		selectionType?: 'single' | 'multi';
+		selectedItems?: any[];
+		onSelectionChange?: (e: { detail: { selectedItems: any[] } }) => void;
+		trackBy?: string | ((item: any) => string);
 		class?: string;
 		[k: string]: unknown;
 	} = $props();
@@ -161,6 +169,37 @@
 			? defs.filter((s) => s.id && visibleSections.indexOf(s.id) !== -1)
 			: defs;
 	})();
+
+	// Selection bookkeeping mirrors Cloudscape's useSelection. trackBy
+	// can be a key string or a per-item function; we resolve identity
+	// the same way for `isItemSelected` and for `onSelectionChange`'s
+	// emitted `selectedItems` so referential identity round-trips.
+	const selectable = !!selectionType;
+	const itemKey = (item: any, index: number) =>
+		typeof trackBy === 'function'
+			? trackBy(item)
+			: typeof trackBy === 'string'
+				? String(item?.[trackBy])
+				: String(index);
+	const isItemSelected = (item: any, index: number) => {
+		const k = itemKey(item, index);
+		return (selectedItems || []).some((s, i) => itemKey(s, i) === k);
+	};
+	const toggleSelection = (item: any, index: number) => {
+		if (!onSelectionChange) return;
+		const k = itemKey(item, index);
+		const prev = selectedItems || [];
+		const already = prev.some((s, i) => itemKey(s, i) === k);
+		const next =
+			selectionType === 'single'
+				? already
+					? []
+					: [item]
+				: already
+					? prev.filter((s, i) => itemKey(s, i) !== k)
+					: [...prev, item];
+		onSelectionChange({ detail: { selectedItems: next } });
+	};
 </script>
 
 <div class={cx(extraClass, S.root)} bind:this={rootEl} {...rest}>
@@ -181,15 +220,22 @@
 					aria-label={ariaLabels?.cardsLabel}
 				>
 					{#each items as item, index (index)}
+						{@const selected = selectable && isItemSelected(item, index)}
 						{#snippet cardHeader()}
 							<div class={S['card-header']}>
-								<div class={cx(S['card-header-inner'])}
+								<div class={cx(S['card-header-inner'], selectable && S['card-header-inner-selectable'])}
 									>{cardDefinition.header ? cardDefinition.header(item) : ''}</div
 								>
+								{#if selectable}<div class={S['selection-control']}><input
+											type={selectionType === 'single' ? 'radio' : 'checkbox'}
+											checked={selected}
+											aria-label={ariaLabels?.itemSelectionLabel}
+											onchange={() => toggleSelection(item, index)}
+										/></div>{/if}
 							</div>
 						{/snippet}
-						<li class={cx(S.card)}>
-							<ItemCard fullHeight header={cardHeader}>
+						<li class={cx(S.card, selected && S['card-selected'])}>
+							<ItemCard fullHeight highlighted={selected} header={cardHeader}>
 								{#if visibleSectionsDefinition.length > 0}
 									{#each visibleSectionsDefinition as sec, si (sec.id || si)}
 										<div class={S.section} style={`width: ${sec.width ?? 100}%`}>
