@@ -225,15 +225,25 @@
 		white-space: pre;
 		min-height: 1.55em;
 	}
-	/* Dual-theme Shiki — pui-shiki.ts emits tokens with
-	   `color: <light>` and `--shiki-dark: <dark>`. Swap the active
-	   color (and background, where Shiki used a wrapper bg) under
-	   the host document's data-theme. !important wins over Shiki's
-	   inline `color:` style. */
+	/* Dual-theme Shiki — pui-shiki.ts runs with `defaultColor: false`,
+	   so every token gets `--shiki-light: <light>` and `--shiki-dark:
+	   <dark>` inline-style variables but NO `color` declaration. The
+	   active color is picked here off [data-theme]: light is the
+	   default (the toggle ships light first); dark overrides under
+	   the dark attribute. Background stays transparent so the editor
+	   wrapper's --bg-code shows through — without this, Shiki's
+	   --shiki-dark-bg (#24292e from github-dark) would paint a grey
+	   plate inside an otherwise pure-dark editor. */
+	:global(.editor-wrap pre.shiki),
+	:global(.editor-wrap pre.shiki span) {
+		color: var(--shiki-light, inherit);
+	}
 	:global([data-theme="dark"] .editor-wrap pre.shiki),
 	:global([data-theme="dark"] .editor-wrap pre.shiki span) {
-		color: var(--shiki-dark, inherit) !important;
-		background-color: var(--shiki-dark-bg, transparent) !important;
+		color: var(--shiki-dark, inherit);
+	}
+	:global(.editor-wrap pre.shiki) {
+		background-color: transparent !important;
 	}
 	.render {
 		padding: 16px;
