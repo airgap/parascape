@@ -6,7 +6,7 @@
 	import StatusIndicator from '@components/StatusIndicator.pui';
 	import Tabs from '@components/Tabs.pui';
 
-	let active = $state('overview');
+	signal active = 'overview';
 </script>
 
 <Container header={containerHeader}>

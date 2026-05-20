@@ -6,9 +6,10 @@
 	import Modal from '@components/Modal.pui';
 	import SpaceBetween from '@components/SpaceBetween.pui';
 
-	let open = $state(false);
-	let name = $state('');
-	let created = $state<string[]>([]);
+	signal open = false;
+	signal name = '';
+	signal created: string[] = [];
+
 	const submit = () => {
 		if (!name.trim()) return;
 		created = [...created, name.trim()];

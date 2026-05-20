@@ -6,9 +6,9 @@
 	import HelpPanel from '@components/HelpPanel.pui';
 	import SideNavigation from '@components/SideNavigation.pui';
 
-	let active = $state('/dashboard');
-	let navOpen = $state(true);
-	let toolsOpen = $state(false);
+	signal active = '/dashboard';
+	signal navOpen = true;
+	signal toolsOpen = false;
 </script>
 
 <AppLayout

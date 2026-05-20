@@ -10,7 +10,7 @@
 		{ id: 'p-4', name: 'Saffron arancini', region: 'Sicily', status: 'active', price: 16 },
 	];
 
-	let selected = $state<Item[]>([]);
+	signal selected: Item[] = [];
 </script>
 
 <Cards

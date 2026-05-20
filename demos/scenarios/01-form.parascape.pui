@@ -7,10 +7,11 @@
 	import Input from '@components/Input.pui';
 	import SpaceBetween from '@components/SpaceBetween.pui';
 
-	let email = $state('');
-	let password = $state('');
-	let submitted = $state<string | null>(null);
-	const valid = $derived(email.includes('@') && password.length >= 8);
+	signal email = '';
+	signal password = '';
+	signal submitted: string | null = null;
+	derived valid = email.includes('@') && password.length >= 8;
+
 	const onSubmit = (e: Event) => {
 		e.preventDefault();
 		if (valid) submitted = email;
