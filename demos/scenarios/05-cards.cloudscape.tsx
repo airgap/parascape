@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Cards from "@cloudscape-design/components/cards";
 import Header from "@cloudscape-design/components/header";
 
@@ -12,8 +12,6 @@ const items: Item[] = [
 
 export default function CardsCloudscape() {
   const [selected, setSelected] = useState<Item[]>([]);
-  const totalPrice = useMemo(() => selected.reduce((acc, it) => acc + it.price, 0), [selected]);
-  const activeOnly = useMemo(() => items.filter(it => it.status === "active"), []);
   return (
     <Cards
       items={items}
@@ -21,10 +19,7 @@ export default function CardsCloudscape() {
       selectedItems={selected}
       onSelectionChange={({ detail }) => setSelected(detail.selectedItems)}
       header={
-        <Header
-          counter={`(${activeOnly.length}/${items.length}${selected.length > 0 ? ` · $${totalPrice}` : ""})`}
-          variant="h2"
-        >
+        <Header counter={`(${items.length})`} variant="h2">
           Menu items
         </Header>
       }
