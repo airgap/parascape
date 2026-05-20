@@ -1,5 +1,14 @@
 // Para Lang spike — inline-markup attribute values (full version).
 //
+// STATUS: PROMOTED to /raid/parabun/packages/para-preprocess/src/
+// index.ts as `lowerInlineSnippets` + a `markup` handler on the
+// `parabunPreprocess()` PreprocessorGroup. 11/11 unit tests pass
+// upstream (test/inline-snippets.test.ts). This local copy stays
+// wired in svelte.config.js until @lyku/para-preprocess publishes
+// the next pre release picking up that commit — at which point
+// this file + the import line + the demos:test script can be
+// deleted in one stroke.
+//
 // Three lift forms are supported:
 //
 //   1. Bare markup as an attribute value:
