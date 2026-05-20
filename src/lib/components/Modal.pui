@@ -76,11 +76,28 @@
 	const snip = (v: unknown) => typeof v === 'function';
 </script>
 
+<!--
+  Click-outside dismiss — the root acts as the backdrop. When the
+  click target IS the root (not the dialog), forward dismiss. The
+  dialog's own click stops at the dialog `<div>` because the event
+  bubbles up from there to root with currentTarget === root only if
+  the user clicked the root directly. We don't stopPropagation on
+  the dialog so internal close buttons still bubble — we just check
+  the target identity at the root handler.
+-->
 <div
 	class={cx(extraClass, S.root, !visible && S.hidden, isRefresh && S.refresh)}
+	onclick={(e: MouseEvent) => {
+		if (visible && e.target === e.currentTarget) onDismiss?.();
+	}}
+	role="presentation"
 	{...rest}
 >
-	<div class={cx(S['focus-lock'], S[`position-${position}`])}>
+	<div class={cx(S['focus-lock'], S[`position-${position}`])}
+		onclick={(e: MouseEvent) => {
+			if (visible && e.target === e.currentTarget) onDismiss?.();
+		}}
+		role="presentation">
 		<div class={cx(S.dialog, S[size], isRefresh && S.refresh)}>
 			<div class={S.container}>
 				<div class={S.header}>

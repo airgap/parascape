@@ -45,3 +45,25 @@
 </script>
 
 <div class={className} {...rest}>{@render children?.()}</div>
+
+<!--
+  Cloudscape wraps each SpaceBetween child in a `.child` div that's
+  the actual flex-item; the button/Link/etc. inside the div is no
+  longer a flex child so it keeps its inline-block (content-sized)
+  width. Svelte can't iterate snippet children to emit the wrapper,
+  so direct flex items like <button> stretch to the container's cross
+  size by default (align-items: stretch). For elements that should
+  size to content — buttons, anchors, badges — set align-self: start
+  so they stop stretching. Form controls and full-width components
+  use width: 100% or their own block layout, so this rule doesn't
+  shrink them.
+-->
+<style>
+	:global(.awsui_root_18582_1jqoe_145 > button),
+	:global(.awsui_root_18582_1jqoe_145 > a),
+	:global(.awsui_root_18582_1jqoe_145 > [class*='awsui_button_']),
+	:global(.awsui_root_18582_1jqoe_145 > [class*='awsui_badge_']),
+	:global(.awsui_root_18582_1jqoe_145 > [class*='awsui_link_']) {
+		align-self: start;
+	}
+</style>
