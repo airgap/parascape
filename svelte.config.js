@@ -3,6 +3,7 @@ import { parabunPreprocess } from "@lyku/para-preprocess";
 import paraInlineSnippets from "./demos/para-inline-snippets.ts";
 import lowerMatchPreprocess from "./demos/lower-match.ts";
 import lowerLeadingDotPreprocess from "./demos/lower-leading-dot.ts";
+import lowerPipelinePreprocess from "./demos/lower-pipeline.ts";
 
 // @lyku/para-preprocess returns `dependencies: [filename]` on every
 // script-tag pass. vite-plugin-svelte's preprocess plugin records the
@@ -53,6 +54,7 @@ export default {
   // type-stub but needs runtime lowering for browser / live-compile.
   extensions: [".svelte", ".pui"],
   preprocess: [
+    lowerPipelinePreprocess(),
     lowerLeadingDotPreprocess(),
     lowerMatchPreprocess(),
     paraInlineSnippets(),

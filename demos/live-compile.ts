@@ -24,6 +24,7 @@ import { compile as svelteCompile } from "svelte/compiler";
 import { parabunPreprocess } from "@lyku/para-preprocess";
 import { lowerMatch } from "./lower-match";
 import { lowerLeadingDot } from "./lower-leading-dot";
+import { lowerPipeline } from "./lower-pipeline";
 // `lowerInlineSnippets` lives in /raid/parabun/packages/para-preprocess
 // (committed but unpublished); use the local Parascape spike's
 // markup-pass with the same input/output contract until the next
@@ -88,6 +89,12 @@ function lowerPuiSource(src: string): string {
       // `.filter((__x) => __x.name)`. Same rationale as lowerMatch:
       // sugar that needs to be gone before sucrase / Svelte see it.
       const dotLowered = lowerLeadingDot(matchLowered);
+      // Pipeline lowering — `expr |> fn` → `fn(expr)`,
+      // `expr |> .method(args)` → `(expr).method(args)`. The parabun
+      // Zig parser handles this natively; we re-implement just the
+      // common forms the demos exercise so editable scenarios can
+      // pipe in the browser without a Zig roundtrip.
+      const pipeLowered = lowerPipeline(dotLowered);
       // Strip TS types so Svelte's parser can read it. Sucrase drops
       // imports it thinks are unused — but a Svelte script-block's
       // imports are routinely "unused" at the script level and only
@@ -95,7 +102,7 @@ function lowerPuiSource(src: string): string {
       // them, run the strip on the rest, then prepend the imports
       // back verbatim so Svelte's compiler keeps them in scope.
       const importLines: string[] = [];
-      const nonImport = dotLowered.replace(/^[ \t]*import\s[^\n]*\n?/gm, m => {
+      const nonImport = pipeLowered.replace(/^[ \t]*import\s[^\n]*\n?/gm, m => {
         importLines.push(m);
         return "";
       });
@@ -168,6 +175,7 @@ const puiComponents = import.meta.glob<{ default: SvelteComponent }>("/src/lib/c
 import * as React from "react";
 import * as ReactJsxRuntime from "react/jsx-runtime";
 import CsAppLayout from "@cloudscape-design/components/app-layout";
+import CsBadge from "@cloudscape-design/components/badge";
 import CsBox from "@cloudscape-design/components/box";
 import CsButton from "@cloudscape-design/components/button";
 import CsCards from "@cloudscape-design/components/cards";
@@ -189,6 +197,7 @@ import CsTextFilter from "@cloudscape-design/components/text-filter";
 
 const cloudscapeComponents: Record<string, { default: unknown }> = {
   "@cloudscape-design/components/app-layout": { default: CsAppLayout },
+  "@cloudscape-design/components/badge": { default: CsBadge },
   "@cloudscape-design/components/box": { default: CsBox },
   "@cloudscape-design/components/button": { default: CsButton },
   "@cloudscape-design/components/cards": { default: CsCards },
