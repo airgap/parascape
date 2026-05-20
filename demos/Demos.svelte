@@ -23,12 +23,9 @@
      costs one).
 -->
 <script lang="ts">
-	import { Prism, highlightPui, registerPuiLanguage } from "./pui-prism";
+	import { highlight as shikiHighlight, ready as shikiReady } from "./pui-shiki";
 	import { scenarios } from "./scenarios";
 	import ReactMount from "./ReactMount.svelte";
-	// Ensure the .pui grammar is installed before the first $derived
-	// runs — `highlight()` below uses it eagerly.
-	registerPuiLanguage();
 
 	let activeId = $state(scenarios[0].id);
 	const active = $derived(scenarios.find((s) => s.id === activeId) ?? scenarios[0]);
@@ -95,15 +92,32 @@
 	);
 	const totalPct = Math.round((100 * (totals.cs - totals.ps)) / totals.cs);
 
-	// The Cloudscape side is real TSX; the Parascape side runs through
-	// the dedicated `.pui` grammar (see demos/pui-prism.ts) which extends
-	// TSX with Para reactive keywords (signal/derived/effect/prop/pure/
-	// source/mount/using/provide/inject) and Svelte template directives
-	// ({#each…}, {:else}, {/if}, {@render}, {@const}, …). The directive
-	// body is recursively highlighted as `.pui`, so each-bindings and
-	// snippet param lists pick up the same theme as the surrounding JS.
-	const csHtml = $derived(Prism.highlight(active.csSrc, Prism.languages.tsx!, "tsx"));
-	const psHtml = $derived(highlightPui(active.psSrc));
+	// Shiki highlighter wired to the real parabun TextMate grammars
+	// (see demos/pui-shiki.ts). Shiki init is async — we wait once,
+	// then trigger a re-render so the panes pick up the highlighted
+	// output. The `csHtml`/`psHtml` $derived react to both `active`
+	// and `shikiInitialized` so a scenario switch AND the init
+	// completion both flow correctly.
+	let shikiInitialized = $state(false);
+	shikiReady.then(() => (shikiInitialized = true));
+
+	let csHtml = $state("");
+	let psHtml = $state("");
+	$effect(() => {
+		// Re-highlight whenever the active scenario or init state changes.
+		const scen = active;
+		if (!shikiInitialized) {
+			csHtml = `<pre><code>${scen.csSrc.replace(/[<&]/g, (c) => (c === "<" ? "&lt;" : "&amp;"))}</code></pre>`;
+			psHtml = `<pre><code>${scen.psSrc.replace(/[<&]/g, (c) => (c === "<" ? "&lt;" : "&amp;"))}</code></pre>`;
+			return;
+		}
+		Promise.all([shikiHighlight(scen.csSrc, "tsx"), shikiHighlight(scen.psSrc, "pui")]).then(
+			([cs, ps]) => {
+				csHtml = cs;
+				psHtml = ps;
+			},
+		);
+	});
 </script>
 
 <div class="layout">
@@ -392,72 +406,26 @@
 		min-height: 200px;
 		overflow: auto;
 	}
-	/* Prism — minimal colorscheme tuned for the off-white pane bg.
-	   Drawn to be legible on print/HiDPI and to make the para-kw +
-	   svelte-tag accents pop without screaming. */
-	pre.code :global(.token.comment),
-	pre.code :global(.token.prolog),
-	pre.code :global(.token.doctype),
-	pre.code :global(.token.cdata) {
-		color: #94a3b8;
-		font-style: italic;
+	/* Shiki renders its own `<pre class="shiki …">` with inline
+	   `style="color:…"` on every token, so we don't need a Prism
+	   color theme here. We DO want our `pre.code` wrapper styling
+	   (padding, max-height, border-bottom) to win over Shiki's
+	   `<pre class="shiki">`, so we wrap the highlighted output in
+	   our own `pre.code` and let Shiki's inner `<pre>` (which we
+	   override to display: contents) just provide the token spans. */
+	pre.code :global(pre.shiki) {
+		background: transparent !important;
+		margin: 0;
+		padding: 0;
+		font: inherit;
+		color: inherit;
+		display: block;
 	}
-	pre.code :global(.token.punctuation) {
-		color: #475569;
+	pre.code :global(pre.shiki code) {
+		font: inherit;
 	}
-	pre.code :global(.token.keyword),
-	pre.code :global(.token.builtin) {
-		color: #7c3aed;
-	}
-	pre.code :global(.token.string),
-	pre.code :global(.token.attr-value),
-	pre.code :global(.token.template-string) {
-		color: #057a55;
-	}
-	pre.code :global(.token.number),
-	pre.code :global(.token.boolean),
-	pre.code :global(.token.constant) {
-		color: #b45309;
-	}
-	pre.code :global(.token.function) {
-		color: #1d4ed8;
-	}
-	pre.code :global(.token.tag),
-	pre.code :global(.token.class-name) {
-		color: #c2410c;
-	}
-	pre.code :global(.token.attr-name) {
-		color: #0e7490;
-	}
-	pre.code :global(.token.operator) {
-		color: #475569;
-	}
-	/* Para reactive keywords (signal, derived, effect, prop, pure,
-	   source, mount, using, provide, inject) get a distinctive pink
-	   so they jump out next to ordinary JS keywords. */
-	pre.code :global(.token.para-keyword) {
-		color: #be185d;
-		font-weight: 600;
-	}
-	/* Svelte template directives — the {#…}, {/…}, {:…}, {@…} forms.
-	   `directive-open` covers `{#each`/`{/each`/`{:else`/`{@render`
-	   as one atomic token; `directive-close` is the trailing `}`;
-	   `directive-each-as` is the `as` keyword inside each-bindings.
-	   Used the keyword-purple for the opener so the eye reads them
-	   the same way as `if`/`else`/`for` in JS. */
-	pre.code :global(.token.svelte-block),
-	pre.code :global(.token.svelte-tag) {
-		color: #c026d3;
-	}
-	pre.code :global(.token.directive-open) {
-		color: #c026d3;
-		font-weight: 600;
-	}
-	pre.code :global(.token.directive-close) {
-		color: #c026d3;
-	}
-	pre.code :global(.token.directive-each-as) {
-		color: #7c3aed;
-		font-style: italic;
+	pre.code :global(.shiki .line) {
+		display: block;
+		min-height: 1.55em;
 	}
 </style>
