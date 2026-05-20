@@ -132,8 +132,8 @@
 	.cell {
 		display: grid;
 		grid-template-rows: auto 1fr auto auto;
-		background: #fff;
-		border: 1px solid #e5e7eb;
+		background: var(--bg-elev, #fff);
+		border: 1px solid var(--border, #e5e7eb);
 		border-radius: 8px;
 		overflow: hidden;
 		min-width: 0;
@@ -143,24 +143,24 @@
 		justify-content: space-between;
 		align-items: center;
 		padding: 8px 12px;
-		background: #f8fafc;
-		border-bottom: 1px solid #e5e7eb;
+		background: var(--bg-pane-head, #f8fafc);
+		border-bottom: 1px solid var(--border, #e5e7eb);
 		font-size: 12px;
-		color: #475569;
+		color: var(--fg-muted, #475569);
 	}
 	.cell-head b {
-		color: #16191f;
+		color: var(--fg-strong, #16191f);
 		font-size: 13px;
 	}
 	.cell-head span {
 		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-		color: #94a3b8;
+		color: var(--fg-subtle, #94a3b8);
 	}
 	.editor-wrap {
 		position: relative;
-		background: #f8fafc;
+		background: var(--bg-code, #f8fafc);
 		height: 420px;
-		border-bottom: 1px solid #e5e7eb;
+		border-bottom: 1px solid var(--border, #e5e7eb);
 	}
 	.editor-wrap > pre.code,
 	.editor-wrap > .editor-input {
@@ -177,7 +177,7 @@
 	.editor-wrap > pre.code {
 		pointer-events: none;
 		z-index: 0;
-		color: #0f172a;
+		color: var(--fg-strong, #0f172a);
 	}
 	.editor-wrap > .editor-input {
 		z-index: 1;
@@ -186,7 +186,7 @@
 		outline: 0;
 		background: transparent;
 		color: transparent;
-		caret-color: #16191f;
+		caret-color: var(--fg-strong, #16191f);
 		-webkit-text-fill-color: transparent;
 	}
 	.editor-wrap > .editor-input::selection {
@@ -225,9 +225,19 @@
 		white-space: pre;
 		min-height: 1.55em;
 	}
+	/* Dual-theme Shiki — pui-shiki.ts emits tokens with
+	   `color: <light>` and `--shiki-dark: <dark>`. Swap the active
+	   color (and background, where Shiki used a wrapper bg) under
+	   the host document's data-theme. !important wins over Shiki's
+	   inline `color:` style. */
+	:global([data-theme="dark"] .editor-wrap pre.shiki),
+	:global([data-theme="dark"] .editor-wrap pre.shiki span) {
+		color: var(--shiki-dark, inherit) !important;
+		background-color: var(--shiki-dark-bg, transparent) !important;
+	}
 	.render {
 		padding: 16px;
-		background: #fff;
+		background: var(--bg-elev, #fff);
 		min-height: 200px;
 		overflow: auto;
 	}

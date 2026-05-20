@@ -51,6 +51,11 @@
 					: t;
 			document.documentElement.setAttribute("data-theme", resolved);
 			document.documentElement.setAttribute("data-theme-pref", t);
+			// Cloudscape's global-styles drive component colors off
+			// `.awsui-dark-mode` on ANY ancestor — applying it here on
+			// <body> flips every render pane (both Cloudscape React and
+			// the vendored .pui ports use the same `--color-*` tokens).
+			document.body.classList.toggle("awsui-dark-mode", resolved === "dark");
 		};
 		apply(theme);
 		try {
