@@ -164,11 +164,18 @@
 			implementation surface only.
 		</p>
 		<table class="totals">
-			<caption>Across all 6 scenarios</caption>
+			<caption>Across all {scenarios.length} scenarios</caption>
 			<thead>
 				<tr><th></th><th>Cloudscape</th><th>Parascape</th><th>Δ</th></tr>
 			</thead>
 			<tbody>
+				<tr>
+					<th scope="row">Bindings</th>
+					<td class="cell-num">{totals.bcs}</td>
+					<td class="cell-num">{totals.bps}</td>
+					<td class="cell-num delta" class:better={totals.bcs > totals.bps}
+						>{totals.bcs === totals.bps ? "0" : (totals.bcs > totals.bps ? "−" : "+") + Math.abs(totals.bcs - totals.bps)}</td>
+				</tr>
 				<tr>
 					<th scope="row">Chars</th>
 					<td class="cell-num">{totals.cs.toLocaleString()}</td>
@@ -177,15 +184,14 @@
 						>{totals.cs === totals.ps ? "0" : (totals.cs > totals.ps ? "−" : "+") + Math.abs(totals.cs - totals.ps).toLocaleString()}
 						({totalPct}%)</td>
 				</tr>
-				<tr>
-					<th scope="row">Bindings</th>
-					<td class="cell-num">{totals.bcs}</td>
-					<td class="cell-num">{totals.bps}</td>
-					<td class="cell-num delta" class:better={totals.bcs > totals.bps}
-						>{totals.bcs === totals.bps ? "0" : (totals.bcs > totals.bps ? "−" : "+") + Math.abs(totals.bcs - totals.bps)}</td>
-				</tr>
 			</tbody>
 		</table>
+		<p class="stats-note">
+			Bindings is the better signal — each one is a name you have to read, follow, and keep in
+			your head. Char count is here for completeness; the real win is what's <em>not</em> there:
+			no <code>useState</code> pairs, no <code>useMemo</code> wrappers, no arrow boilerplate
+			around every transform.
+		</p>
 		<nav>
 			{#each scenarios as s (s.id)}
 				<button type="button" class:active={activeId === s.id} onclick={() => (activeId = s.id)}>
@@ -386,7 +392,22 @@
 		max-width: 420px;
 	}
 	table.totals {
-		margin-bottom: 22px;
+		margin-bottom: 8px;
+	}
+	.stats-note {
+		font-size: 11px;
+		line-height: 1.5;
+		color: var(--fg-muted);
+		margin: 0 0 22px;
+	}
+	.stats-note em {
+		color: var(--fg-strong);
+		font-style: italic;
+	}
+	.stats-note code {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		font-size: 0.95em;
+		color: var(--fg-strong);
 	}
 	table.totals caption {
 		text-align: left;
