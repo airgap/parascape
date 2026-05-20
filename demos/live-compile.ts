@@ -23,6 +23,7 @@ import { transform } from "sucrase";
 import { compile as svelteCompile } from "svelte/compiler";
 import { parabunPreprocess } from "@lyku/para-preprocess";
 import { lowerMatch } from "./lower-match";
+import { lowerLeadingDot } from "./lower-leading-dot";
 // `lowerInlineSnippets` lives in /raid/parabun/packages/para-preprocess
 // (committed but unpublished); use the local Parascape spike's
 // markup-pass with the same input/output contract until the next
@@ -83,6 +84,10 @@ function lowerPuiSource(src: string): string {
       // doesn't run in the browser. Lower it ourselves so live-compile
       // produces working JS for the all-literal patterns the demos use.
       const matchLowered = lowerMatch(lowered);
+      // Placeholder-lambda lowering — `.filter(.name)` →
+      // `.filter((__x) => __x.name)`. Same rationale as lowerMatch:
+      // sugar that needs to be gone before sucrase / Svelte see it.
+      const dotLowered = lowerLeadingDot(matchLowered);
       // Strip TS types so Svelte's parser can read it. Sucrase drops
       // imports it thinks are unused — but a Svelte script-block's
       // imports are routinely "unused" at the script level and only
@@ -90,7 +95,7 @@ function lowerPuiSource(src: string): string {
       // them, run the strip on the rest, then prepend the imports
       // back verbatim so Svelte's compiler keeps them in scope.
       const importLines: string[] = [];
-      const nonImport = matchLowered.replace(/^[ \t]*import\s[^\n]*\n?/gm, m => {
+      const nonImport = dotLowered.replace(/^[ \t]*import\s[^\n]*\n?/gm, m => {
         importLines.push(m);
         return "";
       });

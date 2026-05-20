@@ -2,6 +2,7 @@ import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import { parabunPreprocess } from "@lyku/para-preprocess";
 import paraInlineSnippets from "./demos/para-inline-snippets.ts";
 import lowerMatchPreprocess from "./demos/lower-match.ts";
+import lowerLeadingDotPreprocess from "./demos/lower-leading-dot.ts";
 
 /** @type {import('@sveltejs/vite-plugin-svelte').SvelteConfig} */
 export default {
@@ -21,8 +22,20 @@ export default {
   // parabun zig binary, which doesn't run in browser / vite dev.
   // Lowered here so .pui authors can use `match` and have it become
   // working JS in any environment.
+  //
+  // lowerLeadingDotPreprocess — placeholder-lambda in call-arg
+  // position. `.filter(.name.toLowerCase())` lowers to
+  // `.filter((__x) => __x.name.toLowerCase())`. Same rationale as
+  // lowerMatchPreprocess — sugar that exists in para-preprocess as a
+  // type-stub but needs runtime lowering for browser / live-compile.
   extensions: [".svelte", ".pui"],
-  preprocess: [lowerMatchPreprocess(), paraInlineSnippets(), parabunPreprocess(), vitePreprocess()],
+  preprocess: [
+    lowerLeadingDotPreprocess(),
+    lowerMatchPreprocess(),
+    paraInlineSnippets(),
+    parabunPreprocess(),
+    vitePreprocess(),
+  ],
   compilerOptions: {
     runes: true,
   },
