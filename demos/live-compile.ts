@@ -252,6 +252,19 @@ function makeRequires(side: "cs" | "ps"): (id: string) => Record<string, unknown
         `[live-compile/${side}] unresolved .pui import: ${id} (key=${key}, available=${Object.keys(puiComponents).slice(0, 3).join(", ")} …)`,
       );
     }
+    // `@parascape-design/components/<kebab-name>` mirrors the
+    // Cloudscape import shape. Map kebab → PascalCase + .pui.
+    const pdMatch = id.match(/^@parascape-design\/components\/([a-z][a-z0-9-]*)$/);
+    if (pdMatch) {
+      const pascal = pdMatch[1]
+        .split("-")
+        .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+        .join("");
+      const key = `/src/lib/components/${pascal}.pui`;
+      const mod = puiComponents[key];
+      if (mod) return mod as unknown as Record<string, unknown>;
+      throw new Error(`[live-compile/${side}] unresolved @parascape-design import: ${id} (looked up ${key})`);
+    }
     throw new Error(`[live-compile/${side}] unresolved import: ${id}`);
   };
 }

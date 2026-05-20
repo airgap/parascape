@@ -1,10 +1,10 @@
 <script lang="pts">
-	import Box from '@components/Box.pui';
-	import Container from '@components/Container.pui';
-	import Header from '@components/Header.pui';
-	import KeyValuePairs from '@components/KeyValuePairs.pui';
-	import StatusIndicator from '@components/StatusIndicator.pui';
-	import Tabs from '@components/Tabs.pui';
+	import Box from '@parascape-design/components/box';
+	import Container from '@parascape-design/components/container';
+	import Header from '@parascape-design/components/header';
+	import KeyValuePairs from '@parascape-design/components/key-value-pairs';
+	import StatusIndicator from '@parascape-design/components/status-indicator';
+	import Tabs from '@parascape-design/components/tabs';
 
 	signal active = 'overview';
 </script>

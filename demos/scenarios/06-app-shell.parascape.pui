@@ -1,10 +1,10 @@
 <script lang="pts">
-	import AppLayout from '@components/AppLayout.pui';
-	import ContentLayout from '@components/ContentLayout.pui';
-	import Container from '@components/Container.pui';
-	import Header from '@components/Header.pui';
-	import HelpPanel from '@components/HelpPanel.pui';
-	import SideNavigation from '@components/SideNavigation.pui';
+	import AppLayout from '@parascape-design/components/app-layout';
+	import ContentLayout from '@parascape-design/components/content-layout';
+	import Container from '@parascape-design/components/container';
+	import Header from '@parascape-design/components/header';
+	import HelpPanel from '@parascape-design/components/help-panel';
+	import SideNavigation from '@parascape-design/components/side-navigation';
 
 	signal active = '/dashboard';
 	signal navOpen = true;

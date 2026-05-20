@@ -1,10 +1,10 @@
 <script lang="pts">
-	import Box from '@components/Box.pui';
-	import Button from '@components/Button.pui';
-	import FormField from '@components/FormField.pui';
-	import Input from '@components/Input.pui';
-	import Modal from '@components/Modal.pui';
-	import SpaceBetween from '@components/SpaceBetween.pui';
+	import Box from '@parascape-design/components/box';
+	import Button from '@parascape-design/components/button';
+	import FormField from '@parascape-design/components/form-field';
+	import Input from '@parascape-design/components/input';
+	import Modal from '@parascape-design/components/modal';
+	import SpaceBetween from '@parascape-design/components/space-between';
 
 	signal open = false;
 	signal name = '';

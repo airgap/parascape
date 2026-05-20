@@ -1,6 +1,6 @@
 <script lang="pts">
-	import Cards from '@components/Cards.pui';
-	import Header from '@components/Header.pui';
+	import Cards from '@parascape-design/components/cards';
+	import Header from '@parascape-design/components/header';
 
 	type Item = {
 		id: string;

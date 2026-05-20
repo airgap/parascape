@@ -1,10 +1,31 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 
 import { resolve } from "node:path";
 
+// `@parascape-design/components/<kebab-name>` mirrors the Cloudscape
+// React import shape (`@cloudscape-design/components/<kebab-name>`)
+// so the demos' side-by-side panes can use identically-shaped import
+// paths. The fork's components live in src/lib/components as
+// PascalCase `.pui` files, so kebab → Pascal here and append `.pui`.
+// (vite's `resolve.alias` doesn't natively do regex+transform, so a
+// tiny plugin is the cleanest path.)
+const parascapeDesign = (): Plugin => ({
+  name: "parascape-design-alias",
+  enforce: "pre",
+  resolveId(id) {
+    const m = /^@parascape-design\/components\/([a-z][a-z0-9-]*)$/.exec(id);
+    if (!m) return null;
+    const pascal = m[1]
+      .split("-")
+      .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+      .join("");
+    return resolve(__dirname, "src/lib/components", pascal + ".pui");
+  },
+});
+
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [parascapeDesign(), svelte()],
   server: { port: 5273 },
   resolve: {
     alias: {
