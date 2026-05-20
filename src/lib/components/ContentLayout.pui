@@ -91,6 +91,15 @@
 	);
 </script>
 
+<!--
+  Cloudscape's content-layout grid pins the central content column to
+  `minmax(0, var(--awsui-content-layout-max-content-width-6b9ypa))`,
+  and the CSS file defaults that variable to 0px. Upstream's React
+  internal.js plugs in `${halfGeckoMaxCssLength}px` (~16383px) when
+  `maxContentWidth` isn't set so the central column behaves like `1fr`;
+  if we don't do the same here the header/content cells collapse to
+  zero width and main-pane text wraps one character per line.
+-->
 <div
 	class={cx(
 		extraClass,
@@ -101,6 +110,7 @@
 		defaultPadding && S['default-padding'],
 		hasNotifs && S['has-notifications'],
 	)}
+	style={`--awsui-content-layout-max-content-width-6b9ypa: ${maxContentWidth ?? 16383}px;`}
 	{...rest}
 >
 	<div class={cx(S.background, !headerBackgroundStyle && S['has-default-background'], contentHeaderClassName)}>
