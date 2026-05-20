@@ -400,19 +400,19 @@
               "name": "punctuation.section.embedded.end.svelte"
             }
           },
-          "contentName": "meta.embedded.expression.svelte source.ts",
+          "contentName": "meta.embedded.expression.svelte source.tsx",
           "patterns": [
             {
               "begin": "\\G\\s*(?={)",
               "end": "(?<=})",
               "patterns": [
                 {
-                  "include": "source.ts#object-literal"
+                  "include": "source.tsx#object-literal"
                 }
               ]
             },
             {
-              "include": "source.ts"
+              "include": "source.tsx"
             }
           ]
         }
