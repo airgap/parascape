@@ -1,43 +1,34 @@
- function _nullishCoalesce(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+function _nullishCoalesce(lhs, rhsFn) {
+  if (lhs != null) {
+    return lhs;
+  } else {
+    return rhsFn();
+  }
+}
+function _optionalChain(ops) {
+  let lastAccessLHS = undefined;
+  let value = ops[0];
+  let i = 1;
+  while (i < ops.length) {
+    const op = ops[i];
+    const fn = ops[i + 1];
+    i += 2;
+    if ((op === "optionalAccess" || op === "optionalCall") && value == null) {
+      return undefined;
+    }
+    if (op === "access" || op === "optionalAccess") {
+      lastAccessLHS = value;
+      value = fn(value);
+    } else if (op === "call" || op === "optionalCall") {
+      value = fn((...args) => value.call(lastAccessLHS, ...args));
+      lastAccessLHS = undefined;
+    }
+  }
+  return value;
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-const isIdentStart = (c) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_" || c === "$";
-const isIdentCont = (c) => isIdentStart(c) || (c >= "0" && c <= "9");
+const isIdentStart = c => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_" || c === "$";
+const isIdentCont = c => isIdentStart(c) || (c >= "0" && c <= "9");
 
 // Skip a quoted string starting at `i` (which points at the opening
 // quote). Returns the offset of the character AFTER the closing quote.
@@ -271,7 +262,7 @@ function findRHSEnd(src, start) {
     return i;
   }
   // identifier (possibly dotted) followed by optional call
-  if (!isIdentStart(_nullishCoalesce(src[i], () => ( "")))) return i;
+  if (!isIdentStart(_nullishCoalesce(src[i], () => ""))) return i;
   while (i < src.length && isIdentCont(src[i])) i++;
   // dotted path `a.b.c`
   while (src[i] === ".") {
@@ -329,6 +320,50 @@ function fold(lhs, rhs) {
   return `${name}(${lhs}, ${inner})`;
 }
 
+// Locate every pipeline CHAIN in the source and return its bounds
+// plus the lowered form, so the demo viewer can attach a hover
+// tooltip showing what `expr |> fn(args) |> .method()` fuses to.
+//
+// We group adjacent `|>` occurrences by shared LHS-start: every
+// `|>` in the chain `a |> b |> c` walks back to the same statement
+// start (since findLHSStart stops at statement / assignment / arrow
+// boundaries, not at `|>` itself). The chain range is
+// [first-LHS-start, last-RHS-end], and the lowered form is
+// `lowerPipeline(src.slice(start, end))`.
+export function findPipelineChains(src) {
+  const sites = [];
+  let scan = 0;
+  while (true) {
+    const rel = findTopLevelPipe(src.slice(scan));
+    if (rel < 0) break;
+    const pipe = scan + rel;
+    sites.push({
+      pipe,
+      lhs: findLHSStart(src, pipe),
+      rhs: findRHSEnd(src, pipe + 2),
+    });
+    scan = pipe + 2;
+  }
+  const groups = [];
+  for (const s of sites) {
+    const last = groups[groups.length - 1];
+    if (last && last.start === s.lhs) {
+      last.end = Math.max(last.end, s.rhs);
+    } else {
+      groups.push({ start: s.lhs, end: s.rhs });
+    }
+  }
+  return groups.map(g => {
+    const original = src.slice(g.start, g.end);
+    return {
+      start: g.start,
+      end: g.end,
+      original: original.trim(),
+      lowered: lowerPipeline(original).trim(),
+    };
+  });
+}
+
 export function lowerPipeline(src) {
   // Iterative left-most-pipe lowering. Each pass rewrites one `|>`;
   // the result is fed back in until no top-level pipes remain.
@@ -358,7 +393,11 @@ export default function lowerPipelinePreprocess() {
   return {
     name: "lower-pipeline",
     script({ content, filename }) {
-      if (!_optionalChain([filename, 'optionalAccess', _ => _.endsWith, 'call', _2 => _2(".pui")]) && !_optionalChain([filename, 'optionalAccess', _3 => _3.endsWith, 'call', _4 => _4(".svelte")])) return;
+      if (
+        !_optionalChain([filename, "optionalAccess", _ => _.endsWith, "call", _2 => _2(".pui")]) &&
+        !_optionalChain([filename, "optionalAccess", _3 => _3.endsWith, "call", _4 => _4(".svelte")])
+      )
+        return;
       if (!content.includes("|>")) return;
       const out = lowerPipeline(content);
       if (out === content) return;

@@ -23,6 +23,7 @@ import ptsGrammar from "./grammars/pts.tmLanguage.json";
 import ptsxGrammar from "./grammars/ptsx.tmLanguage.json";
 import puiPtsInject from "./grammars/pui-pts-inject.tmLanguage.json";
 import parabunInject from "./grammars/parabun-inject.tmLanguage.json";
+import { findPipelineChains } from "./lower-pipeline.js";
 
 // Cast helpers — Shiki's `LanguageRegistration` type is wider than
 // the JSON shape, so we just trust the runtime-loaded grammar.
@@ -70,19 +71,55 @@ init().catch(e => console.error("[pui-shiki] init failed:", e));
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+// For .pui sources, scan for `|>` chains and turn each chain's
+// (start, end) source range into a Shiki decoration that wraps the
+// chain with a `data-fused` attribute carrying the lowered form.
+// The DemoPane stylesheet picks that up to render a hover tooltip
+// (dotted underline + a styled bubble showing what the chain
+// compiles to). Pure-tsx scenarios don't have `|>`, so they get
+// the empty list.
+function pipelineDecorations(src: string, lang: "pui" | "tsx") {
+  if (lang !== "pui") return [];
+  try {
+    return findPipelineChains(src).map(c => ({
+      start: c.start,
+      end: c.end,
+      properties: {
+        class: "pipeline-fused",
+        "data-fused": c.lowered,
+      },
+    }));
+  } catch {
+    // Pipeline scan is best-effort — bail to no decorations rather
+    // than blow up the whole highlight on a malformed mid-edit
+    // source string.
+    return [];
+  }
+}
+
 /**
  * Highlight synchronously. If the highlighter hasn't finished init,
  * returns escaped raw source so the page renders without blocking.
  */
 export function highlightSync(src: string, lang: "pui" | "tsx"): string {
   if (!resolvedHighlighter) return `<pre class="shiki"><code>${esc(src)}</code></pre>`;
-  return resolvedHighlighter.codeToHtml(src, { lang, themes: DUAL_THEMES, defaultColor: false });
+  return resolvedHighlighter.codeToHtml(src, {
+    lang,
+    themes: DUAL_THEMES,
+    defaultColor: false,
+    decorations: pipelineDecorations(src, lang),
+  });
 }
 
 /** Async highlight. `await ready` once at module init to be safe. */
 export async function highlight(src: string, lang: "pui" | "tsx"): Promise<string> {
   const hl = await init();
-  return hl.codeToHtml(src, { lang, themes: DUAL_THEMES, defaultColor: false });
+  return hl.codeToHtml(src, {
+    lang,
+    themes: DUAL_THEMES,
+    defaultColor: false,
+    decorations: pipelineDecorations(src, lang),
+  });
 }
 
 export const ready: Promise<Highlighter> = init();

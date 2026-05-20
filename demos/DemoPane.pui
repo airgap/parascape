@@ -248,6 +248,39 @@
 	:global(.editor-wrap pre.shiki) {
 		background-color: transparent !important;
 	}
+	/* `|>` pipeline tooltips — pui-shiki passes the lowered form as
+	   data-fused on a span Shiki wraps around the chain. Dotted
+	   underline tells the reader the range is hoverable; the bubble
+	   below renders the fused JS via a ::after pseudo, made visible
+	   on :hover. position: relative on the chain anchors the bubble;
+	   z-index lifts it above adjacent lines. */
+	:global(.editor-wrap pre.shiki .pipeline-fused) {
+		position: relative;
+		text-decoration: underline dotted var(--accent, #60a5fa);
+		text-underline-offset: 3px;
+		cursor: help;
+	}
+	:global(.editor-wrap pre.shiki .pipeline-fused::after) {
+		content: "fuses to: " attr(data-fused);
+		position: absolute;
+		left: 0;
+		top: calc(100% + 6px);
+		display: none;
+		max-width: min(560px, 80vw);
+		padding: 8px 10px;
+		background: var(--bg-elev, #111a2c);
+		color: var(--fg-strong, #f7f8fa);
+		border: 1px solid var(--border, #424650);
+		border-radius: 6px;
+		font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		white-space: pre;
+		z-index: 5;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+		pointer-events: none;
+	}
+	:global(.editor-wrap pre.shiki .pipeline-fused:hover::after) {
+		display: block;
+	}
 	.render {
 		padding: 16px;
 		background: var(--bg-elev, #fff);
