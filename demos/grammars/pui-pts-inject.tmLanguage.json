@@ -8,7 +8,14 @@
       "end": "(?=</)",
       "name": "meta.embedded.block.svelte",
       "contentName": "source.pts",
-      "patterns": [{ "include": "source.pts" }]
+      "patterns": [
+        {
+          "include": "source.pts"
+        }
+      ]
     }
+  ],
+  "injectTo": [
+    "source.pui"
   ]
 }

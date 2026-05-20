@@ -156,7 +156,7 @@
     "parabun-match": {
       "patterns": [
         {
-          "comment": "match EXPR { ... } \u2014 pattern matching expression",
+          "comment": "Fallback at top-level statement position. Real handling lives in parabun-inject's begin/end block which fires everywhere via injectTo.",
           "match": "\\b(match)\\b(?=\\s+[A-Za-z_$(])",
           "captures": {
             "1": {
