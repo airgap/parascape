@@ -22,31 +22,29 @@
 <Table
 	{items}
 	variant="container"
-	header={tableHeader}
-	filter={tableFilter}
+	header={
+		<Header
+			counter={`(${items.length})`}
+			actions={
+				<SpaceBetween direction="horizontal" size="xs">
+					<Button>Refresh</Button>
+					<Button variant="primary">Launch</Button>
+				</SpaceBetween>
+			}
+		>Instances</Header>
+	}
+	filter={
+		<TextFilter
+			filteringText={filter}
+			filteringPlaceholder="Find instance"
+			onChange={(e) => (filter = e.detail.filteringText)}
+		/>
+	}
 	columnDefinitions={[
 		{ id: 'name', header: 'Name', cell: (r: Row) => r.name },
 		{ id: 'type', header: 'Type', cell: (r: Row) => r.type },
 		{ id: 'state', header: 'State', cell: (r: Row) => r.state },
 		{ id: 'az', header: 'AZ', cell: (r: Row) => r.az },
 	]}
-	empty={empty}
+	empty={<Box textAlign="center">No instances match the filter.</Box>}
 />
-
-{#snippet tableHeader()}
-	<Header counter={`(${items.length})`} actions={tableActions}>Instances</Header>
-{/snippet}
-{#snippet tableActions()}
-	<SpaceBetween direction="horizontal" size="xs">
-		<Button>Refresh</Button>
-		<Button variant="primary">Launch</Button>
-	</SpaceBetween>
-{/snippet}
-{#snippet tableFilter()}
-	<TextFilter
-		filteringText={filter}
-		filteringPlaceholder="Find instance"
-		onChange={(e) => (filter = e.detail.filteringText)}
-	/>
-{/snippet}
-{#snippet empty()}<Box textAlign="center">No instances match the filter.</Box>{/snippet}

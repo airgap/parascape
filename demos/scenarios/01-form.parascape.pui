@@ -19,7 +19,15 @@
 </script>
 
 <form onsubmit={onSubmit}>
-	<Form header={header} actions={actions}>
+	<Form
+		header={<Header variant="h2">Sign in</Header>}
+		actions={
+			<SpaceBetween direction="horizontal" size="xs">
+				<Button variant="link">Cancel</Button>
+				<Button variant="primary" disabled={!valid}>Sign in</Button>
+			</SpaceBetween>
+		}
+	>
 		<Container>
 			<SpaceBetween size="l">
 				<FormField label="Email" description="Use the address on your account.">
@@ -35,11 +43,3 @@
 		</Container>
 	</Form>
 </form>
-
-{#snippet header()}<Header variant="h2">Sign in</Header>{/snippet}
-{#snippet actions()}
-	<SpaceBetween direction="horizontal" size="xs">
-		<Button variant="link">Cancel</Button>
-		<Button variant="primary" disabled={!valid}>Sign in</Button>
-	</SpaceBetween>
-{/snippet}

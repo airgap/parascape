@@ -16,41 +16,32 @@
 	onNavigationChange={(e) => (navOpen = e.detail.open)}
 	toolsOpen={toolsOpen}
 	onToolsChange={(e) => (toolsOpen = e.detail.open)}
-	navigation={nav}
-	tools={tools}
-	content={content}
+	navigation={
+		<SideNavigation
+			activeHref={active}
+			header={{ text: 'Console', href: '/' }}
+			items={[
+				{ type: 'link', text: 'Dashboard', href: '/dashboard' },
+				{ type: 'link', text: 'Instances', href: '/instances' },
+				{ type: 'link', text: 'Volumes', href: '/volumes' },
+				{
+					type: 'section',
+					text: 'Network',
+					items: [
+						{ type: 'link', text: 'VPCs', href: '/vpcs' },
+						{ type: 'link', text: 'Subnets', href: '/subnets' },
+					],
+				},
+			]}
+			onFollow={(e) => e.detail.href && (active = e.detail.href)}
+		/>
+	}
+	tools={<HelpPanel header={<h2>Help</h2>}>Tips for this page go here.</HelpPanel>}
+	content={
+		<ContentLayout header={<Header variant="h1">Dashboard</Header>}>
+			<Container header={<Header variant="h2">Welcome</Header>}>
+				The page body sits in a Container under the ContentLayout header.
+			</Container>
+		</ContentLayout>
+	}
 />
-
-{#snippet nav()}
-	<SideNavigation
-		activeHref={active}
-		header={{ text: 'Console', href: '/' }}
-		items={[
-			{ type: 'link', text: 'Dashboard', href: '/dashboard' },
-			{ type: 'link', text: 'Instances', href: '/instances' },
-			{ type: 'link', text: 'Volumes', href: '/volumes' },
-			{
-				type: 'section',
-				text: 'Network',
-				items: [
-					{ type: 'link', text: 'VPCs', href: '/vpcs' },
-					{ type: 'link', text: 'Subnets', href: '/subnets' },
-				],
-			},
-		]}
-		onFollow={(e) => e.detail.href && (active = e.detail.href)}
-	/>
-{/snippet}
-{#snippet tools()}
-	<HelpPanel header={helpHeader}>Tips for this page go here.</HelpPanel>
-{/snippet}
-{#snippet helpHeader()}<h2>Help</h2>{/snippet}
-{#snippet content()}
-	<ContentLayout header={pageHeader}>
-		<Container header={containerHeader}>
-			The page body sits in a Container under the ContentLayout header.
-		</Container>
-	</ContentLayout>
-{/snippet}
-{#snippet pageHeader()}<Header variant="h1">Dashboard</Header>{/snippet}
-{#snippet containerHeader()}<Header variant="h2">Welcome</Header>{/snippet}

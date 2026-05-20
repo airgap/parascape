@@ -18,7 +18,7 @@
 	selectionType="multi"
 	selectedItems={selected}
 	onSelectionChange={(e) => (selected = e.detail.selectedItems)}
-	header={cardsHeader}
+	header={<Header counter={`(${items.length})`} variant="h2">Menu items</Header>}
 	cardDefinition={{
 		header: (item: Item) => item.name,
 		sections: [
@@ -29,5 +29,3 @@
 	}}
 	cardsPerRow={[{ cards: 1 }, { minWidth: 500, cards: 2 }]}
 />
-
-{#snippet cardsHeader()}<Header counter={`(${items.length})`} variant="h2">Menu items</Header>{/snippet}

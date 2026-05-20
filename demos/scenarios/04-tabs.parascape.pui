@@ -9,7 +9,7 @@
 	signal active = 'overview';
 </script>
 
-<Container header={containerHeader}>
+<Container header={<Header variant="h2">order-1024</Header>}>
 	<Tabs
 		activeTabId={active}
 		onChange={(e) => (active = e.detail.activeTabId)}
@@ -21,7 +21,6 @@
 	/>
 </Container>
 
-{#snippet containerHeader()}<Header variant="h2">order-1024</Header>{/snippet}
 {#snippet overview()}
 	<KeyValuePairs
 		columns={2}

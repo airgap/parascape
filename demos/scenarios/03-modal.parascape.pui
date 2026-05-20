@@ -20,19 +20,22 @@
 
 <SpaceBetween size="m">
 	<Button variant="primary" onClick={() => (open = true)}>Create resource</Button>
-	<Modal visible={open} onDismiss={() => (open = false)} header="Create resource" footer={footer}>
+	<Modal
+		visible={open}
+		onDismiss={() => (open = false)}
+		header="Create resource"
+		footer={
+			<Box float="right">
+				<SpaceBetween direction="horizontal" size="xs">
+					<Button variant="link" onClick={() => (open = false)}>Cancel</Button>
+					<Button variant="primary" disabled={!name.trim()} onClick={submit}>Create</Button>
+				</SpaceBetween>
+			</Box>
+		}
+	>
 		<FormField label="Resource name">
 			<Input value={name} onChange={(e) => (name = e.detail.value)} placeholder="my-resource" />
 		</FormField>
 	</Modal>
 	{#if created.length > 0}<Box>Created: {created.join(', ')}</Box>{/if}
 </SpaceBetween>
-
-{#snippet footer()}
-	<Box float="right">
-		<SpaceBetween direction="horizontal" size="xs">
-			<Button variant="link" onClick={() => (open = false)}>Cancel</Button>
-			<Button variant="primary" disabled={!name.trim()} onClick={submit}>Create</Button>
-		</SpaceBetween>
-	</Box>
-{/snippet}
