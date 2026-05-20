@@ -140,16 +140,61 @@ function lowerPuiSource(src: string): string {
 // runtime without going through a module loader.
 
 // All ported .pui components, keyed by their `@components/X.pui` path.
-const puiComponents = import.meta.glob<{ default: SvelteComponent }>("/src/lib/components/*.pui", { eager: true });
-// All Cloudscape React components — eager glob from node_modules so
-// the demos bundle ships them.
-const cloudscapeComponents = import.meta.glob<Record<string, unknown>>(
-  "/node_modules/@cloudscape-design/components/*/index.js",
-  { eager: true },
-);
+// (src/ globs are handled by Vite's own dev transform pipeline, so
+// .pui files come back as compiled Svelte components.)
+const puiComponents = import.meta.glob<{ default: SvelteComponent }>("/src/lib/components/*.pui", {
+  eager: true,
+});
 
+// Cloudscape React components. We import them EXPLICITLY (not via
+// `import.meta.glob('/node_modules/…')`) because the glob path serves
+// the raw CJS — `prop-types` and friends would arrive as
+// `module.exports = …` strings and the browser refuses to read them
+// as ES modules. Explicit named imports go through Vite's optimizeDeps
+// + esbuild CJS→ESM interop and resolve cleanly.
 import * as React from "react";
 import * as ReactJsxRuntime from "react/jsx-runtime";
+import CsAppLayout from "@cloudscape-design/components/app-layout";
+import CsBox from "@cloudscape-design/components/box";
+import CsButton from "@cloudscape-design/components/button";
+import CsCards from "@cloudscape-design/components/cards";
+import CsContainer from "@cloudscape-design/components/container";
+import CsContentLayout from "@cloudscape-design/components/content-layout";
+import CsForm from "@cloudscape-design/components/form";
+import CsFormField from "@cloudscape-design/components/form-field";
+import CsHeader from "@cloudscape-design/components/header";
+import CsHelpPanel from "@cloudscape-design/components/help-panel";
+import CsInput from "@cloudscape-design/components/input";
+import CsKeyValuePairs from "@cloudscape-design/components/key-value-pairs";
+import CsModal from "@cloudscape-design/components/modal";
+import CsSideNavigation from "@cloudscape-design/components/side-navigation";
+import CsSpaceBetween from "@cloudscape-design/components/space-between";
+import CsStatusIndicator from "@cloudscape-design/components/status-indicator";
+import CsTable from "@cloudscape-design/components/table";
+import CsTabs from "@cloudscape-design/components/tabs";
+import CsTextFilter from "@cloudscape-design/components/text-filter";
+
+const cloudscapeComponents: Record<string, { default: unknown }> = {
+  "@cloudscape-design/components/app-layout": { default: CsAppLayout },
+  "@cloudscape-design/components/box": { default: CsBox },
+  "@cloudscape-design/components/button": { default: CsButton },
+  "@cloudscape-design/components/cards": { default: CsCards },
+  "@cloudscape-design/components/container": { default: CsContainer },
+  "@cloudscape-design/components/content-layout": { default: CsContentLayout },
+  "@cloudscape-design/components/form": { default: CsForm },
+  "@cloudscape-design/components/form-field": { default: CsFormField },
+  "@cloudscape-design/components/header": { default: CsHeader },
+  "@cloudscape-design/components/help-panel": { default: CsHelpPanel },
+  "@cloudscape-design/components/input": { default: CsInput },
+  "@cloudscape-design/components/key-value-pairs": { default: CsKeyValuePairs },
+  "@cloudscape-design/components/modal": { default: CsModal },
+  "@cloudscape-design/components/side-navigation": { default: CsSideNavigation },
+  "@cloudscape-design/components/space-between": { default: CsSpaceBetween },
+  "@cloudscape-design/components/status-indicator": { default: CsStatusIndicator },
+  "@cloudscape-design/components/table": { default: CsTable },
+  "@cloudscape-design/components/tabs": { default: CsTabs },
+  "@cloudscape-design/components/text-filter": { default: CsTextFilter },
+};
 import * as SvelteInternalClient from "svelte/internal/client";
 import * as SvelteInternalDiscloseVersion from "svelte/internal/disclose-version";
 import * as SvelteInternalFlagsLegacy from "svelte/internal/flags/legacy";
@@ -175,15 +220,14 @@ function makeRequires(side: "cs" | "ps"): (id: string) => Record<string, unknown
   };
   return (id: string) => {
     if (builtins[id]) return builtins[id]!;
-    // `@cloudscape-design/components/<name>` → the matching module
-    const csMatch = id.match(/^@cloudscape-design\/components\/(.+)$/);
-    if (csMatch) {
-      const key = `/node_modules/@cloudscape-design/components/${csMatch[1]}/index.js`;
-      const mod = cloudscapeComponents[key];
-      if (mod) return mod;
-      // Fallback — Vite resolves cs/components dynamically; some
-      // scenarios import sub-files (`text-content`, etc.).
-      throw new Error(`[live-compile/${side}] unresolved Cloudscape import: ${id}`);
+    // `@cloudscape-design/components/<name>` → the explicit map.
+    // Editable scenarios can only import components already in the
+    // map; adding a new one is a single line above.
+    if (cloudscapeComponents[id]) return cloudscapeComponents[id] as Record<string, unknown>;
+    if (id.startsWith("@cloudscape-design/components/")) {
+      throw new Error(
+        `[live-compile/${side}] Cloudscape component "${id}" isn't in the live-compile registry. Add it to demos/live-compile.ts.`,
+      );
     }
     // `@components/X.pui` → the matching .pui module
     const psMatch = id.match(/^@components\/(.+)$/);
