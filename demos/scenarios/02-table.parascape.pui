@@ -7,7 +7,13 @@
 	import Table from '@components/Table.pui';
 	import TextFilter from '@components/TextFilter.pui';
 
-	type Row = { id: string; name: string; type: string; state: 'Running' | 'Stopped' | 'Pending'; az: string };
+	type Row = {
+		id: string;
+		name: string;
+		type: string;
+		state: 'Running' | 'Stopped' | 'Pending';
+		az: string;
+	};
 	const data: Row[] = [
 		{ id: 'i-0a1', name: 'web-1', type: 't3.medium', state: 'Running', az: 'us-east-1a' },
 		{ id: 'i-0b2', name: 'web-2', type: 't3.medium', state: 'Running', az: 'us-east-1b' },
@@ -46,7 +52,11 @@
 	columnDefinitions={[
 		{ id: 'name', header: 'Name', cell: (r: Row) => r.name },
 		{ id: 'type', header: 'Type', cell: (r: Row) => r.type },
-		{ id: 'state', header: 'State', cell: (r: Row) => <StatusIndicator type={stateType(r.state)}>{r.state}</StatusIndicator> },
+		{
+			id: 'state',
+			header: 'State',
+			cell: (r: Row) => <StatusIndicator type={stateType(r.state)}>{r.state}</StatusIndicator>,
+		},
 		{ id: 'az', header: 'AZ', cell: (r: Row) => r.az },
 	]}
 	empty={<Box textAlign="center">No instances match the filter.</Box>}

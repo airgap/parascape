@@ -17,6 +17,16 @@ src/lib/cloudscape
 # prettier's parser errors on them (it doesn't run parabunPreprocess).
 # .pui style is maintained by the Para toolchain, not prettier. Real
 # .svelte files (fixtures) ARE formatted (prettier-plugin-svelte).
+#
+# EXCEPTION: the demo .pui files under demos/scenarios/ are
+# hand-formatted to match what prettier produces on the corresponding
+# Cloudscape .tsx side. The "side-by-side demo" promise — same
+# formatter settings on both panes — would break otherwise: the React
+# files get auto-formatted by prettier (100-col, tabs, single quotes,
+# trailing commas), and the Para files have to look the same. When
+# you touch one of them, eyeball it against its cloudscape counterpart
+# (same scenario id, .cloudscape.tsx). Long type aliases / object
+# literals get the multi-line layout; everything else stays inline.
 *.pui
 src/lib/components
 

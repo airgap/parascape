@@ -2,7 +2,13 @@
 	import Cards from '@components/Cards.pui';
 	import Header from '@components/Header.pui';
 
-	type Item = { id: string; name: string; region: string; status: 'active' | 'draft'; price: number };
+	type Item = {
+		id: string;
+		name: string;
+		region: string;
+		status: 'active' | 'draft';
+		price: number;
+	};
 	const items: Item[] = [
 		{ id: 'p-1', name: 'Apricot terrine', region: 'Provence', status: 'active', price: 18 },
 		{ id: 'p-2', name: 'Charcoal sourdough', region: 'Brooklyn', status: 'active', price: 12 },
