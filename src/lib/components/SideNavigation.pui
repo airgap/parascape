@@ -103,7 +103,19 @@
 			>{item.text}</a
 		>{@render renderList(item.items, 'link-group')}
 	{:else if item.type === 'section' || item.type === 'expandable-link-group'}
-		<ExpandableSection variant="footer" headerText={item.text} defaultExpanded={item.defaultExpanded}>
+		<!--
+		  Cloudscape's side-navigation/parts.js defaults sections to
+		  EXPANDED when the consumer doesn't set defaultExpanded
+		  (`definition.defaultExpanded ?? true`). Mirror that here so
+		  a bare `{ type: 'section', text: 'X', items: [...] }` opens
+		  the same way on both sides — without this `?? true` the
+		  Para nav rendered its sections collapsed.
+		-->
+		<ExpandableSection
+			variant="footer"
+			headerText={item.text}
+			defaultExpanded={item.defaultExpanded ?? true}
+		>
 			{@render renderList(item.items, 'section')}
 		</ExpandableSection>
 	{/if}
