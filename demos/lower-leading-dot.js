@@ -1,40 +1,40 @@
-// Para Lang spike — leading-dot placeholder-lambda in call-arg position.
-//
-//   data.filter(.name.toLowerCase().includes(q))
-//   → data.filter((__x) => __x.name.toLowerCase().includes(q))
-//
-// Trigger heuristic (intentionally narrow):
-//   • The arg's first non-whitespace character is `.`
-//   • That `.` is followed by an identifier (placeholder for a property
-//     access / method-call chain) — not a number (which would be a
-//     decimal literal), not whitespace.
-//
-// Lowering:
-//   • Wrap the whole arg in `(__x) => …`.
-//   • Within that arg, any TOP-LEVEL leading-`.` chain (after `(`, `,`,
-//     `&&`, `||`, `?`, `:`, `!`, etc.) gets `__x` prepended so a
-//     multi-placeholder arg like `.a > 0 && .a < 10` becomes
-//     `__x.a > 0 && __x.a < 10`. ALL placeholders in one arg share the
-//     same `__x`.
-//   • Nested calls inside the arg are processed recursively; their own
-//     leading-`.` args get FRESH `__x` parameters (lexical shadowing
-//     handles the binding — innermost wins).
-//
-// What's NOT lowered (kept simple for the spike):
-//   • Paren-wrapped placeholder forms — `data.filter((.a + .b))`
-//     (the arg starts with `(`, not `.`). Use the bare form instead.
-//   • Multi-arg callbacks — `data.map(.foo)` works, `data.map((x, i) =>
-//     …)` keeps its explicit form (placeholder syntax can't address
-//     the index).
-//   • Property access vs placeholder — `data.filter(arr.x)` is plain
-//     property access on `arr` and is left alone. The discriminator is
-//     "the dot is the FIRST significant char of the arg".
-//
-// Strings / template literals / line + block comments are skipped so
-// stray `.…` text inside them isn't rewritten.
-import type { PreprocessorGroup } from "svelte/compiler";
+ function _nullishCoalesce(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 
-function skipString(src: string, at: number, quote: string): number {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function skipString(src, at, quote) {
 	let i = at + 1;
 	const len = src.length;
 	while (i < len && src[i] !== quote) {
@@ -44,7 +44,7 @@ function skipString(src: string, at: number, quote: string): number {
 	return i + 1;
 }
 
-function skipTemplate(src: string, at: number): number {
+function skipTemplate(src, at) {
 	let i = at + 1;
 	const len = src.length;
 	while (i < len) {
@@ -64,14 +64,14 @@ function skipTemplate(src: string, at: number): number {
 
 /** Walk from `at` to the matching close paren/brace/bracket. Returns
  *  the index AFTER the close. */
-function skipBalanced(src: string, at: number, closeChar: string): number {
+function skipBalanced(src, at, closeChar) {
 	const opens = "({[";
 	const closes = ")}]";
 	let i = at;
 	let depth = 1;
 	const len = src.length;
 	while (i < len && depth > 0) {
-		const c = src[i]!;
+		const c = src[i];
 		if (c === "'" || c === '"') {
 			i = skipString(src, i, c);
 			continue;
@@ -93,7 +93,7 @@ function skipBalanced(src: string, at: number, closeChar: string): number {
 		if (opens.includes(c)) {
 			if (c === closeChar.replace(")", "(").replace("}", "{").replace("]", "[")) depth++;
 			else {
-				const matchClose = closes[opens.indexOf(c)]!;
+				const matchClose = closes[opens.indexOf(c)];
 				i = skipBalanced(src, i + 1, matchClose);
 				continue;
 			}
@@ -114,11 +114,11 @@ function skipBalanced(src: string, at: number, closeChar: string): number {
  * `+`, `-`, `*`, etc.). After an identifier / closing bracket / digit,
  * `.` is property access, NOT a placeholder.
  */
-function isPlaceholderDotAt(arg: string, dotIdx: number): boolean {
+function isPlaceholderDotAt(arg, dotIdx) {
 	let j = dotIdx - 1;
-	while (j >= 0 && /\s/.test(arg[j]!)) j--;
+	while (j >= 0 && /\s/.test(arg[j])) j--;
 	if (j < 0) return true; // beginning of arg
-	const prev = arg[j]!;
+	const prev = arg[j];
 	if (
 		prev === "(" ||
 		prev === "[" ||
@@ -146,12 +146,12 @@ function isPlaceholderDotAt(arg: string, dotIdx: number): boolean {
 
 /** Walk arg text, prepending `__x` to every top-level placeholder `.`.
  *  Nested calls aren't recursed here — the outer pass handles them. */
-function bindPlaceholders(arg: string): string {
-	const out: string[] = [];
+function bindPlaceholders(arg) {
+	const out = [];
 	let i = 0;
 	const len = arg.length;
 	while (i < len) {
-		const c = arg[i]!;
+		const c = arg[i];
 		if (c === "'" || c === '"') {
 			const end = skipString(arg, i, c);
 			out.push(arg.slice(i, end));
@@ -190,7 +190,7 @@ function bindPlaceholders(arg: string): string {
 		}
 		// Placeholder dot detection. Must be followed by an identifier
 		// to be a chain start; a `.0` is a decimal literal.
-		if (c === "." && /[A-Za-z_$]/.test(arg[i + 1] ?? "") && isPlaceholderDotAt(arg, i)) {
+		if (c === "." && /[A-Za-z_$]/.test(_nullishCoalesce(arg[i + 1], () => ( ""))) && isPlaceholderDotAt(arg, i)) {
 			out.push("__x.");
 			i++;
 			continue;
@@ -207,20 +207,20 @@ function bindPlaceholders(arg: string): string {
  * character is a placeholder-dot. Recurses into the lowered arg so
  * nested calls work too.
  */
-export function lowerLeadingDot(src: string): string {
-	const out: string[] = [];
+export function lowerLeadingDot(src) {
+	const out = [];
 	const len = src.length;
 	let i = 0;
 	let lastSig = ""; // last non-whitespace char emitted
 
 	while (i < len) {
-		const c = src[i]!;
+		const c = src[i];
 		// Pass through strings / templates / comments verbatim.
 		if (c === "'" || c === '"') {
 			const end = skipString(src, i, c);
 			out.push(src.slice(i, end));
 			i = end;
-			lastSig = src[end - 1] ?? "";
+			lastSig = _nullishCoalesce(src[end - 1], () => ( ""));
 			continue;
 		}
 		if (c === "`") {
@@ -253,12 +253,12 @@ export function lowerLeadingDot(src: string): string {
 			const argsEnd = skipBalanced(src, argsStart, ")") - 1; // index of `)`
 			const argsText = src.slice(argsStart, argsEnd);
 			// Split on top-level commas.
-			const parts: string[] = [];
+			const parts = [];
 			let buf = "";
 			let depth = 0;
 			let p = 0;
 			while (p < argsText.length) {
-				const ch = argsText[p]!;
+				const ch = argsText[p];
 				if (ch === "'" || ch === '"') {
 					const end = skipString(argsText, p, ch);
 					buf += argsText.slice(p, end);
@@ -291,7 +291,7 @@ export function lowerLeadingDot(src: string): string {
 			const loweredParts = parts.map((arg) => {
 				const stripped = arg.replace(/^[\s\n]+/, "");
 				const leadIdx = arg.length - stripped.length;
-				const isPlaceholder = stripped[0] === "." && /[A-Za-z_$]/.test(stripped[1] ?? "");
+				const isPlaceholder = stripped[0] === "." && /[A-Za-z_$]/.test(_nullishCoalesce(stripped[1], () => ( "")));
 				// Always recurse first so nested calls' args get processed.
 				const recursedArg = lowerLeadingDot(arg);
 				if (!isPlaceholder) return recursedArg;
@@ -322,11 +322,11 @@ export function lowerLeadingDot(src: string): string {
  * BEFORE parabunPreprocess sees the source, so Bun.Transpiler / Svelte
  * parse plain JS.
  */
-export default function lowerLeadingDotPreprocess(): PreprocessorGroup {
+export default function lowerLeadingDotPreprocess() {
 	return {
 		name: "lower-leading-dot",
 		script({ content, filename }) {
-			if (!filename?.endsWith(".pui")) return;
+			if (!_optionalChain([filename, 'optionalAccess', _ => _.endsWith, 'call', _2 => _2(".pui")])) return;
 			// Quick reject: no `.<ident>` immediately after `(` or `,` ?
 			if (!/[(,]\s*\.[A-Za-z_$]/.test(content)) return;
 			const out = lowerLeadingDot(content);

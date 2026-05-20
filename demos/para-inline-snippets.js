@@ -1,55 +1,55 @@
-// Para Lang spike — inline-markup attribute values (full version).
-//
-// STATUS: PROMOTED to /raid/parabun/packages/para-preprocess/src/
-// index.ts as `lowerInlineSnippets` + a `markup` handler on the
-// `parabunPreprocess()` PreprocessorGroup. 11/11 unit tests pass
-// upstream (test/inline-snippets.test.ts). This local copy stays
-// wired in svelte.config.js until @lyku/para-preprocess publishes
-// the next pre release picking up that commit — at which point
-// this file + the import line + the demos:test script can be
-// deleted in one stroke.
-//
-// Three lift forms are supported:
-//
-//   1. Bare markup as an attribute value:
-//        <Form header={<Header variant="h2">Sign in</Header>}>…</Form>
-//
-//   2. Param form — `(args) => <JSX>` lifts to a parameterized snippet:
-//        cell={(r: Row) => <Status type={kind(r.s)}>{r.s}</Status>}
-//
-//   3. JSX in JS expression position — `tabs={[{ content: <Box/> }]}`:
-//      the scanner walks the attribute body and lifts each JSX literal
-//      occurring at `:` / `,` / `(` / `[` / `?` / `=>` boundaries.
-//
-// And one architectural property:
-//
-//   4. Each-block-aware hoisting. Open `{#each items as item, i}` blocks
-//      push a scope; snippets generated within that scope emit just
-//      before the matching `{/each}`, INSIDE the each body — so closures
-//      over the iteration variable resolve correctly.
-//
-// Trigger heuristic: a `<` followed by an ASCII letter (`<Form…`,
-// `<Header…`, `<h2…`) at an expression-starting position. `{x < y}` is
-// JS comparison and stays untouched. HTML comments and `<script>` /
-// `<style>` blocks pass through verbatim.
-//
-// Only runs on `.pui` files.
-import type { PreprocessorGroup } from "svelte/compiler";
+ function _nullishCoalesce(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 
-type Scope = { lifted: string[] };
-type State = {
-  counter: number;
-  moduleScope: Scope;
-  eachStack: Scope[];
-};
-const innermostScope = (state: State): Scope => state.eachStack[state.eachStack.length - 1] ?? state.moduleScope;
-const mintName = (state: State): string => `__para_attr_${++state.counter}`;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const innermostScope = (state) => _nullishCoalesce(state.eachStack[state.eachStack.length - 1], () => ( state.moduleScope));
+const mintName = (state) => `__para_attr_${++state.counter}`;
 
 const ATTR_BOUNDARY_PREV = /^([=:,([?]|=>)$/;
 
 // ─── low-level skippers ────────────────────────────────────────────────
 
-function skipString(src: string, at: number, quote: string): number {
+function skipString(src, at, quote) {
   let i = at + 1;
   const len = src.length;
   while (i < len && src[i] !== quote) {
@@ -62,7 +62,7 @@ function skipString(src: string, at: number, quote: string): number {
   return i + 1;
 }
 
-function skipTemplate(src: string, at: number): number {
+function skipTemplate(src, at) {
   let i = at + 1;
   const len = src.length;
   while (i < len) {
@@ -80,7 +80,7 @@ function skipTemplate(src: string, at: number): number {
   return i;
 }
 
-function skipBalancedBrace(src: string, at: number): number {
+function skipBalancedBrace(src, at) {
   let i = at;
   let depth = 1;
   const len = src.length;
@@ -112,12 +112,12 @@ function skipBalancedBrace(src: string, at: number): number {
 }
 
 /** Match the `}` for the `{` already consumed by the caller. */
-function matchExprEnd(src: string, start: number): number {
+function matchExprEnd(src, start) {
   const end = skipBalancedBrace(src, start);
   return end > 0 && src[end - 1] === "}" ? end - 1 : -1;
 }
 
-function matchParenEnd(src: string, start: number): number {
+function matchParenEnd(src, start) {
   let i = start;
   let depth = 1;
   const len = src.length;
@@ -152,7 +152,7 @@ function matchParenEnd(src: string, start: number): number {
  * Handles self-closing tags, attribute-value `{…}` expressions, nested
  * children, and matching `</Tag>` closers. Returns index AFTER `>`.
  */
-function skipJsxElement(src: string, at: number): number {
+function skipJsxElement(src, at) {
   const len = src.length;
   const nameMatch = /^<\s*([A-Za-z][\w.-]*)/.exec(src.slice(at));
   if (!nameMatch) return at + 1;
@@ -187,7 +187,7 @@ function skipJsxElement(src: string, at: number): number {
       const end = src.indexOf(">", i);
       return end === -1 ? len : end + 1;
     }
-    if (src[i] === "<" && /[A-Za-z]/.test(src[i + 1] ?? "")) {
+    if (src[i] === "<" && /[A-Za-z]/.test(_nullishCoalesce(src[i + 1], () => ( "")))) {
       i = skipJsxElement(src, i);
       continue;
     }
@@ -200,7 +200,7 @@ function skipJsxElement(src: string, at: number): number {
   return i;
 }
 
-function readArrowPrefix(src: string, at: number): { paramsRaw: string; bodyStart: number } | null {
+function readArrowPrefix(src, at) {
   const len = src.length;
   let i = at;
   while (i < len && /\s/.test(src[i])) i++;
@@ -216,10 +216,10 @@ function readArrowPrefix(src: string, at: number): { paramsRaw: string; bodyStar
   return { paramsRaw, bodyStart: j };
 }
 
-function startsJsxAt(src: string, at: number): boolean {
+function startsJsxAt(src, at) {
   let i = at;
   while (i < src.length && /\s/.test(src[i])) i++;
-  return src[i] === "<" && /[A-Za-z]/.test(src[i + 1] ?? "");
+  return src[i] === "<" && /[A-Za-z]/.test(_nullishCoalesce(src[i + 1], () => ( "")));
 }
 
 // ─── core scanners ─────────────────────────────────────────────────────
@@ -232,8 +232,8 @@ function startsJsxAt(src: string, at: number): boolean {
  * Returns the rewritten body. Lifted snippet declarations are pushed
  * onto state.moduleScope.lifted (or the innermost each scope).
  */
-function processJsExpression(src: string, state: State): string {
-  const out: string[] = [];
+function processJsExpression(src, state) {
+  const out = [];
   const len = src.length;
   let i = 0;
   let lastSignificant = ""; // last non-whitespace char emitted
@@ -243,7 +243,7 @@ function processJsExpression(src: string, state: State): string {
       const end = skipString(src, i, c);
       out.push(src.slice(i, end));
       i = end;
-      lastSignificant = src[end - 1] ?? "";
+      lastSignificant = _nullishCoalesce(src[end - 1], () => ( ""));
       continue;
     }
     if (c === "`") {
@@ -300,7 +300,7 @@ function processJsExpression(src: string, state: State): string {
       }
     }
     // Inline bare JSX at an expression boundary
-    if (c === "<" && /[A-Za-z]/.test(src[i + 1] ?? "") && atBoundary) {
+    if (c === "<" && /[A-Za-z]/.test(_nullishCoalesce(src[i + 1], () => ( ""))) && atBoundary) {
       const end = skipJsxElement(src, i);
       const body = src.slice(i, end);
       const id = mintName(state);
@@ -328,8 +328,8 @@ function processJsExpression(src: string, state: State): string {
  * the innermost open each scope (the latter emitted just before the
  * `{/each}` close).
  */
-function processMarkup(source: string, state: State): string {
-  const out: string[] = [];
+function processMarkup(source, state) {
+  const out = [];
   const len = source.length;
   let i = 0;
   while (i < len) {
@@ -407,8 +407,8 @@ function processMarkup(source: string, state: State): string {
   return out.join("");
 }
 
-function lowerInlineSnippets(source: string): string {
-  const state: State = {
+function lowerInlineSnippets(source) {
+  const state = {
     counter: 0,
     moduleScope: { lifted: [] },
     eachStack: [],
@@ -418,11 +418,11 @@ function lowerInlineSnippets(source: string): string {
   return out + "\n\n" + state.moduleScope.lifted.join("\n");
 }
 
-export default function paraInlineSnippets(): PreprocessorGroup {
+export default function paraInlineSnippets() {
   return {
     name: "para-inline-snippets",
     markup({ content, filename }) {
-      if (!filename?.endsWith(".pui")) return;
+      if (!_optionalChain([filename, 'optionalAccess', _ => _.endsWith, 'call', _2 => _2(".pui")])) return;
       const out = lowerInlineSnippets(content);
       if (out === content) return;
       return { code: out };

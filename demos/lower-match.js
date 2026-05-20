@@ -1,4 +1,4 @@
-
+ function _nullishCoalesce(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 /**
  * Lower Para `match SUBJECT { p1 => r1, p2 => r2, _ => default }` to an
  * equivalent JS expression. The all-literal-patterns case is what the
@@ -14,13 +14,13 @@
  * and `// + /* … *\/` comments are skipped so a `match` literal inside
  * a string isn't mis-rewritten.
  */
-function lowerMatch(src: string): string {
-  const out: string[] = [];
+function lowerMatch(src) {
+  const out = [];
   let i = 0;
   const len = src.length;
   while (i < len) {
     // Pass through strings / template literals / comments verbatim.
-    const c = src[i]!;
+    const c = src[i];
     if (c === '"' || c === "'") {
       const start = i;
       i++;
@@ -76,16 +76,16 @@ function lowerMatch(src: string): string {
     }
     // `match` keyword — must be a standalone identifier (no JS keyword
     // immediately before / after gluing to a longer name).
-    if (src.startsWith("match", i) && !/[\w$]/.test(src[i - 1] ?? "") && !/[\w$]/.test(src[i + 5] ?? "")) {
+    if (src.startsWith("match", i) && !/[\w$]/.test(_nullishCoalesce(src[i - 1], () => ( ""))) && !/[\w$]/.test(_nullishCoalesce(src[i + 5], () => ( "")))) {
       // Walk the subject expression up to the `{` that opens the arms.
       // Bracket-balanced; skip over (...) and [...] so a paren-grouped
       // subject like `match (a + b) { … }` stays in one piece.
       let j = i + 5;
-      while (j < len && /\s/.test(src[j]!)) j++;
+      while (j < len && /\s/.test(src[j])) j++;
       const subjectStart = j;
       let depth = 0;
       while (j < len) {
-        const k = src[j]!;
+        const k = src[j];
         if (k === "(" || k === "[") depth++;
         else if (k === ")" || k === "]") depth--;
         else if (k === "{" && depth === 0) break;
@@ -112,7 +112,7 @@ function lowerMatch(src: string): string {
       let bd = 1;
       let k = braceOpen + 1;
       while (k < len && bd > 0) {
-        const ch = src[k]!;
+        const ch = src[k];
         if (ch === '"' || ch === "'") {
           const q = ch;
           k++;
@@ -133,24 +133,24 @@ function lowerMatch(src: string): string {
       }
       const armsBody = src.slice(braceOpen + 1, k - 1);
       // Split arms on top-level commas.
-      const arms: string[] = [];
+      const arms = [];
       let buf = "";
       let d = 0;
       for (let m = 0; m < armsBody.length; m++) {
-        const ch = armsBody[m]!;
+        const ch = armsBody[m];
         if (ch === '"' || ch === "'") {
           const q = ch;
           buf += ch;
           m++;
           while (m < armsBody.length && armsBody[m] !== q) {
             if (armsBody[m] === "\\") {
-              buf += armsBody[m]!;
+              buf += armsBody[m];
               m++;
             }
-            buf += armsBody[m]!;
+            buf += armsBody[m];
             m++;
           }
-          buf += armsBody[m] ?? "";
+          buf += _nullishCoalesce(armsBody[m], () => ( ""));
           continue;
         }
         if (ch === "{" || ch === "(" || ch === "[") d++;
@@ -166,12 +166,12 @@ function lowerMatch(src: string): string {
       // Each arm: `PATTERN => RESULT`. Find the `=>` that's NOT inside
       // a nested arrow / paren / brace.
       let dflt = "undefined";
-      const cases: Array<[string, string]> = [];
+      const cases = [];
       for (const arm of arms) {
         let armDepth = 0;
         let sep = -1;
         for (let m = 0; m < arm.length - 1; m++) {
-          const ch = arm[m]!;
+          const ch = arm[m];
           if (ch === "{" || ch === "(" || ch === "[") armDepth++;
           else if (ch === "}" || ch === ")" || ch === "]") armDepth--;
           else if (ch === "=" && arm[m + 1] === ">" && armDepth === 0) {
@@ -196,7 +196,7 @@ function lowerMatch(src: string): string {
   return out.join("");
 }
 
-import type { PreprocessorGroup } from "svelte/compiler";
+
 
 /**
  * Svelte preprocess that lowers `match` in `<script>` blocks of .pui
@@ -204,11 +204,11 @@ import type { PreprocessorGroup } from "svelte/compiler";
  * (still-published-as-stub-only) match keyword is gone by the time
  * Bun.Transpiler / Svelte's parser sees the source.
  */
-export default function lowerMatchPreprocess(): PreprocessorGroup {
+export default function lowerMatchPreprocess() {
   return {
     name: "lower-match",
     script({ content, filename }) {
-      if (!filename?.endsWith(".pui")) return;
+      if (!_optionalChain([filename, 'optionalAccess', _ => _.endsWith, 'call', _2 => _2(".pui")])) return;
       if (!/\bmatch\s+[^\s]/.test(content)) return;
       const out = lowerMatch(content);
       if (out === content) return;

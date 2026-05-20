@@ -1,51 +1,51 @@
-// Para Lang spike — `|>` pipeline operator lowering for the
-// browser live-compile pipeline.
-//
-// Pipeline semantics (parabun parseSuffix.zig:1023):
-//   expr |> fn               →  fn(expr)
-//   expr |> fn(a, b)         →  fn(expr, a, b)
-//   expr |> fn(_, a)         →  fn(expr, a)        — explicit `_` placeholder
-//   expr |> .method(a)       →  (expr).method(a)
-//   expr |> .prop            →  (expr).prop
-//   a |> b |> c              →  c(b(a))            — left-associative
-//
-// The lowering is iterative: find the LEFTMOST `|>` at top level
-// (not inside a string / template / comment / nested bracket), lower
-// it to the function-call form, then re-scan. Left-associative
-// chains collapse one pipe per iteration.
-//
-// LHS scan: walk backwards from the `|>` until we hit a bound that
-// can't be part of the piped expression — statement terminators
-// (`;` `,` at depth 0), assignment / return / arrow boundaries, or
-// the start of an enclosing bracket. The scan respects strings,
-// templates, comments, and balanced () [] {} so a JSX expression or
-// object literal inside the LHS doesn't terminate early.
-//
-// RHS scan: from just after `|>`, consume an identifier path
-// (`a.b.c`), then an optional `(args)` call. The leading-`.` form
-// (`|> .method`) is detected when the first non-whitespace char
-// after `|>` is `.`.
-//
-// What's INTENTIONALLY out of scope for the demo lowering:
-//   • Stream fusion (`src |> map(f) |> filter(g) |> sum` collapsed
-//     to a single loop) — runtime correctness doesn't depend on it.
-//   • Pure-function inlining at the pipe site — same.
-//   • `..!` after a pipe — the demo doesn't use it.
-// The parabun Zig parser handles all of those when running natively;
-// here we just need correct JS for the editable browser demos.
+ function _nullishCoalesce(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 
-import type { PreprocessorGroup } from "svelte/compiler";
 
-const isIdentStart = (c: string) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_" || c === "$";
-const isIdentCont = (c: string) => isIdentStart(c) || (c >= "0" && c <= "9");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const isIdentStart = (c) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_" || c === "$";
+const isIdentCont = (c) => isIdentStart(c) || (c >= "0" && c <= "9");
 
 // Skip a quoted string starting at `i` (which points at the opening
 // quote). Returns the offset of the character AFTER the closing quote.
-function skipString(src: string, i: number): number {
-  const q = src[i]!;
+function skipString(src, i) {
+  const q = src[i];
   i++;
   while (i < src.length) {
-    const c = src[i]!;
+    const c = src[i];
     if (c === "\\") {
       i += 2;
       continue;
@@ -59,10 +59,10 @@ function skipString(src: string, i: number): number {
 // Skip a template literal starting at the backtick. Handles `${ … }`
 // interpolations recursively so a pipeline inside an interpolation
 // isn't found by mistake.
-function skipTemplate(src: string, i: number): number {
+function skipTemplate(src, i) {
   i++; // past `
   while (i < src.length) {
-    const c = src[i]!;
+    const c = src[i];
     if (c === "\\") {
       i += 2;
       continue;
@@ -80,13 +80,13 @@ function skipTemplate(src: string, i: number): number {
 // Skip a balanced bracket pair starting at `i` (opening bracket).
 // Recurses through strings/templates/comments inside. Returns the
 // offset AFTER the closing bracket.
-function skipBalanced(src: string, i: number): number {
-  const open = src[i]!;
+function skipBalanced(src, i) {
+  const open = src[i];
   const close = open === "(" ? ")" : open === "[" ? "]" : "}";
   let depth = 1;
   i++;
   while (i < src.length && depth > 0) {
-    const c = src[i]!;
+    const c = src[i];
     if (c === '"' || c === "'") {
       i = skipString(src, i);
       continue;
@@ -117,10 +117,10 @@ function skipBalanced(src: string, i: number): number {
 // skipped — a pipeline can validly appear inside `()` (grouping or
 // IIFE), `{}` (function / block body), or `[]` (array element).
 // Returns -1 if none.
-function findTopLevelPipe(src: string): number {
+function findTopLevelPipe(src) {
   let i = 0;
   while (i < src.length) {
-    const c = src[i]!;
+    const c = src[i];
     if (c === '"' || c === "'") {
       i = skipString(src, i);
       continue;
@@ -149,7 +149,7 @@ function findTopLevelPipe(src: string): number {
 // Stops at statement terminators (`;` `\n` at top level following a
 // terminator), unbalanced open brackets, and the keywords / operators
 // that can't legally appear inside a pipeline LHS.
-function findLHSStart(src: string, pipePos: number): number {
+function findLHSStart(src, pipePos) {
   // Walk backward from pipePos - 1, tracking bracket depth (depth
   // INCREASES as we go back through closing brackets, decreases at
   // opening brackets). When we see an opening bracket with depth=0,
@@ -157,11 +157,11 @@ function findLHSStart(src: string, pipePos: number): number {
   let i = pipePos - 1;
   let depth = 0;
   // Skip trailing whitespace just before `|>`.
-  while (i >= 0 && /\s/.test(src[i]!)) i--;
+  while (i >= 0 && /\s/.test(src[i])) i--;
   // Now walk back through the expression body.
   const stopAtTopLevel = new Set([";", ",", "?", ":"]);
   while (i >= 0) {
-    const c = src[i]!;
+    const c = src[i];
     // Closing bracket → enter that bracketed group
     if (c === ")" || c === "]" || c === "}") {
       depth++;
@@ -217,7 +217,7 @@ function findLHSStart(src: string, pipePos: number): number {
     // an identifier and compare.
     if (isIdentCont(c)) {
       let j = i;
-      while (j >= 0 && isIdentCont(src[j]!)) j--;
+      while (j >= 0 && isIdentCont(src[j])) j--;
       const word = src.slice(j + 1, i + 1);
       if (
         word === "return" ||
@@ -247,19 +247,19 @@ function findLHSStart(src: string, pipePos: number): number {
 // Walk forward from `start` to find the END of the RHS expression.
 // Consumes an identifier path, an optional argument list, then any
 // trailing `.foo(…)` / `[…]` accesses.
-function findRHSEnd(src: string, start: number): number {
+function findRHSEnd(src, start) {
   let i = start;
   // skip leading whitespace
-  while (i < src.length && /\s/.test(src[i]!)) i++;
+  while (i < src.length && /\s/.test(src[i])) i++;
   // leading-`.` shorthand: consume the dotted chain
   if (src[i] === ".") {
     // consume `.ident(.ident…)?(args)?` chain
     while (i < src.length) {
       // skip ws
-      while (i < src.length && /\s/.test(src[i]!)) i++;
+      while (i < src.length && /\s/.test(src[i])) i++;
       if (src[i] === ".") {
         i++;
-        while (i < src.length && isIdentCont(src[i]!)) i++;
+        while (i < src.length && isIdentCont(src[i])) i++;
         continue;
       }
       if (src[i] === "(" || src[i] === "[") {
@@ -271,23 +271,23 @@ function findRHSEnd(src: string, start: number): number {
     return i;
   }
   // identifier (possibly dotted) followed by optional call
-  if (!isIdentStart(src[i] ?? "")) return i;
-  while (i < src.length && isIdentCont(src[i]!)) i++;
+  if (!isIdentStart(_nullishCoalesce(src[i], () => ( "")))) return i;
+  while (i < src.length && isIdentCont(src[i])) i++;
   // dotted path `a.b.c`
   while (src[i] === ".") {
     i++;
-    while (i < src.length && isIdentCont(src[i]!)) i++;
+    while (i < src.length && isIdentCont(src[i])) i++;
   }
   // optional call arguments
   while (i < src.length) {
-    const c = src[i]!;
+    const c = src[i];
     if (c === "(" || c === "[") {
       i = skipBalanced(src, i);
       continue;
     }
     if (c === ".") {
       i++;
-      while (i < src.length && isIdentCont(src[i]!)) i++;
+      while (i < src.length && isIdentCont(src[i])) i++;
       continue;
     }
     break;
@@ -303,7 +303,7 @@ function findRHSEnd(src: string, start: number): number {
 //                                                  is first arg)
 //   fn(_, args…)     →  fn(lhs, args…)            (explicit underscore)
 //   fn               →  fn(lhs)
-function fold(lhs: string, rhs: string): string {
+function fold(lhs, rhs) {
   const rhsT = rhs.trim();
   if (rhsT.startsWith(".")) {
     return `(${lhs})${rhsT}`;
@@ -311,7 +311,7 @@ function fold(lhs: string, rhs: string): string {
   // Find `(` start of arg list, if any. The identifier path itself
   // can contain `.` (a.b.c).
   let i = 0;
-  while (i < rhsT.length && (isIdentCont(rhsT[i]!) || rhsT[i] === ".")) i++;
+  while (i < rhsT.length && (isIdentCont(rhsT[i]) || rhsT[i] === ".")) i++;
   const name = rhsT.slice(0, i);
   const rest = rhsT.slice(i).trim();
   if (!rest.startsWith("(")) {
@@ -329,7 +329,7 @@ function fold(lhs: string, rhs: string): string {
   return `${name}(${lhs}, ${inner})`;
 }
 
-export function lowerPipeline(src: string): string {
+export function lowerPipeline(src) {
   // Iterative left-most-pipe lowering. Each pass rewrites one `|>`;
   // the result is fed back in until no top-level pipes remain.
   for (let safety = 0; safety < 256; safety++) {
@@ -354,11 +354,11 @@ export function lowerPipeline(src: string): string {
 // scenario can pipe in either dialect). Markup currently isn't
 // scanned — pipelines in event handler attributes (`onclick={a |> b}`)
 // would need a markup pass; defer until a demo actually wants that.
-export default function lowerPipelinePreprocess(): PreprocessorGroup {
+export default function lowerPipelinePreprocess() {
   return {
     name: "lower-pipeline",
     script({ content, filename }) {
-      if (!filename?.endsWith(".pui") && !filename?.endsWith(".svelte")) return;
+      if (!_optionalChain([filename, 'optionalAccess', _ => _.endsWith, 'call', _2 => _2(".pui")]) && !_optionalChain([filename, 'optionalAccess', _3 => _3.endsWith, 'call', _4 => _4(".svelte")])) return;
       if (!content.includes("|>")) return;
       const out = lowerPipeline(content);
       if (out === content) return;

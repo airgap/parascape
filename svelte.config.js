@@ -1,9 +1,9 @@
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import { parabunPreprocess } from "@lyku/para-preprocess";
-import paraInlineSnippets from "./demos/para-inline-snippets.ts";
-import lowerMatchPreprocess from "./demos/lower-match.ts";
-import lowerLeadingDotPreprocess from "./demos/lower-leading-dot.ts";
-import lowerPipelinePreprocess from "./demos/lower-pipeline.ts";
+import paraInlineSnippets from "./demos/para-inline-snippets.js";
+import lowerMatchPreprocess from "./demos/lower-match.js";
+import lowerLeadingDotPreprocess from "./demos/lower-leading-dot.js";
+import lowerPipelinePreprocess from "./demos/lower-pipeline.js";
 
 // @lyku/para-preprocess returns `dependencies: [filename]` on every
 // script-tag pass. vite-plugin-svelte's preprocess plugin records the

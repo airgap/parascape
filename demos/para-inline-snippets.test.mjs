@@ -4,7 +4,7 @@
 //   bun demos/para-inline-snippets.test.mjs
 // Exits 0 on pass, 1 on failure.
 
-import paraInlineSnippets from "./para-inline-snippets.ts";
+import paraInlineSnippets from "./para-inline-snippets.js";
 
 const pp = paraInlineSnippets();
 let fails = 0;
