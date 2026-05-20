@@ -1,138 +1,88 @@
-// Para Lang spike: inline-markup attribute values.
+// Para Lang spike — inline-markup attribute values (full version).
 //
-// Today in .pui you write:
+// Three lift forms are supported:
 //
-//   <Form header={headerSnip}>…</Form>
-//   {#snippet headerSnip()}<Header variant="h2">Sign in</Header>{/snippet}
+//   1. Bare markup as an attribute value:
+//        <Form header={<Header variant="h2">Sign in</Header>}>…</Form>
 //
-// With this preprocess you write:
+//   2. Param form — `(args) => <JSX>` lifts to a parameterized snippet:
+//        cell={(r: Row) => <Status type={kind(r.s)}>{r.s}</Status>}
 //
-//   <Form header={<Header variant="h2">Sign in</Header>}>…</Form>
+//   3. JSX in JS expression position — `tabs={[{ content: <Box/> }]}`:
+//      the scanner walks the attribute body and lifts each JSX literal
+//      occurring at `:` / `,` / `(` / `[` / `?` / `=>` boundaries.
 //
-// The preprocess scans the markup for attribute values of the form
-//   name={<Tag …>…</Tag>}
-//   name={
-//     <Tag …>
-//       …
-//     </Tag>
-//   }
-// (any multi-line, balanced markup expression), lifts each to a
-// generated `{#snippet __para_attr_N()}…{/snippet}` appended at end of
-// the markup, and replaces the attribute body with the snippet name.
+// And one architectural property:
 //
-// Limitations (acceptable for the spike, all hand-roll-recoverable):
-//   • Generated snippets are hoisted to module scope, so an inline
-//     attribute body cannot close over `{#each items as item}` locals.
-//     If we hit that case we keep the original snippet form by hand.
-//   • Param form `(row) => <Tag>{row.x}</Tag>` is NOT yet supported.
-//     The `Table` cell callback still needs hand-written snippets if
-//     it wants to render markup. Tracked for the full version.
-//   • Trigger heuristic: `={…}` whose body, after whitespace, starts
-//     with `<` followed by an ASCII letter. Anything else is left
-//     alone — including `{x < y}` (no letter after `<`) and any
-//     non-markup expression.
+//   4. Each-block-aware hoisting. Open `{#each items as item, i}` blocks
+//      push a scope; snippets generated within that scope emit just
+//      before the matching `{/each}`, INSIDE the each body — so closures
+//      over the iteration variable resolve correctly.
 //
-// The preprocess only touches `.pui` files. For non-.pui it is a no-op.
+// Trigger heuristic: a `<` followed by an ASCII letter (`<Form…`,
+// `<Header…`, `<h2…`) at an expression-starting position. `{x < y}` is
+// JS comparison and stays untouched. HTML comments and `<script>` /
+// `<style>` blocks pass through verbatim.
+//
+// Only runs on `.pui` files.
 import type { PreprocessorGroup } from "svelte/compiler";
 
-/**
- * Match the closing `}` for an expression that begins at index `start`
- * inside `src` (where `src[start - 1] === '{'`). Returns the index OF
- * the matching `}`, or -1 if unbalanced (in which case we abandon the
- * lift and leave the source untouched).
- *
- * Brace-aware over `{}`, `()`, `[]`; transparent across single-quoted,
- * double-quoted, and backtick template-literal strings (with nested
- * `${…}` correctly recursed); skips `//` and `/* … *\/` comments. Stays
- * inside JSX-style child markup naturally since `<` and `>` aren't
- * brace characters.
- */
-function matchExprEnd(src: string, start: number): number {
+type Scope = { lifted: string[] };
+type State = {
+  counter: number;
+  moduleScope: Scope;
+  eachStack: Scope[];
+};
+const innermostScope = (state: State): Scope => state.eachStack[state.eachStack.length - 1] ?? state.moduleScope;
+const mintName = (state: State): string => `__para_attr_${++state.counter}`;
+
+const ATTR_BOUNDARY_PREV = /^([=:,([?]|=>)$/;
+
+// ─── low-level skippers ────────────────────────────────────────────────
+
+function skipString(src: string, at: number, quote: string): number {
+  let i = at + 1;
   const len = src.length;
-
-  // Skip a single- or double-quoted string. Returns the index AFTER the
-  // closing quote.
-  function skipString(at: number, quote: string): number {
-    let i = at + 1;
-    while (i < len && src[i] !== quote) {
-      if (src[i] === "\\") {
-        i += 2;
-        continue;
-      }
-      i++;
+  while (i < len && src[i] !== quote) {
+    if (src[i] === "\\") {
+      i += 2;
+      continue;
     }
-    return i + 1;
+    i++;
   }
+  return i + 1;
+}
 
-  // Skip a backtick template literal, recursing into each `${…}` so
-  // nested template literals / strings / braces don't desync the depth
-  // counter. Returns the index AFTER the closing backtick.
-  function skipTemplate(at: number): number {
-    let i = at + 1;
-    while (i < len) {
-      if (src[i] === "\\") {
-        i += 2;
-        continue;
-      }
-      if (src[i] === "`") return i + 1;
-      if (src[i] === "$" && src[i + 1] === "{") {
-        // ${…} — scan as a balanced sub-expression, then resume the
-        // template-literal walk where it left off.
-        i = skipBalancedBrace(i + 2);
-        continue;
-      }
-      i++;
-    }
-    return i;
-  }
-
-  // Scan from one past a `{` to the matching `}`, returning the index
-  // AFTER the closing `}`. Used inside template-literal `${…}` only;
-  // does not handle JSX since template-literal expressions are pure JS.
-  function skipBalancedBrace(at: number): number {
-    let i = at;
-    let depth = 1;
-    while (i < len && depth > 0) {
-      const c = src[i];
-      if (c === "'" || c === '"') {
-        i = skipString(i, c);
-        continue;
-      }
-      if (c === "`") {
-        i = skipTemplate(i);
-        continue;
-      }
-      if (c === "/" && src[i + 1] === "/") {
-        while (i < len && src[i] !== "\n") i++;
-        continue;
-      }
-      if (c === "/" && src[i + 1] === "*") {
-        i += 2;
-        while (i < len && !(src[i] === "*" && src[i + 1] === "/")) i++;
-        i += 2;
-        continue;
-      }
-      if (c === "{") depth++;
-      else if (c === "}") depth--;
-      i++;
-    }
-    return i;
-  }
-
-  // Top-level scan: find the closing `}` that matches the `{` already
-  // consumed by the caller (start = first char inside the brace). Same
-  // shape as skipBalancedBrace but returns the index OF the closing
-  // brace (not after), per matchExprEnd's contract.
-  let i = start;
-  let depth = 1;
+function skipTemplate(src: string, at: number): number {
+  let i = at + 1;
+  const len = src.length;
   while (i < len) {
+    if (src[i] === "\\") {
+      i += 2;
+      continue;
+    }
+    if (src[i] === "`") return i + 1;
+    if (src[i] === "$" && src[i + 1] === "{") {
+      i = skipBalancedBrace(src, i + 2);
+      continue;
+    }
+    i++;
+  }
+  return i;
+}
+
+function skipBalancedBrace(src: string, at: number): number {
+  let i = at;
+  let depth = 1;
+  const len = src.length;
+  while (i < len && depth > 0) {
     const c = src[i];
     if (c === "'" || c === '"') {
-      i = skipString(i, c);
+      i = skipString(src, i, c);
       continue;
     }
     if (c === "`") {
-      i = skipTemplate(i);
+      i = skipTemplate(src, i);
       continue;
     }
     if (c === "/" && src[i + 1] === "/") {
@@ -145,14 +95,41 @@ function matchExprEnd(src: string, start: number): number {
       i += 2;
       continue;
     }
-    if (c === "{" || c === "(" || c === "[") {
+    if (c === "{") depth++;
+    else if (c === "}") depth--;
+    i++;
+  }
+  return i;
+}
+
+/** Match the `}` for the `{` already consumed by the caller. */
+function matchExprEnd(src: string, start: number): number {
+  const end = skipBalancedBrace(src, start);
+  return end > 0 && src[end - 1] === "}" ? end - 1 : -1;
+}
+
+function matchParenEnd(src: string, start: number): number {
+  let i = start;
+  let depth = 1;
+  const len = src.length;
+  while (i < len) {
+    const c = src[i];
+    if (c === "'" || c === '"') {
+      i = skipString(src, i, c);
+      continue;
+    }
+    if (c === "`") {
+      i = skipTemplate(src, i);
+      continue;
+    }
+    if (c === "(" || c === "{" || c === "[") {
       depth++;
       i++;
       continue;
     }
-    if (c === "}" || c === ")" || c === "]") {
+    if (c === ")" || c === "}" || c === "]") {
       depth--;
-      if (depth === 0 && c === "}") return i;
+      if (depth === 0 && c === ")") return i;
       i++;
       continue;
     }
@@ -162,37 +139,191 @@ function matchExprEnd(src: string, start: number): number {
 }
 
 /**
- * Detect that the expression starting at `body` (already brace-trimmed,
- * leading whitespace allowed) is inline JSX-style markup: a `<` followed
- * by an ASCII letter (component or element tag). Anything else stays
- * a plain JS expression.
+ * Skip a complete JSX/Svelte element starting at `at` (src[at] === '<').
+ * Handles self-closing tags, attribute-value `{…}` expressions, nested
+ * children, and matching `</Tag>` closers. Returns index AFTER `>`.
  */
-function looksLikeJsxBody(body: string): boolean {
+function skipJsxElement(src: string, at: number): number {
+  const len = src.length;
+  const nameMatch = /^<\s*([A-Za-z][\w.-]*)/.exec(src.slice(at));
+  if (!nameMatch) return at + 1;
+  const tagName = nameMatch[1];
+  let i = at + nameMatch[0].length;
+  let selfClosed = false;
+  while (i < len) {
+    const c = src[i];
+    if (c === '"' || c === "'") {
+      i = skipString(src, i, c);
+      continue;
+    }
+    if (c === "{") {
+      i = skipBalancedBrace(src, i + 1);
+      continue;
+    }
+    if (c === "/" && src[i + 1] === ">") {
+      selfClosed = true;
+      i += 2;
+      break;
+    }
+    if (c === ">") {
+      i++;
+      break;
+    }
+    i++;
+  }
+  if (selfClosed) return i;
+  const closeTag = `</${tagName}`;
+  while (i < len) {
+    if (src.startsWith(closeTag, i)) {
+      const end = src.indexOf(">", i);
+      return end === -1 ? len : end + 1;
+    }
+    if (src[i] === "<" && /[A-Za-z]/.test(src[i + 1] ?? "")) {
+      i = skipJsxElement(src, i);
+      continue;
+    }
+    if (src[i] === "{") {
+      i = skipBalancedBrace(src, i + 1);
+      continue;
+    }
+    i++;
+  }
+  return i;
+}
+
+function readArrowPrefix(src: string, at: number): { paramsRaw: string; bodyStart: number } | null {
+  const len = src.length;
+  let i = at;
+  while (i < len && /\s/.test(src[i])) i++;
+  if (src[i] !== "(") return null;
+  const parenEnd = matchParenEnd(src, i + 1);
+  if (parenEnd === -1) return null;
+  const paramsRaw = src.slice(i + 1, parenEnd);
+  let j = parenEnd + 1;
+  while (j < len && /\s/.test(src[j])) j++;
+  if (src[j] !== "=" || src[j + 1] !== ">") return null;
+  j += 2;
+  while (j < len && /\s/.test(src[j])) j++;
+  return { paramsRaw, bodyStart: j };
+}
+
+function startsJsxAt(src: string, at: number): boolean {
+  let i = at;
+  while (i < src.length && /\s/.test(src[i])) i++;
+  return src[i] === "<" && /[A-Za-z]/.test(src[i + 1] ?? "");
+}
+
+// ─── core scanners ─────────────────────────────────────────────────────
+
+/**
+ * Walk a JS expression body and lift any inline JSX literals at
+ * expression-starting positions. The JSX body itself is processed via
+ * `processMarkup` so nested attribute lifts compose naturally.
+ *
+ * Returns the rewritten body. Lifted snippet declarations are pushed
+ * onto state.moduleScope.lifted (or the innermost each scope).
+ */
+function processJsExpression(src: string, state: State): string {
+  const out: string[] = [];
+  const len = src.length;
   let i = 0;
-  while (i < body.length && /\s/.test(body[i])) i++;
-  return body[i] === "<" && /[A-Za-z]/.test(body[i + 1] ?? "");
+  let lastSignificant = ""; // last non-whitespace char emitted
+  while (i < len) {
+    const c = src[i];
+    if (c === "'" || c === '"') {
+      const end = skipString(src, i, c);
+      out.push(src.slice(i, end));
+      i = end;
+      lastSignificant = src[end - 1] ?? "";
+      continue;
+    }
+    if (c === "`") {
+      const end = skipTemplate(src, i);
+      out.push(src.slice(i, end));
+      i = end;
+      lastSignificant = "`";
+      continue;
+    }
+    if (c === "/" && src[i + 1] === "/") {
+      const nl = src.indexOf("\n", i);
+      const end = nl === -1 ? len : nl;
+      out.push(src.slice(i, end));
+      i = end;
+      continue;
+    }
+    if (c === "/" && src[i + 1] === "*") {
+      const end = src.indexOf("*/", i + 2);
+      const stop = end === -1 ? len : end + 2;
+      out.push(src.slice(i, stop));
+      i = stop;
+      continue;
+    }
+    // Param form `(args) => <JSX>` — only when in expression-start
+    // position (so we don't mis-lift `f(...)` calls).
+    const atBoundary =
+      lastSignificant === "" ||
+      ATTR_BOUNDARY_PREV.test(lastSignificant) ||
+      lastSignificant === "(" ||
+      lastSignificant === "[" ||
+      lastSignificant === "{" ||
+      lastSignificant === ">";
+    if (c === "(" && atBoundary) {
+      const arrow = readArrowPrefix(src, i);
+      if (arrow && startsJsxAt(src, arrow.bodyStart)) {
+        let jsxStart = arrow.bodyStart;
+        while (jsxStart < len && /\s/.test(src[jsxStart])) jsxStart++;
+        const jsxEnd = skipJsxElement(src, jsxStart);
+        const body = src.slice(jsxStart, jsxEnd);
+        const id = mintName(state);
+        const processedBody = processMarkup(body, state);
+        innermostScope(state).lifted.push(`{#snippet ${id}(${arrow.paramsRaw})}${processedBody}{/snippet}`);
+        // Inline the snippet-marker assignment in the use site so it
+        // runs BEFORE the consumer (e.g. <Table>) receives the value.
+        // Pure side effect + return-self via the comma operator —
+        // the consumer ends up with the same snippet reference, now
+        // carrying `.__para_snippet = true`. Lets <Table>'s cell-render
+        // path distinguish snippet from plain `(item)=>string` in
+        // minified prod builds without relying on Function#toString.
+        out.push(`(${id}.__para_snippet = true, ${id})`);
+        i = jsxEnd;
+        lastSignificant = "d"; // identifier-ish (so next `,` etc. behaves)
+        continue;
+      }
+    }
+    // Inline bare JSX at an expression boundary
+    if (c === "<" && /[A-Za-z]/.test(src[i + 1] ?? "") && atBoundary) {
+      const end = skipJsxElement(src, i);
+      const body = src.slice(i, end);
+      const id = mintName(state);
+      const processedBody = processMarkup(body, state);
+      innermostScope(state).lifted.push(`{#snippet ${id}()}${processedBody}{/snippet}`);
+      out.push(`(${id}.__para_snippet = true, ${id})`);
+      i = end;
+      lastSignificant = "d";
+      continue;
+    }
+    out.push(c);
+    i++;
+    if (!/\s/.test(c)) lastSignificant = c;
+  }
+  return out.join("");
 }
 
 /**
- * Find attribute-value expressions of the form `\sNAME={<…>}` and lift
- * their bodies to generated `{#snippet}` declarations appended at the
- * end of the markup. Returns the rewritten source. Pure scanner — no
- * AST dependency on Svelte — so it composes cleanly with the existing
- * para-preprocess script handler that follows it in the chain.
+ * Walk markup. Recognizes:
+ *   • `<script>`, `<style>`, `<!-- … -->` — pass through verbatim
+ *   • `{#each … as …}` / `{/each}` — open / close lift scope
+ *   • `\sIDENT={…}` attribute body — hand off to processJsExpression
  *
- * Skips `<script>` and `<style>` blocks verbatim; their contents are
- * not template markup and might legitimately contain `{…}` patterns
- * that read like attribute values to a naive scanner.
+ * Generated snippets from each handler land in `state.moduleScope` or
+ * the innermost open each scope (the latter emitted just before the
+ * `{/each}` close).
  */
-function lowerInlineSnippets(source: string): string {
+function processMarkup(source: string, state: State): string {
   const out: string[] = [];
-  const lifted: string[] = [];
-  let i = 0;
-  let counter = 0;
   const len = source.length;
-
+  let i = 0;
   while (i < len) {
-    // Pass <script> / <style> blocks through unchanged.
     if (source.startsWith("<script", i)) {
       const close = source.indexOf("</script>", i);
       const end = close === -1 ? len : close + "</script>".length;
@@ -207,11 +338,6 @@ function lowerInlineSnippets(source: string): string {
       i = end;
       continue;
     }
-    // HTML comments — pass through verbatim. Comments routinely
-    // include attribute-shaped strings (`header={<Box …/>}`) as part
-    // of the documented surface; lifting those would clobber the doc
-    // and emit garbage Svelte. Both the JSX-style `<!-- … -->` and
-    // the Svelte-template `<!-- … -->` forms use the same delimiters.
     if (source.startsWith("<!--", i)) {
       const close = source.indexOf("-->", i + 4);
       const end = close === -1 ? len : close + 3;
@@ -219,44 +345,68 @@ function lowerInlineSnippets(source: string): string {
       i = end;
       continue;
     }
+    // {#each …} — push a scope.
+    if (source.startsWith("{#each", i)) {
+      const end = source.indexOf("}", i);
+      if (end === -1) {
+        out.push(source[i]);
+        i++;
+        continue;
+      }
+      out.push(source.slice(i, end + 1));
+      state.eachStack.push({ lifted: [] });
+      i = end + 1;
+      continue;
+    }
+    // {/each} — flush this scope's snippets just BEFORE the close,
+    // so they live inside the each body and can refer to its
+    // iteration bindings.
+    if (source.startsWith("{/each}", i)) {
+      const scope = state.eachStack.pop();
+      if (scope && scope.lifted.length > 0) {
+        out.push("\n");
+        out.push(scope.lifted.join("\n"));
+        out.push("\n");
+      }
+      out.push("{/each}");
+      i += "{/each}".length;
+      continue;
+    }
 
-    // Look for an attribute-name=`{…}` pattern. Specifically: a
-    // whitespace boundary, then an identifier, then `={`. The `={`
-    // is the cheap discriminator — anything else (`name="…"`,
-    // `{name}`, `{name={…}}`) is left alone.
+    // `\sIDENT={…}` attribute trigger.
     const c = source[i];
     if (/[\s\n]/.test(c) || c === "(" || c === ",") {
-      // Within a tag, an attribute boundary follows whitespace.
-      // Easiest reliable trigger: `\sIDENT={`.
       const tail = source.slice(i);
       const m = /^[\s\n]+([A-Za-z_$][\w$]*)\s*=\s*\{/.exec(tail);
       if (m) {
         const nameStart = i + m[0].indexOf(m[1]);
-        const braceOpen = i + m[0].length; // index after `{`
+        const braceOpen = i + m[0].length;
         const braceClose = matchExprEnd(source, braceOpen);
         if (braceClose !== -1) {
           const body = source.slice(braceOpen, braceClose);
-          if (looksLikeJsxBody(body)) {
-            // Lift. Recurse on the body so nested inline-markup
-            // inside the lifted snippet is also handled.
-            const recursed = lowerInlineSnippets(body);
-            const id = `__para_attr_${++counter}`;
-            lifted.push(`{#snippet ${id}()}${recursed}{/snippet}`);
-            out.push(source.slice(i, nameStart));
-            out.push(`${m[1]}={${id}}`);
-            i = braceClose + 1;
-            continue;
-          }
+          const rewritten = processJsExpression(body, state);
+          out.push(source.slice(i, nameStart));
+          out.push(`${m[1]}={${rewritten}}`);
+          i = braceClose + 1;
+          continue;
         }
       }
     }
-
     out.push(c);
     i++;
   }
+  return out.join("");
+}
 
-  if (lifted.length === 0) return source;
-  return out.join("") + "\n\n" + lifted.join("\n");
+function lowerInlineSnippets(source: string): string {
+  const state: State = {
+    counter: 0,
+    moduleScope: { lifted: [] },
+    eachStack: [],
+  };
+  const out = processMarkup(source, state);
+  if (state.moduleScope.lifted.length === 0 && out === source) return source;
+  return out + "\n\n" + state.moduleScope.lifted.join("\n");
 }
 
 export default function paraInlineSnippets(): PreprocessorGroup {

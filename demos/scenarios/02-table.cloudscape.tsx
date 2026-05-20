@@ -3,6 +3,7 @@ import Box from "@cloudscape-design/components/box";
 import Button from "@cloudscape-design/components/button";
 import Header from "@cloudscape-design/components/header";
 import SpaceBetween from "@cloudscape-design/components/space-between";
+import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import Table from "@cloudscape-design/components/table";
 import TextFilter from "@cloudscape-design/components/text-filter";
 
@@ -20,6 +21,8 @@ const data: Row[] = [
   { id: "i-0d4", name: "db-primary", type: "r6g.large", state: "Running", az: "us-east-1c" },
   { id: "i-0e5", name: "db-replica", type: "r6g.large", state: "Pending", az: "us-east-1b" },
 ];
+const stateType = (s: Row["state"]) => (s === "Running" ? "success" : s === "Stopped" ? "stopped" : "in-progress");
+
 export default function TableCloudscape() {
   const [filter, setFilter] = useState("");
   const items = useMemo(() => data.filter(r => r.name.toLowerCase().includes(filter.toLowerCase())), [filter]);
@@ -50,7 +53,11 @@ export default function TableCloudscape() {
       columnDefinitions={[
         { id: "name", header: "Name", cell: (r: Row) => r.name },
         { id: "type", header: "Type", cell: (r: Row) => r.type },
-        { id: "state", header: "State", cell: (r: Row) => r.state },
+        {
+          id: "state",
+          header: "State",
+          cell: (r: Row) => <StatusIndicator type={stateType(r.state)}>{r.state}</StatusIndicator>,
+        },
         { id: "az", header: "AZ", cell: (r: Row) => r.az },
       ]}
       empty={<Box textAlign="center">No instances match the filter.</Box>}

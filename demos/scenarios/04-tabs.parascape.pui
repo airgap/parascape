@@ -14,24 +14,19 @@
 		activeTabId={active}
 		onChange={(e) => (active = e.detail.activeTabId)}
 		tabs={[
-			{ id: 'overview', label: 'Overview', content: overview },
-			{ id: 'items', label: 'Items', content: itemsTab },
-			{ id: 'shipping', label: 'Shipping', content: shippingTab },
+			{ id: 'overview', label: 'Overview', content:
+				<KeyValuePairs
+					columns={2}
+					items={[
+						{ label: 'Status', value: <StatusIndicator type="success">Paid</StatusIndicator> },
+						{ label: 'Customer', value: 'acme.corp' },
+						{ label: 'Total', value: '$1,248.00' },
+						{ label: 'Items', value: '12' },
+					]}
+				/>
+			},
+			{ id: 'items', label: 'Items', content: <Box>List of order items goes here.</Box> },
+			{ id: 'shipping', label: 'Shipping', content: <Box>Shipping events go here.</Box> },
 		]}
 	/>
 </Container>
-
-{#snippet overview()}
-	<KeyValuePairs
-		columns={2}
-		items={[
-			{ label: 'Status', value: paidStatus },
-			{ label: 'Customer', value: 'acme.corp' },
-			{ label: 'Total', value: '$1,248.00' },
-			{ label: 'Items', value: '12' },
-		]}
-	/>
-{/snippet}
-{#snippet paidStatus()}<StatusIndicator type="success">Paid</StatusIndicator>{/snippet}
-{#snippet itemsTab()}<Box>List of order items goes here.</Box>{/snippet}
-{#snippet shippingTab()}<Box>Shipping events go here.</Box>{/snippet}

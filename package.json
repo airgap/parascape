@@ -8,6 +8,7 @@
     "dev": "vite",
     "demos": "vite --open=/demos/",
     "demos:smoke": "bun run build && bun tests/visual/demos-smoke.mjs",
+    "demos:test": "bun demos/para-inline-snippets.test.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",

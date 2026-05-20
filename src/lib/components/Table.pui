@@ -118,16 +118,17 @@
 		selectedItems = allSelected ? [] : [...items];
 	}
 	// Cloudscape's column.cell is `(item) => ReactNode`; in .pui that
-	// returned-VDOM path is naturally expressed as either (a) a plain
-	// `(item) => string|number` or (b) a Svelte 5 snippet that takes
-	// `(item)`. Svelte 5 doesn't expose a public is-snippet predicate,
-	// so we sniff the compiled snippet signature — every snippet emits
-	// `($$anchor, …) => …` so its `.toString()` starts with the anchor
-	// param. Plain arrow callbacks never do. Safe because the only
-	// false-positive would be a hand-written function literally named
-	// `$$anchor`, which user code never has.
+	// path is naturally expressed as either (a) a plain
+	// `(item) => string|number` or (b) a Svelte 5 snippet `(item)`.
+	// Svelte 5 has no public is-snippet predicate, and snippet sources
+	// get minified in prod (so `$$anchor` toString sniffing breaks).
+	// Instead, the paraInlineSnippets preprocess tags every lifted
+	// snippet with a `__para_snippet` boolean at lift time
+	// (see demos/para-inline-snippets.ts). We honor that marker here;
+	// hand-written snippets passed as `cell` would need to opt in
+	// similarly, but the preprocess covers the demo path.
 	function isCellSnippet(c: unknown): c is (i: unknown) => unknown {
-		return typeof c === 'function' && /^[^(]*\(\s*\$\$anchor/.test(c.toString());
+		return typeof c === 'function' && (c as { __para_snippet?: boolean }).__para_snippet === true;
 	}
 </script>
 
