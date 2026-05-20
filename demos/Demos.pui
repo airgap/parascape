@@ -274,23 +274,32 @@
 		color-scheme: light;
 	}
 	:global([data-theme="dark"]) {
-		--bg-page: #0b1220;
-		--bg-elev: #111a2c;
-		--bg-pane-head: #0f1b2e;
-		--bg-code: #0d1626;
-		--bg-sidebar: #0f1b2a;
+		/* Flat dark palette — match Cloudscape's `.awsui-dark-mode`
+		   surface tokens (`--color-background-layout-main` and
+		   `--color-background-container-content` are both #161d26 in
+		   dark mode). Every surface — page, sidebar, render panes,
+		   the contained components — paints the same #161d26 so the
+		   only visible boundaries are the 1px dividers. Without this
+		   alignment, every container painted a slightly-lighter shade
+		   onto a slightly-darker page and the components ended up
+		   looking like grey rectangles floating on navy. */
+		--bg-page: #161d26;
+		--bg-elev: #161d26;
+		--bg-pane-head: #1c2533;
+		--bg-code: #0f161f;
+		--bg-sidebar: #161d26;
 		--bg-button-hover: rgba(255, 255, 255, 0.06);
 		--bg-button-active: #1f3450;
 		--bg-num-pill: rgba(255, 255, 255, 0.08);
-		--fg-strong: #f3f4f6;
-		--fg-body: #d1d5db;
+		--fg-strong: #f7f8fa;
+		--fg-body: #c6c6cd;
 		--fg-muted: #9ca3af;
 		--fg-subtle: #6b7280;
 		--fg-inverse: #ffffff;
 		--accent: #60a5fa;
 		--good: #34d399;
 		--bad: #f87171;
-		--border: #1f2937;
+		--border: #424650;
 		--border-soft: rgba(255, 255, 255, 0.08);
 		color-scheme: dark;
 	}
