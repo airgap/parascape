@@ -23,9 +23,8 @@
      costs one).
 -->
 <script lang="ts">
-	import { highlight as shikiHighlight, ready as shikiReady } from "./pui-shiki";
 	import { scenarios } from "./scenarios";
-	import ReactMount from "./ReactMount.svelte";
+	import DemoPane from "./DemoPane.svelte";
 
 	let activeId = $state(scenarios[0].id);
 	const active = $derived(scenarios.find((s) => s.id === activeId) ?? scenarios[0]);
@@ -92,32 +91,6 @@
 	);
 	const totalPct = Math.round((100 * (totals.cs - totals.ps)) / totals.cs);
 
-	// Shiki highlighter wired to the real parabun TextMate grammars
-	// (see demos/pui-shiki.ts). Shiki init is async — we wait once,
-	// then trigger a re-render so the panes pick up the highlighted
-	// output. The `csHtml`/`psHtml` $derived react to both `active`
-	// and `shikiInitialized` so a scenario switch AND the init
-	// completion both flow correctly.
-	let shikiInitialized = $state(false);
-	shikiReady.then(() => (shikiInitialized = true));
-
-	let csHtml = $state("");
-	let psHtml = $state("");
-	$effect(() => {
-		// Re-highlight whenever the active scenario or init state changes.
-		const scen = active;
-		if (!shikiInitialized) {
-			csHtml = `<pre><code>${scen.csSrc.replace(/[<&]/g, (c) => (c === "<" ? "&lt;" : "&amp;"))}</code></pre>`;
-			psHtml = `<pre><code>${scen.psSrc.replace(/[<&]/g, (c) => (c === "<" ? "&lt;" : "&amp;"))}</code></pre>`;
-			return;
-		}
-		Promise.all([shikiHighlight(scen.csSrc, "tsx"), shikiHighlight(scen.psSrc, "pui")]).then(
-			([cs, ps]) => {
-				csHtml = cs;
-				psHtml = ps;
-			},
-		);
-	});
 </script>
 
 <div class="layout">
@@ -173,25 +146,10 @@
 		</header>
 
 		<section class="grid">
-			<div class="cell">
-				<header class="cell-head"><b>Cloudscape (React)</b><span>.tsx</span></header>
-				<pre class="code language-tsx"><code class="language-tsx">{@html csHtml}</code></pre>
-				<div class="render">
-					{#key active.id}
-						<ReactMount component={active.cloudscape} />
-					{/key}
-				</div>
-			</div>
-			<div class="cell">
-				<header class="cell-head"><b>Parascape (.pui)</b><span>.pui</span></header>
-				<pre class="code language-tsx"><code class="language-tsx">{@html psHtml}</code></pre>
-				<div class="render">
-					{#key active.id}
-						{@const Comp = active.parascape}
-						<Comp />
-					{/key}
-				</div>
-			</div>
+			{#key active.id}
+				<DemoPane side="cs" initialSource={active.csSrc} label="Cloudscape (React)" ext=".tsx" />
+				<DemoPane side="ps" initialSource={active.psSrc} label="Parascape (.pui)" ext=".pui" />
+			{/key}
 		</section>
 	</main>
 </div>
