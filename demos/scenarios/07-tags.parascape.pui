@@ -1,0 +1,46 @@
+<script lang="pts">
+	import Badge from '@parascape-design/components/badge';
+	import Box from '@parascape-design/components/box';
+	import Container from '@parascape-design/components/container';
+	import FormField from '@parascape-design/components/form-field';
+	import Header from '@parascape-design/components/header';
+	import Input from '@parascape-design/components/input';
+	import SpaceBetween from '@parascape-design/components/space-between';
+
+	signal raw = 'design, Engineering,  research , design, ops, ';
+
+	const unique = <T>(xs: T[]) => Array.from(new Set(xs));
+
+	// Comma-separated text → trimmed, lowercased, deduped, sorted
+	// tag list. Each step is one stage of the pipeline, so the
+	// reading order matches the operational order. Leading-dot
+	// lambdas (`.trim()`, `.length > 0`) are the per-item callbacks
+	// and `|>` composes the stages without naming intermediates —
+	// the React equivalent has to hoist a `useMemo` and either chain
+	// inside it or invent a name for every intermediate array.
+	derived tags =
+		raw
+		|> .split(',')
+		|> .map(.trim())
+		|> .filter(.length > 0)
+		|> .map(.toLowerCase())
+		|> unique
+		|> .sort();
+</script>
+
+<Container header={<Header counter={`(${tags.length})`} variant="h2">Tag input</Header>}>
+	<SpaceBetween size="m">
+		<FormField label="Comma-separated tags" description="Whitespace and case-folded, deduplicated, sorted.">
+			<Input value={raw} onChange={(e) => (raw = e.detail.value)} placeholder="ui, infra, data" />
+		</FormField>
+		{#if tags.length > 0}
+			<Box>
+				<SpaceBetween direction="horizontal" size="xs">
+					{#each tags as t (t)}<Badge color="blue">{t}</Badge>{/each}
+				</SpaceBetween>
+			</Box>
+		{:else}
+			<Box color="text-status-inactive">No tags yet.</Box>
+		{/if}
+	</SpaceBetween>
+</Container>

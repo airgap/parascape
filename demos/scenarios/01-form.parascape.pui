@@ -10,11 +10,15 @@
 	signal email = '';
 	signal password = '';
 	signal submitted: string | null = null;
-	derived valid = email.includes('@') && password.length >= 8;
+
+	const isEmail = (s: string) => s.includes('@') && s.indexOf('.') > s.indexOf('@');
+	derived emailValid = email |> .trim() |> isEmail;
+	derived passwordValid = password.length >= 8;
+	derived valid = emailValid && passwordValid;
 
 	const onSubmit = (e: Event) => {
 		e.preventDefault();
-		if (valid) submitted = email;
+		if (valid) submitted = email |> .trim().toLowerCase();
 	};
 </script>
 

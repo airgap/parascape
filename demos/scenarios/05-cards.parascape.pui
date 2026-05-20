@@ -17,6 +17,8 @@
 	];
 
 	signal selected: Item[] = [];
+	derived totalPrice = selected.reduce((acc, it) => acc + it.price, 0);
+	derived activeOnly = items.filter(.status === 'active');
 </script>
 
 <Cards
@@ -24,7 +26,12 @@
 	selectionType="multi"
 	selectedItems={selected}
 	onSelectionChange={(e) => (selected = e.detail.selectedItems)}
-	header={<Header counter={`(${items.length})`} variant="h2">Menu items</Header>}
+	header={
+		<Header
+			counter={`(${activeOnly.length}/${items.length}${selected.length > 0 ? ` · $${totalPrice}` : ''})`}
+			variant="h2"
+		>Menu items</Header>
+	}
 	cardDefinition={{
 		header: (item: Item) => item.name,
 		sections: [

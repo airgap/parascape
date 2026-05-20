@@ -10,9 +10,11 @@
 	signal name = '';
 	signal created: string[] = [];
 
+	derived trimmed = name |> .trim();
+	derived canSubmit = trimmed.length > 0;
 	const submit = () => {
-		if (!name.trim()) return;
-		created = [...created, name.trim()];
+		if (!canSubmit) return;
+		created = [...created, trimmed];
 		name = '';
 		open = false;
 	};
@@ -28,7 +30,7 @@
 			<Box float="right">
 				<SpaceBetween direction="horizontal" size="xs">
 					<Button variant="link" onClick={() => (open = false)}>Cancel</Button>
-					<Button variant="primary" disabled={!name.trim()} onClick={submit}>Create</Button>
+					<Button variant="primary" disabled={!canSubmit} onClick={submit}>Create</Button>
 				</SpaceBetween>
 			</Box>
 		}

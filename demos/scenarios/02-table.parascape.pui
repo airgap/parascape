@@ -29,7 +29,8 @@
 		};
 
 	signal filter = '';
-	derived items = data.filter(.name.toLowerCase().includes(filter.toLowerCase()));
+	derived q = filter |> .trim().toLowerCase();
+	derived items = data.filter(.name.toLowerCase().includes(q));
 </script>
 
 <Table
