@@ -23,13 +23,12 @@
      costs one).
 -->
 <script lang="ts">
-	import Prism from "prismjs";
-	import "prismjs/components/prism-typescript";
-	import "prismjs/components/prism-jsx";
-	import "prismjs/components/prism-tsx";
-	import "prismjs/components/prism-markup-templating";
+	import { Prism, highlightPui, registerPuiLanguage } from "./pui-prism";
 	import { scenarios } from "./scenarios";
 	import ReactMount from "./ReactMount.svelte";
+	// Ensure the .pui grammar is installed before the first $derived
+	// runs — `highlight()` below uses it eagerly.
+	registerPuiLanguage();
 
 	let activeId = $state(scenarios[0].id);
 	const active = $derived(scenarios.find((s) => s.id === activeId) ?? scenarios[0]);
@@ -96,28 +95,15 @@
 	);
 	const totalPct = Math.round((100 * (totals.cs - totals.ps)) / totals.cs);
 
-	// Prism highlight. The Cloudscape side is real TSX. The Parascape
-	// side has no upstream Prism grammar — TSX is the closest match
-	// since the syntax surface (TS expressions + tag literals + brace
-	// expressions) overlaps almost completely. We do a quick post-pass
-	// to colorize Para-only keywords (signal / derived / effect / prop
-	// / pure / source / mount / using / provide / inject) as keywords;
-	// Svelte template directives (`{#each}`, `{:else}`, `{/if}`,
-	// `{@const}`, `{@render}`) get a control-flow class.
-	const PARA_KEYWORDS = /\b(signal|derived|effect|prop|pure|source|mount|using|provide|inject)\b/g;
-	const SVELTE_DIRECTIVES = /\{[#:/@](?:each|if|else|await|then|catch|key|snippet|render|const|html)\b/g;
-	const highlight = (src: string, lang: "cs" | "ps"): string => {
-		const grammar = lang === "cs" ? Prism.languages.tsx : Prism.languages.tsx;
-		let html = Prism.highlight(src, grammar, "tsx");
-		if (lang === "ps") {
-			html = html
-				.replace(PARA_KEYWORDS, '<span class="token keyword para-kw">$1</span>')
-				.replace(SVELTE_DIRECTIVES, (m) => `<span class="token punctuation svelte-tag">${m}</span>`);
-		}
-		return html;
-	};
-	const csHtml = $derived(highlight(active.csSrc, "cs"));
-	const psHtml = $derived(highlight(active.psSrc, "ps"));
+	// The Cloudscape side is real TSX; the Parascape side runs through
+	// the dedicated `.pui` grammar (see demos/pui-prism.ts) which extends
+	// TSX with Para reactive keywords (signal/derived/effect/prop/pure/
+	// source/mount/using/provide/inject) and Svelte template directives
+	// ({#each…}, {:else}, {/if}, {@render}, {@const}, …). The directive
+	// body is recursively highlighted as `.pui`, so each-bindings and
+	// snippet param lists pick up the same theme as the surrounding JS.
+	const csHtml = $derived(Prism.highlight(active.csSrc, Prism.languages.tsx!, "tsx"));
+	const psHtml = $derived(highlightPui(active.psSrc));
 </script>
 
 <div class="layout">
@@ -446,11 +432,32 @@
 	pre.code :global(.token.operator) {
 		color: #475569;
 	}
-	pre.code :global(.token.para-kw) {
+	/* Para reactive keywords (signal, derived, effect, prop, pure,
+	   source, mount, using, provide, inject) get a distinctive pink
+	   so they jump out next to ordinary JS keywords. */
+	pre.code :global(.token.para-keyword) {
 		color: #be185d;
 		font-weight: 600;
 	}
+	/* Svelte template directives — the {#…}, {/…}, {:…}, {@…} forms.
+	   `directive-open` covers `{#each`/`{/each`/`{:else`/`{@render`
+	   as one atomic token; `directive-close` is the trailing `}`;
+	   `directive-each-as` is the `as` keyword inside each-bindings.
+	   Used the keyword-purple for the opener so the eye reads them
+	   the same way as `if`/`else`/`for` in JS. */
+	pre.code :global(.token.svelte-block),
 	pre.code :global(.token.svelte-tag) {
 		color: #c026d3;
+	}
+	pre.code :global(.token.directive-open) {
+		color: #c026d3;
+		font-weight: 600;
+	}
+	pre.code :global(.token.directive-close) {
+		color: #c026d3;
+	}
+	pre.code :global(.token.directive-each-as) {
+		color: #7c3aed;
+		font-style: italic;
 	}
 </style>
