@@ -1,7 +1,7 @@
 # Parascape
 
-A for-funzies port of a slice of [Cloudscape](https://cloudscape.design)
-to `.pui` (Para UI on Svelte 5). **Not affiliated with AWS.**
+A port of a slice of [Cloudscape](https://cloudscape.design) to `.pui`
+(Para UI on Svelte 5).
 
 The bet: Cloudscape's React components are a `useState`/`useMemo`/`useEffect`
 tangle for what is, semantically, just signals. Re-author the *reactively
