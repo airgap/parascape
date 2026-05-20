@@ -59,6 +59,96 @@
 		shikiHighlight(src, shikiLang).then((html) => (highlighted = html));
 	}
 
+	// Collapse the consecutive `import …` lines at the top of each
+	// pane behind a clickable ellipsis. They're identical on the
+	// React side and near-identical on the Para side; the user
+	// almost never needs to read them on first glance. Click to
+	// expand if you DO want to see them.
+	signal importsExpanded = false;
+	effect {
+		const _ = highlighted;
+		const _expanded = importsExpanded;
+		if (!preEl) return;
+		queueMicrotask(() => collapseImports(preEl, importsExpanded));
+	}
+	function collapseImports(pre: HTMLPreElement | null, expanded: boolean) {
+		if (!pre) return;
+		// Clean up any previous wrapping pass so we don't double-wrap
+		// after a re-highlight.
+		for (const placeholder of pre.querySelectorAll(".imports-placeholder")) {
+			placeholder.remove();
+		}
+		for (const block of pre.querySelectorAll(".imports-block")) {
+			while (block.firstChild) block.parentNode?.insertBefore(block.firstChild, block);
+			block.remove();
+		}
+		const lines = [...pre.querySelectorAll(".line")] as HTMLElement[];
+		// Walk lines from the top, collecting consecutive imports
+		// (allowing blank lines between them so the import block
+		// doesn't get fragmented by formatter line breaks). On .pui
+		// the imports live INSIDE a `<script lang="pts">` block —
+		// skip the opening script tag and any blank lines before
+		// looking for the first import.
+		let firstImport = -1;
+		let lastImport = -1;
+		for (let i = 0; i < lines.length; i++) {
+			const txt = (lines[i]?.textContent ?? "").trim();
+			if (firstImport < 0) {
+				if (txt === "" || txt.startsWith("<script")) continue;
+				if (!txt.startsWith("import ")) break;
+				firstImport = i;
+				lastImport = i;
+				continue;
+			}
+			if (txt.startsWith("import ")) {
+				lastImport = i;
+				continue;
+			}
+			if (txt === "") continue;
+			break;
+		}
+		if (firstImport < 0) return;
+		const importLines = lines.slice(firstImport, lastImport + 1);
+		const code = pre.querySelector("code");
+		if (!code) return;
+		const block = document.createElement("span");
+		block.className = "imports-block";
+		// Move the import .line spans (and any whitespace nodes
+		// between them) into the wrapper so the placeholder can
+		// replace the whole region with one element.
+		const first = importLines[0];
+		if (!first) return;
+		const lastEl = importLines[importLines.length - 1]!;
+		let cursor: Node | null = first;
+		const collected: Node[] = [];
+		while (cursor) {
+			collected.push(cursor);
+			if (cursor === lastEl) break;
+			cursor = cursor.nextSibling;
+		}
+		first.parentNode?.insertBefore(block, first);
+		for (const n of collected) block.appendChild(n);
+		if (!expanded) block.classList.add("collapsed");
+		// Placeholder ellipsis — a fake line that toggles the
+		// block. Inherits .line styling so it sits in the same
+		// rhythm as the surrounding code.
+		const placeholder = document.createElement("span");
+		placeholder.className = "line imports-placeholder";
+		placeholder.setAttribute("role", "button");
+		placeholder.setAttribute("tabindex", "0");
+		placeholder.dataset.count = String(importLines.length);
+		placeholder.textContent = `… ${importLines.length} imports`;
+		placeholder.addEventListener("click", () => (importsExpanded = !importsExpanded));
+		placeholder.addEventListener("keydown", (e: Event) => {
+			const k = (e as KeyboardEvent).key;
+			if (k === "Enter" || k === " ") {
+				e.preventDefault();
+				importsExpanded = !importsExpanded;
+			}
+		});
+		block.parentNode?.insertBefore(placeholder, block);
+	}
+
 	// Debounced compile + mount.
 	let debounceHandle: ReturnType<typeof setTimeout> | undefined;
 	effect {
@@ -280,6 +370,22 @@
 	}
 	:global(.editor-wrap pre.shiki .pipeline-fused:hover::after) {
 		display: block;
+	}
+	/* Collapsed-imports affordance — the toggle is a fake `.line` so
+	   it sits in the same vertical rhythm as the surrounding code.
+	   The block we wrap around the original import lines hides itself
+	   when collapsed; clicking the placeholder flips both. */
+	:global(.editor-wrap pre.shiki .imports-block.collapsed) {
+		display: none;
+	}
+	:global(.editor-wrap pre.shiki .imports-placeholder) {
+		color: var(--fg-muted, #9ca3af);
+		cursor: pointer;
+		font-style: italic;
+		user-select: none;
+	}
+	:global(.editor-wrap pre.shiki .imports-placeholder:hover) {
+		color: var(--accent, #60a5fa);
 	}
 	.render {
 		padding: 16px;
