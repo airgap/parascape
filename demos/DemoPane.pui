@@ -382,10 +382,30 @@
 		const lines = exp.split("\n");
 		const a = exp.slice(0, block.start).split("\n").length - 1;
 		const n = block.text.split("\n").length;
+		// Highlight the WHOLE source once (so the .pui grammar sees the
+		// <script> context and colours the body), then split the rendered
+		// <span class="line"> rows into above / import / below. Splitting
+		// pre-highlighted lines keeps both colour and indentation intact;
+		// highlighting the parts in isolation breaks both.
+		const doc = new DOMParser().parseFromString(highlightSync(exp, shikiLang), "text/html");
+		const preEl0 = doc.querySelector("pre.shiki");
+		const codeEl0 = preEl0?.querySelector("code");
+		const lineEls = codeEl0 ? [...codeEl0.querySelectorAll(":scope > .line")] : [];
+		const wrapLines = (els: Element[]): string => {
+			if (!preEl0 || !codeEl0 || els.length === 0) return "";
+			const c = codeEl0.cloneNode(false) as HTMLElement;
+			for (const e of els) {
+				c.appendChild(e.cloneNode(true));
+				c.appendChild(doc.createTextNode("\n"));
+			}
+			const pr = preEl0.cloneNode(false) as HTMLElement;
+			pr.appendChild(c);
+			return pr.outerHTML;
+		};
 		foldAnim = {
-			aboveCode: highlightSync(lines.slice(0, a).join("\n"), shikiLang),
-			importCode: highlightSync(block.text, shikiLang),
-			belowCode: highlightSync(lines.slice(a + n).join("\n"), shikiLang),
+			aboveCode: wrapLines(lineEls.slice(0, a)),
+			importCode: wrapLines(lineEls.slice(a, a + n)),
+			belowCode: wrapLines(lineEls.slice(a + n)),
 			aboveNums: numRange(1, a),
 			importNums: numRange(a + 1, n),
 			belowNums: numRange(a + n + 1, lines.length - (a + n)),
@@ -953,6 +973,7 @@
 		padding: 14px 16px 14px 0;
 		background: var(--bg-code, #f8fafc);
 		font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		tab-size: 2;
 		pointer-events: none;
 	}
 	.fa-part {
