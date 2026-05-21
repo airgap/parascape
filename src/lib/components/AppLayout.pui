@@ -149,8 +149,8 @@
 			aria-label={ariaLabels?.navigation}
 			style={navigationOpen
 				? `inline-size: ${navigationWidth}px; flex: 0 0 ${navigationWidth}px; position: relative; box-sizing: border-box; border-inline-end: 1px solid var(--color-border-divider-default, rgba(128, 128, 128, 0.35));`
-				: 'display: none;'}
-			><Button
+				: 'inline-size: 60px; flex: 0 0 60px; box-sizing: border-box; border-inline-end: 1px solid var(--color-border-divider-default, rgba(128, 128, 128, 0.35));'}
+			>{#if navigationOpen}<Button
 				class={T['navigation-close']}
 				variant="icon"
 				iconName="angle-left"
@@ -161,7 +161,7 @@
 					navigationOpen = false;
 					onNavigationChange?.({ detail: { open: false } });
 				}}
-			/>{#if snip(navigation)}{@render (navigation as import('svelte').Snippet)()}{:else}{navigation}{/if}</aside
+			/>{#if snip(navigation)}{@render (navigation as import('svelte').Snippet)()}{:else}{navigation}{/if}{/if}</aside
 		>{/if}
 	{#if !navigationHide}<Button
 			class={T['navigation-toggle']}
@@ -169,7 +169,7 @@
 			iconName="menu"
 			formAction="none"
 			ariaLabel={ariaLabels?.navigationToggle}
-			style={navigationOpen ? 'display: none;' : 'position: absolute; inset-inline-start: 8px; inset-block-start: 8px; z-index: 1;'}
+			style={navigationOpen ? 'display: none;' : 'position: absolute; inset-inline-start: 16px; inset-block-start: 12px; z-index: 1;'}
 			onClick={() => {
 				const next = !navigationOpen;
 				navigationOpen = next;
