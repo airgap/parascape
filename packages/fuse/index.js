@@ -261,6 +261,11 @@ function findProducerStart(src, producerEnd) {
       continue;
     }
     if (stopAtTopLevel.has(c)) return i + 1;
+    // `=>` arrow head — the producer begins AFTER the arrow, not at
+    // the `>`. Without this, walking back from `txns` in
+    // `() => txns.filter(...)` would stop at the `=` and leave the
+    // `>` glued to the producer (`> txns`).
+    if (c === ">" && src[i - 1] === "=") return i + 1;
     if (c === "=") {
       const prev = src[i - 1];
       if (prev === "=" || prev === "!" || prev === "<" || prev === ">") {
@@ -457,8 +462,13 @@ function findNextFusableChain(src, from) {
       continue;
     }
     // `.` candidate — must follow ), ], or an identifier char to
-    // belong to a method call (not a number-literal decimal point).
-    const prev = i > 0 ? src[i - 1] : "";
+    // belong to a method call. Walk back past whitespace first so a
+    // multi-line chain (where `.filter` sits on its own line) still
+    // qualifies. Number-literal decimal points (`3.14`) get rejected
+    // downstream by readMethodCall (no `(` follows the digits).
+    let p = i - 1;
+    while (p >= 0 && /\s/.test(src[p])) p--;
+    const prev = p >= 0 ? src[p] : "";
     if (prev !== ")" && prev !== "]" && !isIdentCont(prev)) {
       i++;
       continue;

@@ -150,7 +150,7 @@ export const scenarios: Scenario[] = [
   {
     id: "10-pipeline",
     title: "Fused pipeline",
-    subtitle: "filter → map → reduce fuses to one loop — on BOTH sides",
+    subtitle: "Same chain both sides — fuses to one loop; derived vs useMemo is the only diff",
     cloudscape: Pipeline_cs,
     parascape: Pipeline_ps,
     csSrc: Pipeline_cs_src,

@@ -19,17 +19,19 @@
 
 	signal minAmount = 50;
 
-	// Filter to large transactions, take their amounts, sum them —
-	// one fused pass over the array. The `|>` reads top-to-bottom;
-	// fusion (hover the chain) collapses it to a single loop with no
-	// intermediate arrays. The Cloudscape pane runs the SAME fused
-	// loop from a plain `.filter().map().reduce()` chain.
+	// Deliberately the SAME method chain the Cloudscape pane writes —
+	// no `|>`, no leading-dot. The point of this scenario is that
+	// fusion is a toolchain optimization, not a Para syntax feature:
+	// hover the chain and it shows the single fused loop, identical
+	// on both panes. The only real difference left between the two
+	// sides is `derived` vs React's `useMemo(…, [minAmount])` — the
+	// chain itself is byte-for-byte the same.
 	derived total = txns
-		|> .filter(.amount >= minAmount)
-		|> .map(.amount)
-		|> .reduce((a: number, b: number) => a + b, 0);
+		.filter((t) => t.amount >= minAmount)
+		.map((t) => t.amount)
+		.reduce((a, b) => a + b, 0);
 
-	derived count = txns.filter(.amount >= minAmount).length;
+	derived count = txns.filter((t) => t.amount >= minAmount).length;
 	derived avg = count > 0 ? Math.round(total / count) : 0;
 </script>
 
