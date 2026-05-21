@@ -148,8 +148,8 @@
 			class={cx(T.navigation, !navigationOpen && T['drawer-closed'])}
 			aria-label={ariaLabels?.navigation}
 			style={navigationOpen
-				? `inline-size: ${navigationWidth}px; flex: 0 0 ${navigationWidth}px; position: relative; box-sizing: border-box; border-inline-end: 1px solid var(--color-border-divider-default, rgba(128, 128, 128, 0.35));`
-				: 'inline-size: 60px; flex: 0 0 60px; box-sizing: border-box; border-inline-end: 1px solid var(--color-border-divider-default, rgba(128, 128, 128, 0.35));'}
+				? `inline-size: ${navigationWidth}px; flex: 0 0 ${navigationWidth}px; position: relative; box-sizing: border-box;`
+				: 'inline-size: 60px; flex: 0 0 60px; box-sizing: border-box;'}
 			>{#if navigationOpen}<Button
 				class={T['navigation-close']}
 				variant="icon"
@@ -210,8 +210,8 @@
 			class={cx(T.tools, !toolsOpen && T['drawer-closed'])}
 			aria-label={ariaLabels?.tools}
 			style={toolsOpen
-				? `inline-size: ${toolsWidth}px; flex: 0 0 ${toolsWidth}px; box-sizing: border-box; border-inline-start: 1px solid var(--color-border-divider-default, rgba(128, 128, 128, 0.35));`
-				: 'inline-size: 60px; flex: 0 0 60px; box-sizing: border-box; border-inline-start: 1px solid var(--color-border-divider-default, rgba(128, 128, 128, 0.35));'}
+				? `inline-size: ${toolsWidth}px; flex: 0 0 ${toolsWidth}px; box-sizing: border-box;`
+				: 'inline-size: 60px; flex: 0 0 60px; box-sizing: border-box;'}
 			>{#if toolsOpen}<Button
 				class={T['tools-close']}
 				variant="icon"
