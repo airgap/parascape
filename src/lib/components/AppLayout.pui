@@ -121,6 +121,15 @@
 	const snip = (v: unknown) => typeof v === 'function';
 	const has = (v: unknown) => v !== null && v !== undefined;
 	const mainContent = $derived(content ?? children);
+
+	// Content gutter (--space-layout-content-horizontal, 24px) is applied
+	// per side only where an OPEN drawer abuts the content. A collapsed
+	// drawer renders as a 60px rail that already supplies the spacing, so
+	// that side gets no extra gutter — matching Cloudscape's content-gap
+	// behaviour (otherwise the content sits doubly inset next to a rail).
+	const GUTTER = 'var(--space-layout-content-horizontal-buc0zz, 24px)';
+	const padStart = $derived(!navigationHide && navigationOpen ? GUTTER : '0px');
+	const padEnd = $derived(!toolsHide && toolsOpen ? GUTTER : '0px');
 </script>
 
 <!--
@@ -169,7 +178,7 @@
 		/>{/if}
 	<main
 		class={S['layout-main']}
-		style={`flex: 1 1 auto; min-inline-size: ${minContentWidth}px; box-sizing: border-box; padding-inline: var(--space-layout-content-horizontal-buc0zz, 24px);`}
+		style={`flex: 1 1 auto; min-inline-size: ${minContentWidth}px; box-sizing: border-box; padding-inline-start: ${padStart}; padding-inline-end: ${padEnd};`}
 	>
 		{#if has(notifications)}<div class={T.notifications}
 				>{#if snip(notifications)}{@render (notifications as import('svelte').Snippet)()}{:else}{notifications}{/if}</div
@@ -190,7 +199,7 @@
 			iconName="status-info"
 			formAction="none"
 			ariaLabel={ariaLabels?.toolsToggle}
-			style={toolsOpen ? 'display: none;' : 'position: absolute; inset-inline-end: 8px; inset-block-start: 8px; z-index: 1;'}
+			style={toolsOpen ? 'display: none;' : 'position: absolute; inset-inline-end: 16px; inset-block-start: 12px; z-index: 1;'}
 			onClick={() => {
 				const next = !toolsOpen;
 				toolsOpen = next;
@@ -200,8 +209,10 @@
 	{#if !toolsHide && has(tools)}<aside
 			class={cx(T.tools, !toolsOpen && T['drawer-closed'])}
 			aria-label={ariaLabels?.tools}
-			style={toolsOpen ? `inline-size: ${toolsWidth}px; flex: 0 0 ${toolsWidth}px;` : 'display: none;'}
-			><Button
+			style={toolsOpen
+				? `inline-size: ${toolsWidth}px; flex: 0 0 ${toolsWidth}px; box-sizing: border-box; border-inline-start: 1px solid var(--color-border-divider-default, rgba(128, 128, 128, 0.35));`
+				: 'inline-size: 60px; flex: 0 0 60px; box-sizing: border-box; border-inline-start: 1px solid var(--color-border-divider-default, rgba(128, 128, 128, 0.35));'}
+			>{#if toolsOpen}<Button
 				class={T['tools-close']}
 				variant="icon"
 				iconName="close"
@@ -211,7 +222,7 @@
 					toolsOpen = false;
 					onToolsChange?.({ detail: { open: false } });
 				}}
-			/>{#if snip(tools)}{@render (tools as import('svelte').Snippet)()}{:else}{tools}{/if}</aside
+			/>{#if snip(tools)}{@render (tools as import('svelte').Snippet)()}{:else}{tools}{/if}{/if}</aside
 		>{/if}
 	{#if has(splitPanel)}{#if snip(splitPanel)}{@render (splitPanel as import('svelte').Snippet)()}{:else}{splitPanel}{/if}{/if}
 </div>
