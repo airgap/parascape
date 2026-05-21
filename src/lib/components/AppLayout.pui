@@ -167,7 +167,10 @@
 				onNavigationChange?.({ detail: { open: next } });
 			}}
 		/>{/if}
-	<main class={S['layout-main']} style={`flex: 1 1 auto; min-inline-size: ${minContentWidth}px;`}>
+	<main
+		class={S['layout-main']}
+		style={`flex: 1 1 auto; min-inline-size: ${minContentWidth}px; box-sizing: border-box; padding-inline: var(--space-layout-content-horizontal-buc0zz, 24px);`}
+	>
 		{#if has(notifications)}<div class={T.notifications}
 				>{#if snip(notifications)}{@render (notifications as import('svelte').Snippet)()}{:else}{notifications}{/if}</div
 			>{/if}
