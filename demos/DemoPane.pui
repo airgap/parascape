@@ -349,6 +349,67 @@
 		shikiHighlight(src, shikiLang, { concepts: teach && side === "ps" }).then((html) => (highlighted = html));
 	}
 
+	// ── Fold animation ────────────────────────────────────────────────
+	// A transient overlay that plays the accordion while the real editor
+	// swaps source underneath (hidden behind the opaque overlay). Built
+	// from the always-expanded compileSource so both directions have the
+	// full text; the import region's max-height animates between its full
+	// height and one line, sliding the below block.
+	const LINE_H = 18.6;
+	type FoldAnim = {
+		aboveCode: string;
+		importCode: string;
+		belowCode: string;
+		aboveNums: string;
+		importNums: string;
+		belowNums: string;
+		importH: number;
+	};
+	signal foldAnim: FoldAnim | null = null;
+	signal foldAnimOpen = false;
+	let foldAnimTimer: ReturnType<typeof setTimeout> | undefined;
+	let foldAnimPrimed = false;
+	const numRange = (from: number, count: number) => {
+		const out: number[] = [];
+		for (let i = 0; i < count; i++) out.push(from + i);
+		return out.join("\n");
+	};
+	function startFoldAnim(toCollapsed: boolean) {
+		if (!shikiReadyFlag) return; // no sync highlighter yet → instant
+		const exp = compileSource;
+		const block = findImportsBlock(exp);
+		if (!block) return;
+		const lines = exp.split("\n");
+		const a = exp.slice(0, block.start).split("\n").length - 1;
+		const n = block.text.split("\n").length;
+		foldAnim = {
+			aboveCode: highlightSync(lines.slice(0, a).join("\n"), shikiLang),
+			importCode: highlightSync(block.text, shikiLang),
+			belowCode: highlightSync(lines.slice(a + n).join("\n"), shikiLang),
+			aboveNums: numRange(1, a),
+			importNums: numRange(a + 1, n),
+			belowNums: numRange(a + n + 1, lines.length - (a + n)),
+			importH: n * LINE_H,
+		};
+		foldAnimOpen = toCollapsed; // pre-animation state (collapse starts open)
+		clearTimeout(foldAnimTimer);
+		requestAnimationFrame(() => requestAnimationFrame(() => (foldAnimOpen = !toCollapsed)));
+		foldAnimTimer = setTimeout(() => (foldAnim = null), 300);
+	}
+	// Drive the animation whenever the shared fold state flips (covers this
+	// pane's own toggle AND the sibling-driven sync). Skip the first run so
+	// a freshly-mounted pane doesn't animate.
+	effect {
+		const c = collapsed;
+		untrack(() => {
+			if (!foldAnimPrimed) {
+				foldAnimPrimed = true;
+				return;
+			}
+			startFoldAnim(c);
+		});
+	}
+
 	// Debounced compile + mount. Always uses the expanded source so
 	// folding the imports doesn't break the live mount.
 	let debounceHandle: ReturnType<typeof setTimeout> | undefined;
@@ -403,6 +464,7 @@
 
 	onDestroy(() => {
 		clearTimeout(debounceHandle);
+		clearTimeout(foldAnimTimer);
 		teardown?.();
 	});
 </script>
@@ -489,6 +551,22 @@
 				aria-label="Hide imports"
 				onclick={toggleFold}
 			><span class="chev" aria-hidden="true">▴</span>Hide imports</button>
+		{/if}
+		<!--
+		  Fold-animation overlay — opaque, on top of everything (z5),
+		  shown only while a fold is playing. Reproduces the editor as
+		  above / import-region / below; the region's max-height animates,
+		  sliding the below block. The real editor swaps source underneath,
+		  hidden behind this until the timer clears it.
+		-->
+		{#if foldAnim}
+			<div class="fold-anim" aria-hidden="true">
+				{#if foldAnim.aboveNums}<div class="fa-part"><pre class="fa-num">{foldAnim.aboveNums}</pre><div class="fa-code">{@html foldAnim.aboveCode}</div></div>{/if}
+				<div class="fa-region" style:max-height="{foldAnimOpen ? foldAnim.importH : LINE_H}px">
+					<div class="fa-part"><pre class="fa-num">{foldAnim.importNums}</pre><div class="fa-code">{@html foldAnim.importCode}</div></div>
+				</div>
+				{#if foldAnim.belowNums}<div class="fa-part"><pre class="fa-num">{foldAnim.belowNums}</pre><div class="fa-code">{@html foldAnim.belowCode}</div></div>{/if}
+			</div>
 		{/if}
 	</div>
 	{#if hoverTip}
@@ -860,6 +938,50 @@
 	.import-toggle .chev {
 		font-size: 9px;
 		line-height: 1;
+	}
+	/* Fold-animation overlay — an opaque, editor-coloured layer above all
+	   editor children. Each fa-part is one [number gutter | code] row
+	   group; the import region's max-height transitions, sliding the below
+	   part. Geometry mirrors the live editor (44px gutter, code at 52px,
+	   14px top padding) so the swap in/out is seamless. */
+	.fold-anim {
+		position: absolute;
+		inset: 0;
+		z-index: 5;
+		overflow: hidden;
+		box-sizing: border-box;
+		padding: 14px 16px 14px 0;
+		background: var(--bg-code, #f8fafc);
+		font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		pointer-events: none;
+	}
+	.fa-part {
+		display: flex;
+		align-items: flex-start;
+	}
+	.fa-num {
+		flex: 0 0 44px;
+		box-sizing: border-box;
+		margin: 0;
+		padding: 0 8px 0 0;
+		text-align: right;
+		color: var(--fg-subtle, #94a3b8);
+		white-space: pre;
+		border-right: 1px solid var(--border, #e5e7eb);
+	}
+	.fa-code {
+		flex: 1 1 auto;
+		min-width: 0;
+		padding-left: 8px;
+	}
+	.fa-region {
+		overflow: hidden;
+		transition: max-height 0.26s ease;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.fa-region {
+			transition: none;
+		}
 	}
 	.render {
 		padding: 16px;
