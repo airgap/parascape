@@ -310,7 +310,7 @@
 
 		<section class="grid" class:wide={active.id === "06-app-shell"} bind:this={gridEl}>
 			{#key active.id}
-				<DemoPane side="cs" initialSource={active.csSrc} label="Cloudscape (React)" ext=".tsx" bind:collapsed={importsCollapsed} />
+				<DemoPane side="cs" initialSource={active.csSrc} label="Cloudscape (React)" ext=".tsx" bind:collapsed={importsCollapsed} isolate={active.id === "06-app-shell"} />
 				<DemoPane side="ps" initialSource={active.psSrc} label="Parascape (.pui)" ext=".pui" teach={active.id === "01-form"} bind:collapsed={importsCollapsed} />
 			{/key}
 		</section>

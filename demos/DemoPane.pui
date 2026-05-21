@@ -30,8 +30,13 @@
 		teach?: boolean;
 		/** Shared (two-way) import-fold state, synced across both panes. */
 		collapsed?: boolean;
+		/** Mount the rendered component in its own iframe document. Cloudscape's
+		    AppLayout owns the viewport (sticky + body measurement) and degrades
+		    when embedded in a nested scroll pane; an iframe gives it a clean
+		    document so the nav renders correctly. */
+		isolate?: boolean;
 	};
-	let { side, initialSource, label, ext, teach = false, collapsed = $bindable(true) }: Props = $props();
+	let { side, initialSource, label, ext, teach = false, collapsed = $bindable(true), isolate = false }: Props = $props();
 
 	// `source` is the SINGLE source of truth for both the textarea
 	// (editable input) and the Shiki-highlighted pre (visible
@@ -444,16 +449,56 @@
 		});
 	}
 
+	// When `isolate`, mount inside an iframe so the component gets a clean
+	// document/viewport. Cloudscape's AppLayout owns the viewport (sticky +
+	// body measurement) and renders its nav collapsed when embedded in a
+	// nested scroll pane; its own document fixes that. The iframe is created
+	// once and reused; the page's stylesheets + active theme are mirrored in.
+	let frameEl: HTMLIFrameElement | null = null;
+	let themeObserver: MutationObserver | null = null;
+	function isolatedBody(): HTMLElement | null {
+		if (!renderTarget) return null;
+		if (frameEl && frameEl.parentElement === renderTarget && frameEl.contentDocument) {
+			return frameEl.contentDocument.body;
+		}
+		renderTarget.replaceChildren();
+		const f = document.createElement("iframe");
+		f.style.cssText = "width:100%;height:100%;border:0;display:block;background:transparent;";
+		renderTarget.appendChild(f);
+		const idoc = f.contentDocument;
+		if (!idoc) return renderTarget;
+		// Mirror BOTH the demo theme (data-theme on <html>) and Cloudscape's
+		// dark-mode hook (awsui-dark-mode class on <body>) so the iframed
+		// component themes match the page.
+		const syncTheme = () => {
+			idoc.documentElement.setAttribute("data-theme", document.documentElement.getAttribute("data-theme") ?? "");
+			idoc.body.classList.toggle("awsui-dark-mode", document.body.classList.contains("awsui-dark-mode"));
+		};
+		for (const node of document.querySelectorAll('style, link[rel="stylesheet"]')) {
+			idoc.head.appendChild(node.cloneNode(true));
+		}
+		idoc.body.style.margin = "0";
+		syncTheme();
+		themeObserver?.disconnect();
+		themeObserver = new MutationObserver(syncTheme);
+		themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+		themeObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+		frameEl = f;
+		return idoc.body;
+	}
+
 	// Debounced compile + mount. Always uses the expanded source so
 	// folding the imports doesn't break the live mount.
 	let debounceHandle: ReturnType<typeof setTimeout> | undefined;
 	effect {
 		const src = compileSource;
-		const target = renderTarget;
-		if (!target) return;
+		const base = renderTarget;
+		if (!base) return;
 		clearTimeout(debounceHandle);
 		debounceHandle = setTimeout(() => {
 			try {
+				const target = isolate ? isolatedBody() : base;
+				if (!target) return;
 				const Component = side === "cs" ? compileCloudscape(src) : compileParascape(src);
 				teardown?.();
 				teardown =
@@ -499,6 +544,7 @@
 	onDestroy(() => {
 		clearTimeout(debounceHandle);
 		clearTimeout(foldAnimTimer);
+		themeObserver?.disconnect();
 		teardown?.();
 	});
 </script>
