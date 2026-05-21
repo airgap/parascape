@@ -58,6 +58,11 @@
 
 	const shikiLang = side === "cs" ? "tsx" : "pui";
 
+	// Gutter line numbers — one per displayed source line. Joined with
+	// newlines into a single <pre> so they line up with the code rows
+	// (same font + line-height); the gutter scrolls via -scrollY.
+	derived lineNumbersText = Array.from({ length: source.split("\n").length }, (_, i) => i + 1).join("\n");
+
 	// Single reconcile effect: tracks scenario switches (initialSource)
 	// and the shared fold state (collapsed), and untracks everything it
 	// mutates so live edits to `source` never retrigger it. On a
@@ -391,6 +396,9 @@
 <div class="cell">
 	<header class="cell-head"><b>{label}</b><span>{ext}</span></header>
 	<div class="editor-wrap" bind:this={editorWrapEl}>
+		<div class="gutter" aria-hidden="true">
+			<div class="gutter-inner" style="transform: translateY({-scrollY}px)">{lineNumbersText}</div>
+		</div>
 		<pre class="code" bind:this={preEl}>{@html highlighted}</pre>
 		<div class="fusion-overlay" aria-hidden="true">
 			<div class="fusion-boxes" style="transform: translate({-scrollX}px, {-scrollY}px)">
@@ -529,12 +537,39 @@
 		position: absolute;
 		inset: 0;
 		margin: 0;
-		padding: 14px 16px;
+		/* extra left padding makes room for the 44px line-number gutter */
+		padding: 14px 16px 14px 52px;
 		font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 		white-space: pre;
 		overflow: auto;
 		tab-size: 2;
 		box-sizing: border-box;
+	}
+	/* Line-number gutter — a fixed 44px strip on the left. Same font and
+	   line-height as the editor so numbers align with code rows; the
+	   inner block is translated by the live scroll offset to track the
+	   text vertically. pointer-events:none so clicks fall through to the
+	   textarea. */
+	.gutter {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		width: 44px;
+		overflow: hidden;
+		box-sizing: border-box;
+		padding: 14px 8px 14px 0;
+		background: var(--bg-code, #f8fafc);
+		border-right: 1px solid var(--border, #e5e7eb);
+		font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		color: var(--fg-subtle, #94a3b8);
+		text-align: right;
+		pointer-events: none;
+		user-select: none;
+		z-index: 3;
+	}
+	.gutter-inner {
+		white-space: pre;
 	}
 	.editor-wrap > pre.code {
 		pointer-events: none;
@@ -782,7 +817,7 @@
 	   ("Show N imports" / "Hide imports") so the fold is reversible. */
 	.import-toggle {
 		position: absolute;
-		left: 14px;
+		left: 52px;
 		display: inline-flex;
 		align-items: center;
 		gap: 5px;
