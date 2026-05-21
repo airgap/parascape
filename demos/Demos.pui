@@ -15,12 +15,15 @@
    • Both source panes are formatted by the SAME prettier config
      (tabs, single quotes, width 100), so the visible diff is the
      implementation surface — not whitespace, not quote style.
-   • Stats: bytes + binding count. LOC is a noisy proxy for a
-     code-density story; bytes is the unambiguous measure of "how
-     much text you have to write", and binding count surfaces the
-     no-`useState`-pair-decl win directly (React costs two names per
-     state slot — `[email, setEmail]` — Para's `signal email = …`
-     costs one).
+   • Stats: chars + manual sync points. LOC is a noisy proxy for a
+     code-density story; chars is the unambiguous measure of "how much
+     text you have to write". Sync points count the wiring maintained
+     by hand — paired setters, dependency-array entries, and
+     event→state handlers that pipe an event payload into state.
+     Fine-grained reactivity removes them (`signal`/`derived` auto-track
+     and `bind:` two-way-binds), so the count drops to ~0 on the Para
+     side for a reason, not by coincidence — and each one counted is a
+     place a stale-deps or forgotten-setter bug can hide.
 -->
 <script lang="pts">
 	import { scenarios } from "./scenarios";
@@ -90,33 +93,32 @@
 			.replace(/^[ \t]*\/\/.*$/gm, "");
 	const chars = (s: string) => stripComments(s).length;
 
-	// Variable-binding count. React's `useState`/`useRef`/`useMemo`/
-	// `useReducer`/`useCallback` plus plain `const [a, setA] = …`
-	// destructured pairs all count the LHS NAMES — the React-induced
-	// double-decl tax (`[email, setEmail]` is 2). Parascape's `signal`,
-	// `derived`, and Svelte's `let` / `const` count once per binding
-	// because Para's reactivity primitives don't need a paired setter.
-	// Excludes type-only declarations and function/import bindings —
-	// just the runtime state surface.
-	function bindings(s: string, side: "cs" | "ps"): number {
+	// Manual sync points — the reactive wiring a developer maintains by
+	// hand, which fine-grained reactivity removes. NOT base declarations:
+	// we count the *extra* obligations the hooks model imposes.
+	//   • event→state handlers — an on* handler that pipes the event
+	//     payload (detail.*/target.*) into state; `bind:` removes these.
+	//     Counted the SAME way on both sides, so the rule is symmetric.
+	//   • paired setters (React only) — `const [x, setX] = useState/useReducer`.
+	//   • dependency-array entries (React only) — items in useEffect /
+	//     useMemo / useCallback dep arrays.
+	// Para's signal/derived/effect auto-track (no setters, no dep arrays)
+	// and `bind:` two-way-binds, so the React-only categories are 0 and
+	// the shared one drops to 0 once bound — by construction, not luck.
+	// Heuristic (regex, not AST): expression-body handlers; block bodies
+	// with deeply nested braces may undercount.
+	function syncPoints(s: string, side: "cs" | "ps"): number {
 		const src = stripComments(s);
 		let count = 0;
+		// event→state handler: on*={ … detail.X / target.X … } (both sides)
+		count += [...src.matchAll(/on[A-Za-z]+=\{[\s\S]{0,140}?\b(?:detail|target)\.[\w$]+/g)].length;
 		if (side === "cs") {
-			// `const [a, setA] = useState(…)` — pair counts as 2.
-			for (const m of src.matchAll(/const\s*\[([^\]]+)\]\s*=\s*use(State|Reducer)\b/g)) {
+			// paired setters: const [x, setX] = useState/useReducer(…)
+			count += [...src.matchAll(/const\s*\[\s*[\w$]+\s*,\s*[\w$]+\s*\]\s*=\s*use(?:State|Reducer)\b/g)].length;
+			// dependency-array entries in useEffect/useMemo/useCallback(…, [deps])
+			for (const m of src.matchAll(/use(?:Effect|Memo|Callback)\([\s\S]*?,\s*\[([^\]]*)\]\s*\)/g)) {
 				count += m[1]!.split(",").filter((p) => p.trim().length > 0).length;
 			}
-			// `const x = useRef(…)` / `useMemo` / `useCallback` — single binding.
-			for (const _ of src.matchAll(/const\s+[A-Za-z_$][\w$]*\s*=\s*use(Ref|Memo|Callback)\b/g)) {
-				count += 1;
-			}
-		} else {
-			// Para `signal X = …` / `signal X: T = …` — single binding.
-			for (const _ of src.matchAll(/\bsignal\s+[A-Za-z_$][\w$]*/g)) count += 1;
-			// Para `derived X = …` — single binding.
-			for (const _ of src.matchAll(/\bderived\s+[A-Za-z_$][\w$]*/g)) count += 1;
-			// `let X = $state(…)` (Svelte-runes fallback path).
-			for (const _ of src.matchAll(/\blet\s+[A-Za-z_$][\w$]*\s*[:=][^;]*\$state\b/g)) count += 1;
 		}
 		return count;
 	}
@@ -125,27 +127,27 @@
 	const pct = (cs: number, ps: number) => (cs > 0 ? Math.round((100 * (cs - ps)) / cs) : 0);
 	derived stat {
 		const c = { cs: chars(active.csSrc), ps: chars(active.psSrc) };
-		const b = { cs: bindings(active.csSrc, "cs"), ps: bindings(active.psSrc, "ps") };
+		const b = { cs: syncPoints(active.csSrc, "cs"), ps: syncPoints(active.psSrc, "ps") };
 		return {
 			chars: c,
-			bindings: b,
+			sync: b,
 			bytesDelta: c.cs - c.ps,
 			bytesPct: pct(c.cs, c.ps),
-			bindingsDelta: b.cs - b.ps,
-			bindingsPct: pct(b.cs, b.ps),
+			syncDelta: b.cs - b.ps,
+			syncPct: pct(b.cs, b.ps),
 		};
 	}
 	const totals = scenarios.reduce(
 		(a, s) => ({
 			cs: a.cs + chars(s.csSrc),
 			ps: a.ps + chars(s.psSrc),
-			bcs: a.bcs + bindings(s.csSrc, "cs"),
-			bps: a.bps + bindings(s.psSrc, "ps"),
+			scs: a.scs + syncPoints(s.csSrc, "cs"),
+			sps: a.sps + syncPoints(s.psSrc, "ps"),
 		}),
-		{ cs: 0, ps: 0, bcs: 0, bps: 0 },
+		{ cs: 0, ps: 0, scs: 0, sps: 0 },
 	);
 	const totalCharsPct = pct(totals.cs, totals.ps);
-	const totalBindPct = pct(totals.bcs, totals.bps);
+	const totalSyncPct = pct(totals.scs, totals.sps);
 
 	// Scroll-sync between the two demo panes. When the user scrolls
 	// one pane's render area (or one pane's code textarea), mirror
@@ -224,14 +226,14 @@
 			</thead>
 			<tbody>
 				<tr>
-					<th scope="row">Bindings</th>
-					<td class="cell-num">{totals.bcs}</td>
-					<td class="cell-num">{totals.bps}</td>
-					<td class="cell-num delta" class:better={totals.bcs > totals.bps}
-						>{totals.bcs === totals.bps
+					<th scope="row">Sync points</th>
+					<td class="cell-num">{totals.scs}</td>
+					<td class="cell-num">{totals.sps}</td>
+					<td class="cell-num delta" class:better={totals.scs > totals.sps}
+						>{totals.scs === totals.sps
 							? "0"
-							: (totals.bcs > totals.bps ? "−" : "+") + Math.abs(totals.bcs - totals.bps)}
-						({Math.abs(totalBindPct)}%)</td>
+							: (totals.scs > totals.sps ? "−" : "+") + Math.abs(totals.scs - totals.sps)}
+						({Math.abs(totalSyncPct)}%)</td>
 				</tr>
 				<tr>
 					<th scope="row">Chars</th>
@@ -247,10 +249,12 @@
 			</tbody>
 		</table>
 		<p class="stats-note">
-			Bindings is the better signal — each one is a name you have to read, follow, and keep in
-			your head. Char count is here for completeness; the real win is what's <em>not</em> there:
-			no <code>useState</code> pairs, no <code>useMemo</code> wrappers, no arrow boilerplate
-			around every transform.
+			Sync points is the better signal — each one is wiring you maintain by hand (a paired setter,
+			a dependency-array entry, an event→state handler) and a place a stale-deps or
+			forgotten-setter bug can hide. Char count is here for completeness; the real win is what's
+			<em>not</em> there: no <code>useState</code> pairs, no <code>useMemo</code> dep arrays, no
+			<code>onChange</code> mirrors — <code>signal</code>/<code>derived</code> auto-track and
+			<code>bind:</code> handles the rest.
 		</p>
 		<nav>
 			{#each scenarios as s (s.id)}
@@ -273,17 +277,17 @@
 				</thead>
 				<tbody>
 					<tr>
-						<th scope="row">Bindings</th>
-						<td class="cell-num">{stat.bindings.cs}</td>
-						<td class="cell-num">{stat.bindings.ps}</td>
+						<th scope="row">Sync points</th>
+						<td class="cell-num">{stat.sync.cs}</td>
+						<td class="cell-num">{stat.sync.ps}</td>
 						<td
 							class="cell-num delta"
-							class:better={stat.bindingsDelta > 0}
-							class:worse={stat.bindingsDelta < 0}
-							>{stat.bindingsDelta === 0
+							class:better={stat.syncDelta > 0}
+							class:worse={stat.syncDelta < 0}
+							>{stat.syncDelta === 0
 								? "0"
-								: (stat.bindingsDelta > 0 ? "−" : "+") + Math.abs(stat.bindingsDelta)}
-							{stat.bindings.cs > 0 ? `(${Math.abs(stat.bindingsPct)}%)` : ""}</td>
+								: (stat.syncDelta > 0 ? "−" : "+") + Math.abs(stat.syncDelta)}
+							{stat.sync.cs > 0 ? `(${Math.abs(stat.syncPct)}%)` : ""}</td>
 					</tr>
 					<tr>
 						<th scope="row">Chars</th>
