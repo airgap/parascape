@@ -25,7 +25,7 @@ import puiPtsInject from "./grammars/pui-pts-inject.tmLanguage.json";
 import parabunInject from "./grammars/parabun-inject.tmLanguage.json";
 import { findPipelineChains } from "./lower-pipeline.js";
 import { lowerLeadingDot } from "./lower-leading-dot.js";
-import { lowerFusion } from "./lower-fusion.js";
+import { lowerFusion, findFusableChains } from "./lower-fusion.js";
 
 // Cast helpers — Shiki's `LanguageRegistration` type is wider than
 // the JSON shape, so we just trust the runtime-loaded grammar.
@@ -73,39 +73,60 @@ init().catch(e => console.error("[pui-shiki] init failed:", e));
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-// For .pui sources, scan for `|>` chains and turn each chain's
-// (start, end) source range into a Shiki decoration that wraps the
-// chain with a `data-fused` attribute carrying the lowered form.
-// The DemoPane stylesheet picks that up to render a hover tooltip
-// (dotted underline + a styled bubble showing what the chain
-// compiles to). Pure-tsx scenarios don't have `|>`, so they get
-// the empty list.
-function pipelineDecorations(src: string, lang: "pui" | "tsx") {
-  if (lang !== "pui") return [];
+// Annotate every fusable chain in the source with a `data-fused`
+// decoration carrying its single-loop form, so the DemoPane can show
+// a hover tooltip. Two sources of chains:
+//
+//   1. `|>` pipeline chains (Para only) — found in the displayed
+//      source, where they still read as `x |> .map(f) |> .filter(g)`.
+//      Desugared + leading-dot-expanded + fused for the tooltip.
+//   2. Direct method chains (`x.map(f).filter(g)…`) — found in BOTH
+//      panes. Fusion is language-agnostic, so a plain TSX chain on
+//      the Cloudscape side gets the same treatment. The compile path
+//      fuses both panes too, so the tooltip is honest.
+//
+// Ranges are de-overlapped (a `|>` chain that's already been caught
+// won't be double-annotated as a direct chain), sorted by start.
+function fusionDecorations(src: string, lang: "pui" | "tsx") {
+  type Deco = { start: number; end: number; fused: string };
+  const decos: Deco[] = [];
   try {
-    return findPipelineChains(src).map(c => {
-      // The tooltip shows what the chain ACTUALLY runs after all
-      // lowerings — pipeline desugar, then placeholder-lambda
-      // expansion, then loop fusion. The `.map(.trim())` form is
-      // still a placeholder lambda at this point; without
-      // lowerLeadingDot the fusion would see `.trim()` as a
-      // callable and emit `(.trim())(__x, …)` which doesn't parse.
-      const fused = lowerFusion(lowerLeadingDot(c.lowered)).trim();
-      return {
-        start: c.start,
-        end: c.end,
-        properties: {
-          class: "pipeline-fused",
-          "data-fused": fused,
-        },
-      };
-    });
+    if (lang === "pui") {
+      for (const c of findPipelineChains(src)) {
+        // The `.map(.trim())` placeholder form is still present at
+        // this point; expand leading-dots before fusing, else the
+        // fuser sees `.trim()` as a callable and emits unparseable
+        // `(.trim())(__x, …)`.
+        decos.push({
+          start: c.start,
+          end: c.end,
+          fused: lowerFusion(lowerLeadingDot(c.lowered)).trim(),
+        });
+      }
+    }
+    for (const c of findFusableChains(src)) {
+      decos.push({ start: c.start, end: c.end, fused: c.fused.trim() });
+    }
   } catch {
-    // Pipeline scan is best-effort — bail to no decorations rather
-    // than blow up the whole highlight on a malformed mid-edit
-    // source string.
+    // Best-effort — a malformed mid-edit source shouldn't blow up
+    // the whole highlight.
     return [];
   }
+  // De-overlap: sort by start, drop any range that intersects one
+  // already kept.
+  decos.sort((a, b) => a.start - b.start);
+  const kept: Deco[] = [];
+  let lastEnd = -1;
+  for (const d of decos) {
+    if (d.start < lastEnd) continue;
+    kept.push(d);
+    lastEnd = d.end;
+  }
+  return kept.map(d => ({
+    start: d.start,
+    end: d.end,
+    properties: { class: "pipeline-fused", "data-fused": d.fused },
+  }));
 }
 
 /**
@@ -118,7 +139,7 @@ export function highlightSync(src: string, lang: "pui" | "tsx"): string {
     lang,
     themes: DUAL_THEMES,
     defaultColor: false,
-    decorations: pipelineDecorations(src, lang),
+    decorations: fusionDecorations(src, lang),
   });
 }
 
@@ -129,7 +150,7 @@ export async function highlight(src: string, lang: "pui" | "tsx"): Promise<strin
     lang,
     themes: DUAL_THEMES,
     defaultColor: false,
-    decorations: pipelineDecorations(src, lang),
+    decorations: fusionDecorations(src, lang),
   });
 }
 
