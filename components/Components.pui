@@ -19,6 +19,9 @@
 	import Link from '@parascape-design/components/link';
 	import Examples from './Examples.pui';
 	import { catalog, allItems } from './catalog';
+	import manifests from './manifests.json';
+
+	type PropRow = { name: string; type: string; default: string | null; optional: boolean; bindable: boolean; kind: string };
 
 	signal navOpen = true;
 	signal toolsOpen = false;
@@ -45,6 +48,9 @@
 		return () => window.removeEventListener('hashchange', onHash);
 	}
 	derived active = route ? allItems.find((i) => i.id === route) ?? null : null;
+	derived activeProps = active
+		? ((manifests as Record<string, { props: PropRow[] }>)[active.id]?.props ?? [])
+		: [];
 
 	derived navItems = catalog.map((g) => ({
 		type: 'section',
@@ -78,6 +84,25 @@
 			<Link href="#/">← All components</Link>
 			<Container header={<Header variant="h2">Example</Header>}>
 				<Examples id={active.id} />
+			</Container>
+			<Container header={<Header variant="h2" counter={`(${activeProps.length})`}>Properties</Header>}>
+				{#if activeProps.length}
+					<table class="props-table">
+						<thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Kind</th></tr></thead>
+						<tbody>
+							{#each activeProps as p (p.name)}
+								<tr>
+									<td class="p-name">{p.name}{#if p.bindable}<span class="p-tag">bindable</span>{/if}</td>
+									<td class="p-type"><code>{p.type}</code></td>
+									<td class="p-def">{p.default ?? '—'}</td>
+									<td class="p-kind">{p.kind}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				{:else}
+					<Box color="text-status-inactive">No documented props.</Box>
+				{/if}
 			</Container>
 		</SpaceBetween>
 	</ContentLayout>
@@ -160,6 +185,49 @@
 	.comp-blurb {
 		font-size: 13px;
 		line-height: 1.45;
+		color: var(--color-text-body-secondary-fdstM5, #5f6b7a);
+	}
+	.props-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 13px;
+	}
+	.props-table th {
+		text-align: left;
+		font-weight: 600;
+		color: var(--color-text-body-secondary-fdstM5, #5f6b7a);
+		padding: 6px 12px;
+		border-block-end: 1px solid var(--color-border-divider-default-nr68jt, #c6c6cd);
+	}
+	.props-table td {
+		padding: 8px 12px;
+		border-block-end: 1px solid var(--color-border-divider-secondary-alwgea, #e9ebed);
+		vertical-align: top;
+	}
+	.p-name {
+		font-weight: 600;
+		color: var(--color-text-heading-default-izpp46, #0f141a);
+		white-space: nowrap;
+	}
+	.p-tag {
+		margin-inline-start: 6px;
+		font-size: 10px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.4px;
+		color: var(--color-text-status-info-utadld, #006ce0);
+	}
+	.p-type code {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		font-size: 12px;
+		color: var(--color-text-body-default-vvtq8u, #0f141a);
+	}
+	.p-def {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		font-size: 12px;
+		color: var(--color-text-body-secondary-fdstM5, #5f6b7a);
+	}
+	.p-kind {
 		color: var(--color-text-body-secondary-fdstM5, #5f6b7a);
 	}
 </style>
