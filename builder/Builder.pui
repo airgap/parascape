@@ -77,6 +77,12 @@
 	signal showExport = false;
 	signal dark = false;
 
+	// AI generation (talks to the optional ParaBun llm-server; see llm-server.ts).
+	const AI_ENDPOINT = 'http://localhost:8787';
+	signal aiPrompt = '';
+	signal aiBusy = false;
+	signal aiError: string | null = null;
+
 	const GRID = 8;
 	const MIN = 24;
 
@@ -249,6 +255,35 @@
 		nodes = nodes.filter((n) => n.ref !== id);
 		if (editingCustom === id) editingCustom = null;
 	}
+	async function generateAI() {
+		const prompt = aiPrompt.trim();
+		if (!prompt || aiBusy) return;
+		aiBusy = true;
+		aiError = null;
+		try {
+			const res = await fetch(AI_ENDPOINT.replace(/\/$/, '') + '/generate', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ prompt }),
+			});
+			if (!res.ok) throw new Error('server returned ' + res.status);
+			const data = (await res.json()) as { source?: string; error?: string };
+			if (data.error) throw new Error(data.error);
+			if (!data.source?.trim()) throw new Error('empty response');
+			const id = `custom-${nextCustom}`;
+			const name = `AI${nextCustom}`;
+			nextCustom++;
+			customs = [...customs, { id, name, source: data.source }];
+			editingCustom = id;
+			showExport = false;
+			aiPrompt = '';
+		} catch (e: unknown) {
+			aiError = ((e as { message?: string })?.message ?? String(e)) + ' — is the ParaBun llm-server running? (parabun builder/llm-server.ts)';
+		} finally {
+			aiBusy = false;
+		}
+	}
+
 	derived editingObj = editingCustom ? customOf(editingCustom) : null;
 	derived customError {
 		const c = editingObj;
@@ -318,6 +353,18 @@
 
 	<div class="cols">
 		<aside class="palette">
+			<div class="pal-section ai">
+				<div class="pal-head"><span>✨ Generate with AI</span></div>
+				<textarea
+					class="ai-prompt"
+					placeholder="Describe a component… e.g. a sign-up form with email + password and a submit button"
+					value={aiPrompt}
+					oninput={(e) => (aiPrompt = (e.target as HTMLTextAreaElement).value)}
+				></textarea>
+				<button class="ai-go" onclick={generateAI} disabled={aiBusy}>{aiBusy ? 'Generating…' : 'Generate'}</button>
+				{#if aiError}<p class="ai-err">{aiError}</p>{/if}
+			</div>
+
 			<div class="pal-section">
 				<div class="pal-head">
 					<span>Custom</span>
@@ -459,6 +506,15 @@
 	.mini { border: 1px solid #c6c6cd; background: #fff; border-radius: 6px; padding: 3px 8px; cursor: pointer; font: 12px/1 inherit; color: inherit; }
 	.mini:hover { background: #f0f4ff; }
 	.muted { color: #94a3b8; font-size: 12px; }
+
+	.pal-section.ai { background: linear-gradient(135deg, #f0f4ff, #faf5ff); border: 1px solid #d9e2ff; border-radius: 8px; padding: 10px; }
+	.app.dark .pal-section.ai { background: #1a2336; border-color: #2a3a5c; }
+	.ai-prompt { width: 100%; box-sizing: border-box; min-height: 64px; resize: vertical; padding: 8px; border: 1px solid #c9d6ec; border-radius: 6px; font: 12px/1.4 inherit; margin-bottom: 6px; background: #fff; color: inherit; }
+	.app.dark .ai-prompt { background: #0f141a; color: #e9ebed; border-color: #33415c; }
+	.ai-go { width: 100%; padding: 7px; border: 0; border-radius: 6px; background: #7c3aed; color: #fff; cursor: pointer; font: inherit; font-weight: 600; }
+	.ai-go:hover:not(:disabled) { background: #6d28d9; }
+	.ai-go:disabled { opacity: 0.6; cursor: default; }
+	.ai-err { color: #b91c1c; font-size: 11px; margin: 6px 0 0; }
 
 	.canvas { position: relative; min-height: 1400px; min-width: 100%; background-image: radial-gradient(#d5dbe2 1px, transparent 1px); background-size: 16px 16px; }
 	.app.dark .canvas { background-image: radial-gradient(#222b36 1px, transparent 1px); }
