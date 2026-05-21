@@ -399,6 +399,9 @@
 		color: var(--fg-body);
 		border-right: 1px solid var(--border);
 		padding: 28px 20px;
+		/* border-box so the 28px block padding counts inside 100vh —
+		   otherwise the aside is padding-taller than the viewport. */
+		box-sizing: border-box;
 		max-height: 100vh;
 		overflow-y: auto;
 	}
