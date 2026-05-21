@@ -599,6 +599,12 @@
 	.grid.wide {
 		grid-template-columns: 1fr;
 	}
+	/* App-shell renders need a definite height to read like a real shell
+	   — the nav drawer and content fill it — instead of collapsing to
+	   content height. Give both panes the same windowed height. */
+	.grid.wide :global(.render) {
+		height: 480px;
+	}
 	/* The .cell / .cell-head / pre.code / .render rules used to live
 	   here too; they moved to DemoPane.pui with the rest of the pane
 	   chrome when the viewer split into its own .pui module. The
