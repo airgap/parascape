@@ -48,9 +48,8 @@
 	}
 	filter={
 		<TextFilter
-			filteringText={filter}
+			bind:filteringText={filter}
 			filteringPlaceholder="Find instance"
-			onChange={(e) => (filter = e.detail.filteringText)}
 		/>
 	}
 	columnDefinitions={[

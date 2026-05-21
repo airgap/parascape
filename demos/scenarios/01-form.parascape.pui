@@ -31,10 +31,10 @@
 		<Container>
 			<SpaceBetween size="l">
 				<FormField label="Email" description="Use the address on your account.">
-					<Input value={email} type="email" onChange={(e) => (email = e.detail.value)} />
+					<Input bind:value={email} type="email" />
 				</FormField>
 				<FormField label="Password" constraintText="Minimum 8 characters.">
-					<Input value={password} type="password" onChange={(e) => (password = e.detail.value)} />
+					<Input bind:value={password} type="password" />
 				</FormField>
 				{#if submitted}
 					<FormField label="Submitted as"><Input value={submitted} readOnly /></FormField>

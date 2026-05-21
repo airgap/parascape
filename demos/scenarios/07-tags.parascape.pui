@@ -32,7 +32,7 @@
 <Container header={<Header counter={`(${tags.length})`} variant="h2">Tag input</Header>}>
 	<SpaceBetween size="m">
 		<FormField label="Comma-separated tags" description="Whitespace and case-folded, deduplicated, sorted.">
-			<Input value={raw} onChange={(e) => (raw = e.detail.value)} placeholder="ui, infra, data" />
+			<Input bind:value={raw} placeholder="ui, infra, data" />
 		</FormField>
 		{#if tags.length > 0}
 			<Box>

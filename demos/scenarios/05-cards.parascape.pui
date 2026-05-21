@@ -22,8 +22,7 @@
 <Cards
 	{items}
 	selectionType="multi"
-	selectedItems={selected}
-	onSelectionChange={(e) => (selected = e.detail.selectedItems)}
+	bind:selectedItems={selected}
 	header={<Header counter={`(${items.length})`} variant="h2">Menu items</Header>}
 	cardDefinition={{
 		header: (item: Item) => item.name,

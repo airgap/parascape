@@ -21,8 +21,7 @@
 <SpaceBetween size="m">
 	<Button variant="primary" onClick={() => (open = true)}>Create resource</Button>
 	<Modal
-		visible={open}
-		onDismiss={() => (open = false)}
+		bind:visible={open}
 		header="Create resource"
 		footer={
 			<Box float="right">
@@ -34,7 +33,7 @@
 		}
 	>
 		<FormField label="Resource name">
-			<Input value={name} onChange={(e) => (name = e.detail.value)} placeholder="my-resource" />
+			<Input bind:value={name} placeholder="my-resource" />
 		</FormField>
 	</Modal>
 	{#if created.length > 0}<Box>Created: {created.join(', ')}</Box>{/if}

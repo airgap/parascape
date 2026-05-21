@@ -11,8 +11,7 @@
 
 <Container header={<Header variant="h2">order-1024</Header>}>
 	<Tabs
-		activeTabId={active}
-		onChange={(e) => (active = e.detail.activeTabId)}
+		bind:activeTabId={active}
 		tabs={[
 			{ id: 'overview', label: 'Overview', content:
 				<KeyValuePairs
