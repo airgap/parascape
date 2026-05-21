@@ -214,10 +214,10 @@
 			</button>
 		</div>
 		<p class="lead">
-			Both implementations mount in the same document and share the same vendored Cloudscape
-			hashed-class CSS. The render panes look identical because the class hashes and DOM shape match
-			by construction. Both code panes use the same prettier config — the visible diff is the
-			implementation surface only.
+			Every example is built twice — once in Cloudscape (React), once in Parascape (<code>.pui</code>)
+			— and rendered side by side. The two share the same component styles and the same code
+			formatting, so the previews look identical and the only thing that differs is the source
+			you'd actually write. The numbers below summarise that difference; pick a scenario to compare.
 		</p>
 		<table class="totals">
 			<caption>Across all {scenarios.length} scenarios</caption>
@@ -249,12 +249,12 @@
 			</tbody>
 		</table>
 		<p class="stats-note">
-			Sync points is the better signal — each one is wiring you maintain by hand (a paired setter,
-			a dependency-array entry, an event→state handler) and a place a stale-deps or
-			forgotten-setter bug can hide. Char count is here for completeness; the real win is what's
-			<em>not</em> there: no <code>useState</code> pairs, no <code>useMemo</code> dep arrays, no
-			<code>onChange</code> mirrors — <code>signal</code>/<code>derived</code> auto-track and
-			<code>bind:</code> handles the rest.
+			<strong>Sync points</strong> are the bits of reactive wiring you write by hand: a state setter,
+			a <code>useMemo</code>/<code>useEffect</code> dependency list, an event handler that copies an
+			input's value back into state. Each one is extra code and a spot where bugs hide. In Parascape,
+			<code>signal</code> and <code>derived</code> track their own dependencies and <code>bind:</code>
+			wires inputs both ways, so most of that wiring simply isn't there. <strong>Chars</strong> is raw
+			source length, shown for reference.
 		</p>
 		<nav>
 			{#each scenarios as s (s.id)}
