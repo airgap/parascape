@@ -12,10 +12,8 @@
 </script>
 
 <AppLayout
-	navigationOpen={navOpen}
-	onNavigationChange={(e) => (navOpen = e.detail.open)}
-	toolsOpen={toolsOpen}
-	onToolsChange={(e) => (toolsOpen = e.detail.open)}
+	bind:navigationOpen={navOpen}
+	bind:toolsOpen={toolsOpen}
 	navigation={
 		<SideNavigation
 			activeHref={active}

@@ -136,7 +136,8 @@
 				aria-current={header!.href === activeHref ? 'page' : undefined}
 				onclick={(e: MouseEvent) => fireFollow({ type: 'link', text: header!.text, href: header!.href } as Item, e)}
 				>{#if has(header!.logo)}<img class={S['header-logo']} src={header!.logo!.src} alt={header!.logo!.alt || ''} />{/if}{header!.text}</a
-			></h2>{/if}
+			></h2>
+		<hr class={cx(S.divider, S['divider-header'])} role="presentation" />{/if}
 	{#if has(itemsControl)}<div class={S['items-control']}
 			>{#if snip(itemsControl)}{@render (itemsControl as import('svelte').Snippet)()}{:else}{itemsControl}{/if}</div
 		>{/if}

@@ -385,3 +385,13 @@ body[data-awsui-focus-visible=true] .awsui_link_l0dv0_1hvbw_318:not(#\9):focus {
 .awsui_with-toolbar_l0dv0_1hvbw_232 > .awsui_divider-header_l0dv0_1hvbw_232:not(#\9) {
   border-color: transparent;
 }
+/*
+  Nav sections render an ExpandableSection variant="footer", whose content
+  wrapper carries `padding-block: 8px` from expandable-section.scoped.css.
+  In Cloudscape's nav the section content sits flush with its header (zero
+  block padding); match that with a scoped descendant override so standalone
+  footer ExpandableSections keep their 8px block padding.
+*/
+.awsui_root_l0dv0_1hvbw_145:not(#\9) .awsui_content-footer_gwq0h_1tk4s_457:not(#\9) {
+  padding-block: 0;
+}

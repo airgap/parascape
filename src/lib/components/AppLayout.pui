@@ -38,11 +38,11 @@
 
 	let {
 		navigation = undefined,
-		navigationOpen = true,
+		navigationOpen = $bindable(true),
 		navigationHide = false,
 		navigationWidth = 280,
 		tools = undefined,
-		toolsOpen = false,
+		toolsOpen = $bindable(false),
 		toolsHide = false,
 		toolsWidth = 290,
 		content = undefined,
@@ -138,14 +138,20 @@
 	{#if !navigationHide && has(navigation)}<aside
 			class={cx(T.navigation, !navigationOpen && T['drawer-closed'])}
 			aria-label={ariaLabels?.navigation}
-			style={navigationOpen ? `inline-size: ${navigationWidth}px; flex: 0 0 ${navigationWidth}px;` : 'display: none;'}
+			style={navigationOpen
+				? `inline-size: ${navigationWidth}px; flex: 0 0 ${navigationWidth}px; position: relative; box-sizing: border-box; border-inline-end: 1px solid var(--color-border-divider-default, rgba(128, 128, 128, 0.35));`
+				: 'display: none;'}
 			><Button
 				class={T['navigation-close']}
 				variant="icon"
-				iconName="close"
+				iconName="angle-left"
 				formAction="none"
 				ariaLabel={ariaLabels?.navigationClose}
-				onClick={() => onNavigationChange?.({ detail: { open: false } })}
+				style="position: absolute; inset-inline-end: 4px; inset-block-start: 4px; z-index: 1;"
+				onClick={() => {
+					navigationOpen = false;
+					onNavigationChange?.({ detail: { open: false } });
+				}}
 			/>{#if snip(navigation)}{@render (navigation as import('svelte').Snippet)()}{:else}{navigation}{/if}</aside
 		>{/if}
 	{#if !navigationHide}<Button
@@ -155,9 +161,13 @@
 			formAction="none"
 			ariaLabel={ariaLabels?.navigationToggle}
 			style={navigationOpen ? 'display: none;' : 'position: absolute; inset-inline-start: 8px; inset-block-start: 8px; z-index: 1;'}
-			onClick={() => onNavigationChange?.({ detail: { open: !navigationOpen } })}
+			onClick={() => {
+				const next = !navigationOpen;
+				navigationOpen = next;
+				onNavigationChange?.({ detail: { open: next } });
+			}}
 		/>{/if}
-	<main class={S['layout-main']} style="flex: 1 1 auto; min-inline-size: 0;">
+	<main class={S['layout-main']} style={`flex: 1 1 auto; min-inline-size: ${minContentWidth}px;`}>
 		{#if has(notifications)}<div class={T.notifications}
 				>{#if snip(notifications)}{@render (notifications as import('svelte').Snippet)()}{:else}{notifications}{/if}</div
 			>{/if}
@@ -167,7 +177,7 @@
 		{#if has(contentHeader)}<div class={S['content-header-wrapper']}
 				>{#if snip(contentHeader)}{@render (contentHeader as import('svelte').Snippet)()}{:else}{contentHeader}{/if}</div
 			>{/if}
-		{#if has(mainContent)}<div class={cx(T.content, S['content-wrapper'])}
+		{#if has(mainContent)}<div class={cx(T.content, S['content-wrapper'])} style="padding-block-start: 12px;"
 				>{#if snip(mainContent)}{@render (mainContent as import('svelte').Snippet)()}{:else}{mainContent}{/if}</div
 			>{/if}
 	</main>
@@ -178,7 +188,11 @@
 			formAction="none"
 			ariaLabel={ariaLabels?.toolsToggle}
 			style={toolsOpen ? 'display: none;' : 'position: absolute; inset-inline-end: 8px; inset-block-start: 8px; z-index: 1;'}
-			onClick={() => onToolsChange?.({ detail: { open: !toolsOpen } })}
+			onClick={() => {
+				const next = !toolsOpen;
+				toolsOpen = next;
+				onToolsChange?.({ detail: { open: next } });
+			}}
 		/>{/if}
 	{#if !toolsHide && has(tools)}<aside
 			class={cx(T.tools, !toolsOpen && T['drawer-closed'])}
@@ -190,7 +204,10 @@
 				iconName="close"
 				formAction="none"
 				ariaLabel={ariaLabels?.toolsClose}
-				onClick={() => onToolsChange?.({ detail: { open: false } })}
+				onClick={() => {
+					toolsOpen = false;
+					onToolsChange?.({ detail: { open: false } });
+				}}
 			/>{#if snip(tools)}{@render (tools as import('svelte').Snippet)()}{:else}{tools}{/if}</aside
 		>{/if}
 	{#if has(splitPanel)}{#if snip(splitPanel)}{@render (splitPanel as import('svelte').Snippet)()}{:else}{splitPanel}{/if}{/if}
