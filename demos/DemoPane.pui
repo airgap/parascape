@@ -488,7 +488,7 @@
 				style:top="{14 + expandedAnchor.line * 18.6 - scrollY}px"
 				aria-label="Hide imports"
 				onclick={toggleFold}
-			><span class="chev" aria-hidden="true">▾</span>Hide imports</button>
+			><span class="chev" aria-hidden="true">▴</span>Hide imports</button>
 		{/if}
 	</div>
 	{#if hoverTip}
