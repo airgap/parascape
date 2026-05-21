@@ -1,0 +1,140 @@
+<!--
+  Parascape components catalog — a browse page for the ported .pui
+  components, built FROM those components (AppLayout shell +
+  SideNavigation + ContentLayout + Header). Dogfoods the library as a
+  real full-page app rather than an embedded demo pane. The three
+  AppLayout regions are passed as snippets (regular markup) rather than
+  inline-markup attribute values so the deeper nesting parses cleanly.
+-->
+<script lang="pts">
+	import AppLayout from '@parascape-design/components/app-layout';
+	import SideNavigation from '@parascape-design/components/side-navigation';
+	import ContentLayout from '@parascape-design/components/content-layout';
+	import Header from '@parascape-design/components/header';
+	import Box from '@parascape-design/components/box';
+	import Button from '@parascape-design/components/button';
+	import SpaceBetween from '@parascape-design/components/space-between';
+	import HelpPanel from '@parascape-design/components/help-panel';
+	import { catalog, allItems } from './catalog';
+
+	signal navOpen = true;
+	signal toolsOpen = false;
+	signal dark = true;
+
+	effect {
+		document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+		document.body.classList.toggle('awsui-dark-mode', dark);
+	}
+
+	derived navItems = catalog.map((g) => ({
+		type: 'section',
+		text: g.category,
+		items: g.items.map((it) => ({ type: 'link', text: it.name, href: '#' + it.id })),
+	}));
+	derived themeLabel = dark ? 'Light' : 'Dark';
+
+	const onFollow = (e: { detail: { href?: string } }) => {
+		const h = e.detail && e.detail.href;
+		if (h && h.startsWith('#')) {
+			document.getElementById(h.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		}
+	};
+	const toggleTheme = () => (dark = !dark);
+</script>
+
+{#snippet navPanel()}
+	<SideNavigation header={{ text: 'Parascape', href: '#top' }} items={navItems} {onFollow} />
+{/snippet}
+
+{#snippet toolsPanel()}
+	<HelpPanel header={<h2>About</h2>}>
+		<SpaceBetween size="s">
+			<Box>This catalog is built entirely from Parascape's .pui ports of the Cloudscape components.</Box>
+			<Box>{allItems.length} components across {catalog.length} categories.</Box>
+		</SpaceBetween>
+	</HelpPanel>
+{/snippet}
+
+{#snippet headerActions()}
+	<Button onClick={toggleTheme}>{themeLabel} theme</Button>
+{/snippet}
+
+{#snippet catalogContent()}
+	<ContentLayout
+		header={
+			<Header
+				variant="h1"
+				description="Cloudscape's component library, ported to Parascape (.pui) — Svelte 5 under the hood, Para reactivity on top."
+				counter={`(${allItems.length})`}
+				actions={headerActions}
+			>Components</Header>
+		}
+	>
+		<div id="top" class="catalog">
+			{#each catalog as group (group.category)}
+				<section class="cat">
+					<Header variant="h2" counter={`(${group.items.length})`}>{group.category}</Header>
+					<div class="cards-grid">
+						{#each group.items as item (item.id)}
+							<div class="comp-card" id={item.id}>
+								<div class="comp-name">{item.name}</div>
+								<div class="comp-blurb">{item.blurb}</div>
+							</div>
+						{/each}
+					</div>
+				</section>
+			{/each}
+		</div>
+	</ContentLayout>
+{/snippet}
+
+<AppLayout
+	bind:navigationOpen={navOpen}
+	bind:toolsOpen={toolsOpen}
+	navigation={navPanel}
+	tools={toolsPanel}
+	content={catalogContent}
+/>
+
+<style>
+	.catalog {
+		display: flex;
+		flex-direction: column;
+		gap: 36px;
+		padding-block-end: 40px;
+	}
+	.cat {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+	}
+	.cards-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+		gap: 12px;
+	}
+	.comp-card {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding: 16px;
+		border: 1px solid var(--color-border-divider-default-nr68jt, #c6c6cd);
+		border-radius: 12px;
+		scroll-margin-block-start: 80px;
+		transition: border-color 0.12s ease, transform 0.12s ease;
+	}
+	.comp-card:hover {
+		border-color: var(--color-border-item-focused-uk47pl, #006ce0);
+		transform: translateY(-1px);
+	}
+	.comp-name {
+		font-weight: 700;
+		font-size: 15px;
+		color: var(--color-text-heading-default-izpp46, #0f141a);
+	}
+	.comp-blurb {
+		font-size: 13px;
+		line-height: 1.45;
+		color: var(--color-text-body-secondary-fdstM5, #5f6b7a);
+	}
+</style>
