@@ -23,6 +23,13 @@ export default defineConfig({
     },
   },
   esbuild: {
+    // Force the CLASSIC transform: tsconfig.json sets `jsx: react-jsx`
+    // (automatic runtime), which esbuild/Vite otherwise honors and
+    // compiles `<Comp/>` to React `_jsx(...)` elements — making the
+    // descriptor's `component` a React element object instead of the
+    // .pui component, so the harness throws "Component_1 is not a
+    // function". `jsx: 'transform'` makes jsxFactory/jsxInject apply.
+    jsx: "transform",
     jsxFactory: "__pui_h",
     jsxFragment: "__pui_Fragment",
     jsxInject: `import { h as __pui_h, Fragment as __pui_Fragment } from '@conformance/adapter'`,
