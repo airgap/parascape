@@ -29,22 +29,150 @@
 	};
 	let { side, initialSource, label, ext }: Props = $props();
 
+	// `source` is the SINGLE source of truth for both the textarea
+	// (editable input) and the Shiki-highlighted pre (visible
+	// output). They overlay perfectly only when both see the same
+	// text, so any folding has to change `source` itself — DOM
+	// post-processing on the rendered pre is what made the caret
+	// drift previously.
+	//
+	// `foldedImports` carries the saved import block text while it's
+	// hidden. The displayed source has a `… N imports` line in
+	// place of that block; clicking the overlay button on that line
+	// splices the saved text back in. The COMPILE path uses an
+	// always-expanded view (`compileSource`) so live-edit + mount
+	// works either way.
 	signal source = initialSource;
+	signal foldedImports: { text: string; count: number } | null = null;
 	signal error: string | null = null;
 	signal highlighted = "";
 	signal renderTarget: HTMLDivElement | null = null;
 	signal textareaEl: HTMLTextAreaElement | null = null;
 	signal preEl: HTMLPreElement | null = null;
+	signal editorWrapEl: HTMLDivElement | null = null;
 	let teardown: (() => void) | null = null;
 
 	const shikiLang = side === "cs" ? "tsx" : "pui";
 
-	// Reset to a new initial source when the parent swaps it (scenario nav).
+	// Reset to a new initial source when the parent swaps it (scenario
+	// nav). Auto-fold the import block on first sight so the demo
+	// opens with the body in view; the user expands by clicking.
 	effect {
 		const next = initialSource;
-		source = next;
+		const block = findImportsBlock(next);
+		if (block) {
+			const placeholder = makePlaceholder(block.count);
+			source = next.slice(0, block.start) + placeholder + next.slice(block.end);
+			foldedImports = { text: block.text, count: block.count };
+		} else {
+			source = next;
+			foldedImports = null;
+		}
 		error = null;
 	}
+
+	// The placeholder text we splice into source while imports are
+	// folded — kept readable + unlikely-to-collide.
+	function makePlaceholder(count: number): string {
+		return `… ${count} imports`;
+	}
+
+	// Find the leading `import …` run in a source string, tolerating
+	// a `<script>` opening tag and blank lines between imports.
+	// Returns null if no imports exist.
+	function findImportsBlock(src: string): { start: number; end: number; count: number; text: string } | null {
+		const lines = src.split("\n");
+		let i = 0;
+		while (i < lines.length) {
+			const t = (lines[i] ?? "").trim();
+			if (t === "" || t.startsWith("<script")) { i++; continue; }
+			break;
+		}
+		const startLine = i;
+		let lastImport = -1;
+		while (i < lines.length) {
+			const t = (lines[i] ?? "").trim();
+			if (t.startsWith("import ")) { lastImport = i; i++; continue; }
+			if (lastImport >= 0 && t === "") { i++; continue; }
+			break;
+		}
+		if (lastImport < 0) return null;
+		// Character offsets in `src` for the line range.
+		let charStart = 0;
+		for (let k = 0; k < startLine; k++) charStart += (lines[k]?.length ?? 0) + 1;
+		let charEnd = charStart;
+		let count = 0;
+		for (let k = startLine; k <= lastImport; k++) {
+			charEnd += (lines[k]?.length ?? 0) + 1;
+			if ((lines[k] ?? "").trim().startsWith("import ")) count++;
+		}
+		// Drop the trailing newline so we don't take the blank line
+		// that follows the import group with us.
+		if (src[charEnd - 1] === "\n") charEnd -= 1;
+		return { start: charStart, end: charEnd, count, text: src.slice(charStart, charEnd) };
+	}
+
+	// Locate the placeholder in the current source. Recomputed every
+	// read so user edits ABOVE the fold (which shift offsets) don't
+	// invalidate the toggle.
+	derived foldLocation {
+		if (!foldedImports) return null as { start: number; length: number; line: number } | null;
+		const placeholder = makePlaceholder(foldedImports.count);
+		const idx = source.indexOf(placeholder);
+		if (idx < 0) return null;
+		const line = source.slice(0, idx).split("\n").length - 1;
+		return { start: idx, length: placeholder.length, line };
+	}
+
+	function toggleFold() {
+		if (foldedImports && foldLocation) {
+			// Unfold — splice saved text back into source.
+			const { start, length } = foldLocation;
+			source = source.slice(0, start) + foldedImports.text + source.slice(start + length);
+			foldedImports = null;
+		} else {
+			// Re-fold — find imports in current source and hide them.
+			const block = findImportsBlock(source);
+			if (!block) return;
+			const placeholder = makePlaceholder(block.count);
+			source = source.slice(0, block.start) + placeholder + source.slice(block.end);
+			foldedImports = { text: block.text, count: block.count };
+		}
+	}
+
+	// What the compile path consumes — always the EXPANDED form so a
+	// live edit on the folded view still mounts. If the user
+	// genuinely deleted the placeholder line, foldLocation goes null
+	// and we just use `source` verbatim.
+	derived compileSource {
+		if (!foldedImports || !foldLocation) return source;
+		const { start, length } = foldLocation;
+		return source.slice(0, start) + foldedImports.text + source.slice(start + length);
+	}
+
+	// Pipeline-fused hover tooltip. The textarea sits on top of the
+	// pre at z-index 1, so the `pipeline-fused` spans underneath
+	// never receive hover events via CSS :hover. Instead, watch
+	// mousemove on the editor-wrap, scan `elementsFromPoint` for a
+	// .pipeline-fused match, and pin a separate tooltip element on
+	// top of the textarea at that span's bounding rect. Tooltip
+	// itself is pointer-events: none so it doesn't intercept clicks.
+	signal hoverTip: { fused: string; left: number; top: number } | null = null;
+	const onEditorMouseMove = (e: MouseEvent) => {
+		const all = document.elementsFromPoint(e.clientX, e.clientY);
+		const span = all.find(
+			(el): el is HTMLElement =>
+				el instanceof HTMLElement && el.classList.contains("pipeline-fused"),
+		);
+		if (!span) {
+			hoverTip = null;
+			return;
+		}
+		const r = span.getBoundingClientRect();
+		const fused = span.getAttribute("data-fused") ?? "";
+		hoverTip = { fused, left: r.left, top: r.bottom + 6 };
+	};
+	const onEditorMouseLeave = () => (hoverTip = null);
 
 	// Re-highlight whenever source changes. Shiki init is async — until
 	// it resolves, fall back to escaped raw text.
@@ -59,100 +187,11 @@
 		shikiHighlight(src, shikiLang).then((html) => (highlighted = html));
 	}
 
-	// Collapse the consecutive `import …` lines at the top of each
-	// pane behind a clickable ellipsis. They're identical on the
-	// React side and near-identical on the Para side; the user
-	// almost never needs to read them on first glance. Click to
-	// expand if you DO want to see them.
-	signal importsExpanded = false;
-	effect {
-		const _ = highlighted;
-		const _expanded = importsExpanded;
-		if (!preEl) return;
-		queueMicrotask(() => collapseImports(preEl, importsExpanded));
-	}
-	function collapseImports(pre: HTMLPreElement | null, expanded: boolean) {
-		if (!pre) return;
-		// Clean up any previous wrapping pass so we don't double-wrap
-		// after a re-highlight.
-		for (const placeholder of pre.querySelectorAll(".imports-placeholder")) {
-			placeholder.remove();
-		}
-		for (const block of pre.querySelectorAll(".imports-block")) {
-			while (block.firstChild) block.parentNode?.insertBefore(block.firstChild, block);
-			block.remove();
-		}
-		const lines = [...pre.querySelectorAll(".line")] as HTMLElement[];
-		// Walk lines from the top, collecting consecutive imports
-		// (allowing blank lines between them so the import block
-		// doesn't get fragmented by formatter line breaks). On .pui
-		// the imports live INSIDE a `<script lang="pts">` block —
-		// skip the opening script tag and any blank lines before
-		// looking for the first import.
-		let firstImport = -1;
-		let lastImport = -1;
-		for (let i = 0; i < lines.length; i++) {
-			const txt = (lines[i]?.textContent ?? "").trim();
-			if (firstImport < 0) {
-				if (txt === "" || txt.startsWith("<script")) continue;
-				if (!txt.startsWith("import ")) break;
-				firstImport = i;
-				lastImport = i;
-				continue;
-			}
-			if (txt.startsWith("import ")) {
-				lastImport = i;
-				continue;
-			}
-			if (txt === "") continue;
-			break;
-		}
-		if (firstImport < 0) return;
-		const importLines = lines.slice(firstImport, lastImport + 1);
-		const code = pre.querySelector("code");
-		if (!code) return;
-		const block = document.createElement("span");
-		block.className = "imports-block";
-		// Move the import .line spans (and any whitespace nodes
-		// between them) into the wrapper so the placeholder can
-		// replace the whole region with one element.
-		const first = importLines[0];
-		if (!first) return;
-		const lastEl = importLines[importLines.length - 1]!;
-		let cursor: Node | null = first;
-		const collected: Node[] = [];
-		while (cursor) {
-			collected.push(cursor);
-			if (cursor === lastEl) break;
-			cursor = cursor.nextSibling;
-		}
-		first.parentNode?.insertBefore(block, first);
-		for (const n of collected) block.appendChild(n);
-		if (!expanded) block.classList.add("collapsed");
-		// Placeholder ellipsis — a fake line that toggles the
-		// block. Inherits .line styling so it sits in the same
-		// rhythm as the surrounding code.
-		const placeholder = document.createElement("span");
-		placeholder.className = "line imports-placeholder";
-		placeholder.setAttribute("role", "button");
-		placeholder.setAttribute("tabindex", "0");
-		placeholder.dataset.count = String(importLines.length);
-		placeholder.textContent = `… ${importLines.length} imports`;
-		placeholder.addEventListener("click", () => (importsExpanded = !importsExpanded));
-		placeholder.addEventListener("keydown", (e: Event) => {
-			const k = (e as KeyboardEvent).key;
-			if (k === "Enter" || k === " ") {
-				e.preventDefault();
-				importsExpanded = !importsExpanded;
-			}
-		});
-		block.parentNode?.insertBefore(placeholder, block);
-	}
-
-	// Debounced compile + mount.
+	// Debounced compile + mount. Always uses the expanded source so
+	// folding the imports doesn't break the live mount.
 	let debounceHandle: ReturnType<typeof setTimeout> | undefined;
 	effect {
-		const src = source;
+		const src = compileSource;
 		const target = renderTarget;
 		if (!target) return;
 		clearTimeout(debounceHandle);
@@ -204,7 +243,13 @@
 
 <div class="cell">
 	<header class="cell-head"><b>{label}</b><span>{ext}</span></header>
-	<div class="editor-wrap">
+	<div
+		class="editor-wrap"
+		bind:this={editorWrapEl}
+		onmousemove={onEditorMouseMove}
+		onmouseleave={onEditorMouseLeave}
+		role="presentation"
+	>
 		<pre class="code" bind:this={preEl}>{@html highlighted}</pre>
 		<textarea
 			class="editor-input"
@@ -216,7 +261,35 @@
 			autocomplete="off"
 			autocapitalize="off"
 		></textarea>
+		{#if foldLocation}
+			<!--
+			  Overlay button that lives ABOVE the textarea so a click on
+			  the `… N imports` placeholder line gets intercepted before
+			  the textarea sees it. Without this, pointer-events on the
+			  textarea would steal every click in the editor area. Top
+			  is computed from the line index times the font line-height
+			  (12px × 1.55 = 18.6px), plus the editor-wrap top padding.
+			-->
+			<button
+				type="button"
+				class="fold-toggle"
+				style:top="{14 + foldLocation.line * 18.6}px"
+				aria-label="Expand {foldedImports?.count} imports"
+				title="Click to expand imports"
+				onclick={toggleFold}
+			></button>
+		{/if}
 	</div>
+	{#if hoverTip}
+		<div
+			class="pipeline-tip"
+			style:left="{hoverTip.left}px"
+			style:top="{hoverTip.top}px"
+		>
+			<span class="pipeline-tip-label">fuses to</span>
+			<code>{hoverTip.fused}</code>
+		</div>
+	{/if}
 	<div class="render" bind:this={renderTarget}></div>
 	{#if error}<div class="error" title="Compile / runtime error">{error}</div>{/if}
 </div>
@@ -338,54 +411,92 @@
 	:global(.editor-wrap pre.shiki) {
 		background-color: transparent !important;
 	}
-	/* `|>` pipeline tooltips — pui-shiki passes the lowered form as
-	   data-fused on a span Shiki wraps around the chain. Dotted
-	   underline tells the reader the range is hoverable; the bubble
-	   below renders the fused JS via a ::after pseudo, made visible
-	   on :hover. position: relative on the chain anchors the bubble;
-	   z-index lifts it above adjacent lines. */
+	/* `|>` pipeline highlight — pui-shiki passes the lowered form as
+	   `data-fused` on a span Shiki wraps around each chain. The
+	   parent <pre.code> has `pointer-events: none` so hover never
+	   fires on its descendants by default; the highlight span has
+	   to opt back in. Render as a fitted block: a soft accent-tinted
+	   background sized to its inline content, with the tooltip
+	   bubble pinned below. */
 	:global(.editor-wrap pre.shiki .pipeline-fused) {
 		position: relative;
-		text-decoration: underline dotted var(--accent, #60a5fa);
-		text-underline-offset: 3px;
+		pointer-events: auto;
+		background: color-mix(in oklab, var(--accent, #b04a2a) 14%, transparent);
+		outline: 1px solid color-mix(in oklab, var(--accent, #b04a2a) 30%, transparent);
+		border-radius: 3px;
+		padding: 1px 2px;
+		margin: -1px -2px;
 		cursor: help;
 	}
-	:global(.editor-wrap pre.shiki .pipeline-fused::after) {
-		content: "fuses to: " attr(data-fused);
-		position: absolute;
-		left: 0;
-		top: calc(100% + 6px);
-		display: none;
+	:global(.editor-wrap pre.shiki .pipeline-fused:hover) {
+		background: color-mix(in oklab, var(--accent, #b04a2a) 24%, transparent);
+		outline-color: var(--accent, #b04a2a);
+	}
+	/* Pipeline tooltip — separate element pinned in viewport space
+	   (the textarea overlays everything in `.editor-wrap`, so a
+	   :hover-driven ::after on `.pipeline-fused` never fires because
+	   the cursor is always on the textarea). The mousemove handler
+	   on `.editor-wrap` updates `hoverTip`; the element below
+	   renders at the span's viewport coords. */
+	.pipeline-tip {
+		position: fixed;
 		max-width: min(560px, 80vw);
-		padding: 8px 10px;
-		background: var(--bg-elev, #111a2c);
+		padding: 10px 12px;
+		background: var(--bg-elev, #161d26);
 		color: var(--fg-strong, #f7f8fa);
 		border: 1px solid var(--border, #424650);
 		border-radius: 6px;
-		font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-		white-space: pre;
-		z-index: 5;
-		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+		font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		white-space: pre-wrap;
+		word-break: break-all;
+		z-index: 50;
+		box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 		pointer-events: none;
 	}
-	:global(.editor-wrap pre.shiki .pipeline-fused:hover::after) {
-		display: block;
+	.pipeline-tip-label {
+		display: inline-block;
+		font-family: ui-sans-serif, system-ui, sans-serif;
+		font-size: 10px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.8px;
+		color: var(--accent, #b04a2a);
+		margin-right: 8px;
 	}
-	/* Collapsed-imports affordance — the toggle is a fake `.line` so
-	   it sits in the same vertical rhythm as the surrounding code.
-	   The block we wrap around the original import lines hides itself
-	   when collapsed; clicking the placeholder flips both. */
-	:global(.editor-wrap pre.shiki .imports-block.collapsed) {
-		display: none;
+	.pipeline-tip code {
+		font: inherit;
+		color: inherit;
+		background: none;
+		border: 0;
+		padding: 0;
 	}
-	:global(.editor-wrap pre.shiki .imports-placeholder) {
-		color: var(--fg-muted, #9ca3af);
+	/* Import-fold overlay button — pinned above the textarea, sized
+	   to the one line where the `… N imports` placeholder lives.
+	   The textarea handles every other click below; this one
+	   intercepts at the placeholder line so the user can actually
+	   expand without their click being eaten by the editor. */
+	.fold-toggle {
+		position: absolute;
+		left: 16px;
+		right: 16px;
+		height: 1.55em;
+		background: transparent;
+		border: 0;
+		padding: 0;
+		margin: 0;
 		cursor: pointer;
-		font-style: italic;
-		user-select: none;
+		z-index: 2;
+		font: inherit;
+		color: transparent;
+		text-align: left;
 	}
-	:global(.editor-wrap pre.shiki .imports-placeholder:hover) {
-		color: var(--accent, #60a5fa);
+	.fold-toggle:hover {
+		background: color-mix(in oklab, var(--accent, #b04a2a) 12%, transparent);
+		border-radius: 3px;
+	}
+	.fold-toggle:focus-visible {
+		outline: 2px solid var(--accent, #b04a2a);
+		outline-offset: 2px;
 	}
 	.render {
 		padding: 16px;
