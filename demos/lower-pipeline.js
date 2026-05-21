@@ -294,10 +294,53 @@ function findRHSEnd(src, start) {
 //                                                  is first arg)
 //   fn(_, args…)     →  fn(lhs, args…)            (explicit underscore)
 //   fn               →  fn(lhs)
+// True iff `lhs` doesn't need an extra `( … )` wrap before a method
+// call appended to it. The rule: `.` and `()` and `[]` bind tighter
+// than anything else, so a chain that's ONLY identifiers, dotted
+// accesses, calls, and subscripts can take a `.method()` suffix
+// directly. Composite expressions (`a + b`, ternaries, etc.) need
+// wrapping because `.method()` would bind too tightly. This matters
+// for fusion: a chain like `x.a().b().c()` collapses into a single
+// fusable run, but `((x.a()).b()).c()` looks like three separate
+// one-call chains and fusion gives up.
+function lhsBindsTight(lhs) {
+  const t = lhs.trim();
+  if (t.length === 0) return false;
+  let i = 0;
+  // First token must be an identifier or a parenthesised expression.
+  if (t[i] === "(") {
+    const end = skipBalanced(t, i);
+    if (end < 0) return false;
+    i = end;
+  } else if (isIdentStart(t[i] ?? "")) {
+    while (i < t.length && isIdentCont(t[i])) i++;
+  } else {
+    return false;
+  }
+  // After the head: any sequence of `.ident`, `(args)`, `[idx]`.
+  while (i < t.length) {
+    const c = t[i];
+    if (c === ".") {
+      i++;
+      while (i < t.length && isIdentCont(t[i])) i++;
+      continue;
+    }
+    if (c === "(" || c === "[") {
+      const end = skipBalanced(t, i);
+      if (end < 0) return false;
+      i = end;
+      continue;
+    }
+    // Anything else (operator, whitespace, etc.) → not tight.
+    return false;
+  }
+  return true;
+}
+
 function fold(lhs, rhs) {
   const rhsT = rhs.trim();
   if (rhsT.startsWith(".")) {
-    return `(${lhs})${rhsT}`;
+    return lhsBindsTight(lhs) ? `${lhs}${rhsT}` : `(${lhs})${rhsT}`;
   }
   // Find `(` start of arg list, if any. The identifier path itself
   // can contain `.` (a.b.c).

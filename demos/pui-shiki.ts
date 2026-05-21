@@ -24,6 +24,8 @@ import ptsxGrammar from "./grammars/ptsx.tmLanguage.json";
 import puiPtsInject from "./grammars/pui-pts-inject.tmLanguage.json";
 import parabunInject from "./grammars/parabun-inject.tmLanguage.json";
 import { findPipelineChains } from "./lower-pipeline.js";
+import { lowerLeadingDot } from "./lower-leading-dot.js";
+import { lowerFusion } from "./lower-fusion.js";
 
 // Cast helpers — Shiki's `LanguageRegistration` type is wider than
 // the JSON shape, so we just trust the runtime-loaded grammar.
@@ -81,14 +83,23 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 function pipelineDecorations(src: string, lang: "pui" | "tsx") {
   if (lang !== "pui") return [];
   try {
-    return findPipelineChains(src).map(c => ({
-      start: c.start,
-      end: c.end,
-      properties: {
-        class: "pipeline-fused",
-        "data-fused": c.lowered,
-      },
-    }));
+    return findPipelineChains(src).map(c => {
+      // The tooltip shows what the chain ACTUALLY runs after all
+      // lowerings — pipeline desugar, then placeholder-lambda
+      // expansion, then loop fusion. The `.map(.trim())` form is
+      // still a placeholder lambda at this point; without
+      // lowerLeadingDot the fusion would see `.trim()` as a
+      // callable and emit `(.trim())(__x, …)` which doesn't parse.
+      const fused = lowerFusion(lowerLeadingDot(c.lowered)).trim();
+      return {
+        start: c.start,
+        end: c.end,
+        properties: {
+          class: "pipeline-fused",
+          "data-fused": fused,
+        },
+      };
+    });
   } catch {
     // Pipeline scan is best-effort — bail to no decorations rather
     // than blow up the whole highlight on a malformed mid-edit

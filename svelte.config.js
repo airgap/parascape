@@ -4,6 +4,7 @@ import paraInlineSnippets from "./demos/para-inline-snippets.js";
 import lowerMatchPreprocess from "./demos/lower-match.js";
 import lowerLeadingDotPreprocess from "./demos/lower-leading-dot.js";
 import lowerPipelinePreprocess from "./demos/lower-pipeline.js";
+import lowerFusionPreprocess from "./demos/lower-fusion.js";
 
 // @lyku/para-preprocess returns `dependencies: [filename]` on every
 // script-tag pass. vite-plugin-svelte's preprocess plugin records the
@@ -56,6 +57,10 @@ export default {
   preprocess: [
     lowerPipelinePreprocess(),
     lowerLeadingDotPreprocess(),
+    // Loop fusion runs AFTER the operator desugars so it sees
+    // method chains in their post-pipeline shape (`x.map(f).filter(g)`
+    // instead of `x |> .map(f) |> .filter(g)`).
+    lowerFusionPreprocess(),
     lowerMatchPreprocess(),
     paraInlineSnippets(),
     withoutSelfDependency(parabunPreprocess()),
