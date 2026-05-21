@@ -210,15 +210,18 @@
 		// Two-pass placement: render hidden first, then clamp to the
 		// tooltip's ACTUAL size. Clamping by the max-width (560) shoved it
 		// far left of the hotspot — landing behind the cursor — whenever
-		// the real content was narrower. Anchor below the hotspot, flip
+		// the real content was narrower. Anchor below the hotspot with
+		// enough gap to clear the cursor arrow (which extends down-right
+		// from the dot, otherwise it covers the tooltip header); flip
 		// above if it would overrun the viewport bottom.
-		hoverTip = { kind, label, content, left: r.left, top: r.bottom + 8, ready: false };
+		const CURSOR_CLEAR = 22;
+		hoverTip = { kind, label, content, left: r.left, top: r.bottom + CURSOR_CLEAR, ready: false };
 		requestAnimationFrame(() => {
 			if (!hoverTip || !tipEl) return;
 			const w = tipEl.offsetWidth;
 			const h = tipEl.offsetHeight;
 			const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
-			const below = r.bottom + 8;
+			const below = r.bottom + CURSOR_CLEAR;
 			const top = below + h > window.innerHeight - 8 ? Math.max(8, r.top - h - 8) : below;
 			hoverTip = { ...hoverTip, left, top, ready: true };
 		});
