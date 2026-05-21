@@ -202,15 +202,26 @@
 	// is the sole tooltip trigger — hover/focus shows it. `kind: "code"`
 	// renders the content syntax-highlighted (the fused form); `"text"`
 	// renders it as prose (the concept explanation).
-	type HoverTip = { kind: "code" | "text"; label: string; content: string; left: number; top: number };
+	type HoverTip = { kind: "code" | "text"; label: string; content: string; left: number; top: number; ready: boolean };
 	signal hoverTip: HoverTip | null = null;
+	signal tipEl: HTMLElement | null = null;
 	const showTip = (e: Event, kind: "code" | "text", label: string, content: string) => {
 		const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-		// Clamp left so the tooltip's max-width box stays in the viewport
-		// (the hotspot can sit near the right edge of a narrow pane).
-		const tipMaxW = Math.min(560, window.innerWidth * 0.8);
-		const left = Math.max(8, Math.min(r.left, window.innerWidth - tipMaxW - 12));
-		hoverTip = { kind, label, content, left, top: r.bottom + 6 };
+		// Two-pass placement: render hidden first, then clamp to the
+		// tooltip's ACTUAL size. Clamping by the max-width (560) shoved it
+		// far left of the hotspot — landing behind the cursor — whenever
+		// the real content was narrower. Anchor below the hotspot, flip
+		// above if it would overrun the viewport bottom.
+		hoverTip = { kind, label, content, left: r.left, top: r.bottom + 8, ready: false };
+		requestAnimationFrame(() => {
+			if (!hoverTip || !tipEl) return;
+			const w = tipEl.offsetWidth;
+			const h = tipEl.offsetHeight;
+			const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+			const below = r.bottom + 8;
+			const top = below + h > window.innerHeight - 8 ? Math.max(8, r.top - h - 8) : below;
+			hoverTip = { ...hoverTip, left, top, ready: true };
+		});
 	};
 	const showFusionTip = (e: Event, fused: string) => showTip(e, "code", "fuses to", fused);
 	const showConceptTip = (e: Event, label: string, text: string) => showTip(e, "text", label, text);
@@ -592,8 +603,10 @@
 	{#if hoverTip}
 		<div
 			class="pipeline-tip"
+			bind:this={tipEl}
 			style:left="{hoverTip.left}px"
 			style:top="{hoverTip.top}px"
+			style:visibility={hoverTip.ready ? "visible" : "hidden"}
 		>
 			<div class="pipeline-tip-label" class:concept={hoverTip.kind === "text"}>{hoverTip.label}</div>
 			{#if hoverTip.kind === "code"}
