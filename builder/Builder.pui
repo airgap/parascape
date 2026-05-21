@@ -1,0 +1,221 @@
+<!--
+  Parascape composer (deterministic) — a palette of components you stack
+  onto a canvas, edit props through manifest-driven controls, and see
+  rendered live (via the demos' live-compiler) alongside the generated
+  .pui source. Phase B of the site builder; an LLM prompt box plugs into
+  the same source -> render path next.
+-->
+<script lang="pts">
+	import { compileParascape, mountSvelte } from '../demos/live-compile';
+	import manifests from '../components/manifests.json';
+
+	type PropRow = { name: string; type: string; default: string | null; optional: boolean; bindable: boolean; kind: string };
+	type Manifest = { id: string; name: string; props: PropRow[] };
+	const M = manifests as Record<string, Manifest>;
+
+	// Curated palette of components that compose well as a vertical stack,
+	// with a sensible default text content where they take children.
+	type PaletteEntry = { id: string; content?: string };
+	const palette: PaletteEntry[] = [
+		{ id: 'header', content: 'Section title' },
+		{ id: 'box', content: 'Some text' },
+		{ id: 'container', content: 'Container body' },
+		{ id: 'alert', content: 'Alert message' },
+		{ id: 'button', content: 'Click me' },
+		{ id: 'badge', content: 'badge' },
+		{ id: 'status-indicator', content: 'Available' },
+		{ id: 'link', content: 'A link' },
+		{ id: 'progress-bar' },
+		{ id: 'spinner' },
+		{ id: 'divider' },
+		{ id: 'checkbox', content: 'Enable' },
+		{ id: 'toggle', content: 'On' },
+	];
+
+	type Block = { key: number; id: string; props: Record<string, string | boolean | number>; content: string };
+	let nextKey = 1;
+	signal blocks: Block[] = [];
+	signal selectedKey: number | null = null;
+
+	const labelOf = (id: string) => M[id]?.name ?? id;
+	derived selected = blocks.find((b) => b.key === selectedKey) ?? null;
+
+	// Which props are editable in the form: simple value props only.
+	const editableProps = (id: string): PropRow[] =>
+		(M[id]?.props ?? []).filter(
+			(p) => p.kind === 'value' && /^(string|number|boolean)$/.test(p.type.trim()) || isUnion(p),
+		);
+	const isUnion = (p: PropRow) => /^('[^']*'\s*\|\s*)+'[^']*'$/.test(p.type.trim()) || p.type.trim() === 'boolean';
+	const unionOptions = (type: string) =>
+		type.split('|').map((s) => s.trim().replace(/^'|'$/g, '')).filter(Boolean);
+	const takesContent = (id: string) => (M[id]?.props ?? []).some((p) => p.name === 'children');
+
+	function addBlock(entry: PaletteEntry) {
+		const b: Block = { key: nextKey++, id: entry.id, props: {}, content: entry.content ?? '' };
+		blocks = [...blocks, b];
+		selectedKey = b.key;
+	}
+	function removeBlock(key: number) {
+		blocks = blocks.filter((b) => b.key !== key);
+		if (selectedKey === key) selectedKey = null;
+	}
+	function move(key: number, dir: -1 | 1) {
+		const i = blocks.findIndex((b) => b.key === key);
+		const j = i + dir;
+		if (i < 0 || j < 0 || j >= blocks.length) return;
+		const next = blocks.slice();
+		[next[i], next[j]] = [next[j], next[i]];
+		blocks = next;
+	}
+	function setProp(key: number, name: string, value: string | boolean | number) {
+		blocks = blocks.map((b) => (b.key === key ? { ...b, props: { ...b.props, [name]: value } } : b));
+	}
+	function setContent(key: number, value: string) {
+		blocks = blocks.map((b) => (b.key === key ? { ...b, content: value } : b));
+	}
+
+	// --- codegen: blocks -> .pui source ---
+	function fmtAttr(name: string, value: string | boolean | number, p: PropRow | undefined): string {
+		if (value === '' || value === undefined) return '';
+		if (typeof value === 'boolean') return value ? `${name}` : '';
+		if (typeof value === 'number') return `${name}={${value}}`;
+		// string / union
+		const t = (p?.type ?? 'string').trim();
+		if (t === 'number') return `${name}={${value}}`;
+		return `${name}="${String(value).replace(/"/g, '&quot;')}"`;
+	}
+	function renderBlock(b: Block): string {
+		const m = M[b.id];
+		const name = m?.name ?? b.id;
+		const attrs = Object.entries(b.props)
+			.map(([k, v]) => fmtAttr(k, v, m?.props.find((p) => p.name === k)))
+			.filter(Boolean)
+			.join(' ');
+		const open = attrs ? `<${name} ${attrs}` : `<${name}`;
+		if (takesContent(b.id) && b.content) return `${open}>${b.content}</${name}>`;
+		return `${open} />`;
+	}
+	derived source {
+		if (!blocks.length) return '';
+		const used = [...new Set(blocks.map((b) => b.id))];
+		const imports = used.map((id) => `\timport ${M[id]?.name ?? id} from '@parascape-design/components/${id}';`).join('\n');
+		const body = blocks.map((b) => '\t' + renderBlock(b)).join('\n');
+		return `<script lang="pts">\n${imports}\n<\/script>\n\n<div class="stack">\n${body}\n</div>\n\n<style>\n\t.stack { display: flex; flex-direction: column; gap: 16px; padding: 20px; }\n</style>\n`;
+	}
+
+	// --- live render ---
+	signal renderTarget: HTMLDivElement | null = null;
+	signal error: string | null = null;
+	let teardown: (() => void) | null = null;
+	effect {
+		const src = source;
+		const target = renderTarget;
+		if (!target) return;
+		if (!src) {
+			teardown?.();
+			teardown = null;
+			target.innerHTML = '';
+			error = null;
+			return;
+		}
+		try {
+			const Component = compileParascape(src);
+			teardown?.();
+			teardown = mountSvelte(Component as never, target);
+			error = null;
+		} catch (e: unknown) {
+			error = (e as { message?: string })?.message ?? String(e);
+		}
+	}
+</script>
+
+<div class="builder">
+	<aside class="palette">
+		<h2>Components</h2>
+		{#each palette as entry (entry.id)}
+			<button class="pal-item" onclick={() => addBlock(entry)}>+ {labelOf(entry.id)}</button>
+		{/each}
+	</aside>
+
+	<section class="canvas">
+		<h2>Layout</h2>
+		{#if !blocks.length}
+			<p class="empty">Add components from the left to start composing.</p>
+		{/if}
+		{#each blocks as b (b.key)}
+			<div class="block" class:sel={b.key === selectedKey} onclick={() => (selectedKey = b.key)}>
+				<span class="block-name">{labelOf(b.id)}</span>
+				<span class="block-actions">
+					<button title="Up" onclick={(e) => { e.stopPropagation(); move(b.key, -1); }}>↑</button>
+					<button title="Down" onclick={(e) => { e.stopPropagation(); move(b.key, 1); }}>↓</button>
+					<button title="Remove" onclick={(e) => { e.stopPropagation(); removeBlock(b.key); }}>✕</button>
+				</span>
+			</div>
+		{/each}
+
+		{#if selected}
+			<div class="editor">
+				<h3>{labelOf(selected.id)} props</h3>
+				{#if takesContent(selected.id)}
+					<label class="field"><span>content</span>
+						<input value={selected.content} oninput={(e) => setContent(selected.key, (e.target as HTMLInputElement).value)} />
+					</label>
+				{/if}
+				{#each editableProps(selected.id) as p (p.name)}
+					<label class="field"><span>{p.name}</span>
+						{#if p.type.trim() === 'boolean'}
+							<input type="checkbox" checked={!!selected.props[p.name]} onchange={(e) => setProp(selected.key, p.name, (e.target as HTMLInputElement).checked)} />
+						{:else if /\|/.test(p.type)}
+							<select value={String(selected.props[p.name] ?? '')} onchange={(e) => setProp(selected.key, p.name, (e.target as HTMLSelectElement).value)}>
+								<option value="">(default)</option>
+								{#each unionOptions(p.type) as opt (opt)}<option value={opt}>{opt}</option>{/each}
+							</select>
+						{:else if p.type.trim() === 'number'}
+							<input type="number" value={String(selected.props[p.name] ?? '')} oninput={(e) => setProp(selected.key, p.name, Number((e.target as HTMLInputElement).value))} />
+						{:else}
+							<input value={String(selected.props[p.name] ?? '')} oninput={(e) => setProp(selected.key, p.name, (e.target as HTMLInputElement).value)} />
+						{/if}
+					</label>
+				{/each}
+			</div>
+		{/if}
+	</section>
+
+	<section class="output">
+		<h2>Preview</h2>
+		<div class="preview" bind:this={renderTarget}></div>
+		{#if error}<pre class="err">{error}</pre>{/if}
+		<h2>Generated .pui</h2>
+		<pre class="code">{source || '(empty)'}</pre>
+	</section>
+</div>
+
+<style>
+	:global(body) { margin: 0; }
+	.builder {
+		display: grid;
+		grid-template-columns: 200px 1fr 1fr;
+		gap: 1px;
+		height: 100vh;
+		background: #e5e7eb;
+		font: 13px/1.5 ui-sans-serif, system-ui, sans-serif;
+		color: #16191f;
+	}
+	.builder aside, .builder section { background: #fff; padding: 16px; overflow: auto; }
+	.builder h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #5f6b7a; margin: 0 0 12px; }
+	.builder h3 { font-size: 13px; margin: 18px 0 10px; }
+	.pal-item { display: block; width: 100%; text-align: left; padding: 8px 10px; margin-bottom: 4px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff; cursor: pointer; }
+	.pal-item:hover { background: #f0f4ff; border-color: #006ce0; }
+	.empty { color: #94a3b8; }
+	.block { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 4px; cursor: pointer; }
+	.block.sel { border-color: #006ce0; background: #f0f4ff; }
+	.block-name { font-weight: 600; }
+	.block-actions button { border: 0; background: transparent; cursor: pointer; padding: 2px 5px; color: #5f6b7a; }
+	.editor { margin-top: 8px; border-top: 1px solid #e5e7eb; padding-top: 8px; }
+	.field { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: 8px; margin-bottom: 8px; }
+	.field span { color: #5f6b7a; font-size: 12px; }
+	.field input[type=text], .field input:not([type]), .field select, .field input[type=number] { width: 100%; padding: 5px 8px; border: 1px solid #c6c6cd; border-radius: 6px; font: inherit; }
+	.preview { border: 1px dashed #c6c6cd; border-radius: 8px; min-height: 120px; margin-bottom: 16px; }
+	.err { background: #fee2e2; color: #7f1d1d; padding: 8px; border-radius: 6px; font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; }
+	.code { background: #0f141a; color: #e6edf3; padding: 14px; border-radius: 8px; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; overflow: auto; }
+</style>
