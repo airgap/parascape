@@ -235,14 +235,14 @@
 	{#if !toolsHide && has(tools)}<aside
 			class={cx(T.tools, !toolsOpen && T['drawer-closed'])}
 			aria-label={ariaLabels?.tools}
-			style={`flex: 0 0 ${toolsOpen ? toolsWidth : 60}px; inline-size: ${toolsOpen ? toolsWidth : 60}px; box-sizing: border-box; overflow: hidden; display: flex; justify-content: flex-end; transition: flex-basis ${DRAWER_MS}ms ease, inline-size ${DRAWER_MS}ms ease;`}
+			style={`flex: 0 0 ${toolsOpen ? toolsWidth : 60}px; inline-size: ${toolsOpen ? toolsWidth : 60}px; box-sizing: border-box; overflow: hidden; display: flex; justify-content: flex-end; transition: flex-basis ${DRAWER_MS}ms ease, inline-size ${DRAWER_MS}ms ease;${toolsOpen ? ' border-inline-start: 1px solid var(--color-border-divider-default, rgba(128, 128, 128, 0.35));' : ''}`}
 			>{#if toolsShown}<div style={`position: relative; box-sizing: border-box; inline-size: ${toolsWidth}px; block-size: 100%;`}><Button
 				class={T['tools-close']}
 				variant="icon"
 				iconName="angle-right"
 				formAction="none"
 				ariaLabel={ariaLabels?.toolsClose}
-				style="position: absolute; inset-inline-start: 4px; inset-block-start: 4px; z-index: 1;"
+				style="position: absolute; inset-inline-end: 12px; inset-block-start: 16px; z-index: 1;"
 				onClick={() => {
 					toolsOpen = false;
 					onToolsChange?.({ detail: { open: false } });
