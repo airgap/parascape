@@ -545,6 +545,9 @@
 		background: var(--bg-code, #f8fafc);
 		height: 420px;
 		border-bottom: 1px solid var(--border, #e5e7eb);
+		/* Clip the scroll-anchored import chip to the editor box so it
+		   can't ride up over the cell header when the editor scrolls. */
+		overflow: hidden;
 	}
 	.editor-wrap > pre.code,
 	.editor-wrap > .editor-input {
