@@ -19,6 +19,7 @@ import Tags_cs from "./07-tags.cloudscape";
 import Timer_cs from "./08-timer.cloudscape";
 import Cart_cs from "./09-cart.cloudscape";
 import Pipeline_cs from "./10-pipeline.cloudscape";
+import Async_cs from "./11-async.cloudscape";
 
 // Parascape sides — Svelte components.
 import Form_ps from "./01-form.parascape.pui";
@@ -31,6 +32,7 @@ import Tags_ps from "./07-tags.parascape.pui";
 import Timer_ps from "./08-timer.parascape.pui";
 import Cart_ps from "./09-cart.parascape.pui";
 import Pipeline_ps from "./10-pipeline.parascape.pui";
+import Async_ps from "./11-async.parascape.pui";
 
 // Raw source for the code panes + LOC stats.
 import Form_cs_src from "./01-form.cloudscape.tsx?raw";
@@ -43,6 +45,7 @@ import Tags_cs_src from "./07-tags.cloudscape.tsx?raw";
 import Timer_cs_src from "./08-timer.cloudscape.tsx?raw";
 import Cart_cs_src from "./09-cart.cloudscape.tsx?raw";
 import Pipeline_cs_src from "./10-pipeline.cloudscape.tsx?raw";
+import Async_cs_src from "./11-async.cloudscape.tsx?raw";
 
 import Form_ps_src from "./01-form.parascape.pui?raw";
 import Table_ps_src from "./02-table.parascape.pui?raw";
@@ -54,6 +57,7 @@ import Tags_ps_src from "./07-tags.parascape.pui?raw";
 import Timer_ps_src from "./08-timer.parascape.pui?raw";
 import Cart_ps_src from "./09-cart.parascape.pui?raw";
 import Pipeline_ps_src from "./10-pipeline.parascape.pui?raw";
+import Async_ps_src from "./11-async.parascape.pui?raw";
 
 export type Scenario = {
   id: string;
@@ -155,5 +159,14 @@ export const scenarios: Scenario[] = [
     parascape: Pipeline_ps,
     csSrc: Pipeline_cs_src,
     psSrc: Pipeline_ps_src,
+  },
+  {
+    id: "11-async",
+    title: "Async block",
+    subtitle: "async { … } vs the (async () => { … })() IIFE boilerplate",
+    cloudscape: Async_cs,
+    parascape: Async_ps,
+    csSrc: Async_cs_src,
+    psSrc: Async_ps_src,
   },
 ];

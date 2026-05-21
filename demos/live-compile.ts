@@ -26,6 +26,7 @@ import { lowerMatch } from "./lower-match";
 import { lowerLeadingDot } from "./lower-leading-dot";
 import { lowerPipeline } from "./lower-pipeline";
 import { lowerFusion } from "./lower-fusion";
+import { lowerAsyncBlock } from "./lower-async-block";
 // `lowerInlineSnippets` lives in /raid/parabun/packages/para-preprocess
 // (committed but unpublished); use the local Parascape spike's
 // markup-pass with the same input/output contract until the next
@@ -70,16 +71,20 @@ function lowerPuiSource(src: string): string {
     .replace(/(<script[^>]*>)([\s\S]*?)(<\/script>)/g, (_full, open: string, body: string, close: string) => {
       const langMatch = /lang=["']([^"']+)["']/.exec(open);
       const attributes = langMatch ? { lang: langMatch[1] } : {};
+      // async-block desugar runs FIRST — `async { … }` →
+      // `(async () => { … })()` — so its body flows through the rest
+      // of the chain (signal/match/pipeline/fusion) as ordinary code.
+      const asyncLowered = lowerAsyncBlock(body);
       // para-preprocess script handler — signal/derived/effect/etc.
       const lowered =
         (
           paraScriptPreprocess.script?.({
-            content: body,
+            content: asyncLowered,
             attributes,
             filename: "live.pui",
             markup: afterMarkup,
           } as never) as { code?: string } | undefined
-        )?.code ?? body;
+        )?.code ?? asyncLowered;
       // The published @lyku/para-preprocess only STUBS `match …` (turns
       // it into a type-only placeholder for the TS checker). The actual
       // runtime lowering happens in the parabun zig transpiler, which
@@ -354,9 +359,11 @@ function lowerImports(code: string): string {
  * not speed.
  */
 export function compileCloudscape(src: string): ComponentType<Record<string, unknown>> {
-  // Fuse BEFORE sucrase strips types — fusion only touches method
-  // chains and is a syntactic no-op on everything else.
-  const fused = lowerFusion(src);
+  // async-block desugar + fusion BEFORE sucrase strips types — both
+  // are syntactic no-ops on everything they don't match, so plain
+  // TSX is unaffected; a React snippet that uses `async { … }` or a
+  // method chain gets the same treatment as the Para side.
+  const fused = lowerFusion(lowerAsyncBlock(src));
   const { code } = transform(fused, {
     transforms: ["typescript", "jsx"],
     jsxRuntime: "automatic",

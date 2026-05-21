@@ -5,6 +5,7 @@ import lowerMatchPreprocess from "./demos/lower-match.js";
 import lowerLeadingDotPreprocess from "./demos/lower-leading-dot.js";
 import lowerPipelinePreprocess from "./demos/lower-pipeline.js";
 import lowerFusionPreprocess from "./demos/lower-fusion.js";
+import lowerAsyncBlockPreprocess from "./demos/lower-async-block.js";
 
 // @lyku/para-preprocess returns `dependencies: [filename]` on every
 // script-tag pass. vite-plugin-svelte's preprocess plugin records the
@@ -55,6 +56,10 @@ export default {
   // type-stub but needs runtime lowering for browser / live-compile.
   extensions: [".svelte", ".pui"],
   preprocess: [
+    // async-block desugar runs FIRST so its body (which may contain
+    // pipelines / chains / leading-dots) flows through every later
+    // pass as ordinary code.
+    lowerAsyncBlockPreprocess(),
     lowerPipelinePreprocess(),
     lowerLeadingDotPreprocess(),
     // Loop fusion runs AFTER the operator desugars so it sees
