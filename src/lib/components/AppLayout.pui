@@ -138,6 +138,11 @@
 	// hides as the width animates rather than reflowing. `*Shown` keeps
 	// the content mounted through the close transition, then drops it.
 	const DRAWER_MS = 200;
+	// Closed-drawer triggers are Cloudscape's circular layout-toggle
+	// buttons (36px, filled bg) — not bare icon buttons. Match the bg
+	// token + circular shape on the nav/tools toggles.
+	const TRIGGER_STYLE =
+		'background: var(--color-background-layout-toggle-default-2hgjdu, #424650); color: var(--color-text-layout-toggle-2zb9pi, #fbfbfb); border: 0; border-radius: 50%; inline-size: 36px; block-size: 36px;';
 	let navShown = $state(navigationOpen);
 	let toolsShown = $state(toolsOpen);
 	let navHideTimer: ReturnType<typeof setTimeout> | undefined;
@@ -195,7 +200,7 @@
 			iconName="menu"
 			formAction="none"
 			ariaLabel={ariaLabels?.navigationToggle}
-			style={!navShown ? 'position: absolute; inset-inline-start: 16px; inset-block-start: 12px; z-index: 1;' : 'display: none;'}
+			style={!navShown ? `position: absolute; inset-inline-start: 16px; inset-block-start: 12px; z-index: 1; ${TRIGGER_STYLE}` : 'display: none;'}
 			onClick={() => {
 				const next = !navigationOpen;
 				navigationOpen = next;
@@ -225,7 +230,7 @@
 			iconName="status-info"
 			formAction="none"
 			ariaLabel={ariaLabels?.toolsToggle}
-			style={!toolsShown ? 'position: absolute; inset-inline-end: 16px; inset-block-start: 12px; z-index: 1;' : 'display: none;'}
+			style={!toolsShown ? `position: absolute; inset-inline-end: 16px; inset-block-start: 12px; z-index: 1; ${TRIGGER_STYLE}` : 'display: none;'}
 			onClick={() => {
 				const next = !toolsOpen;
 				toolsOpen = next;
