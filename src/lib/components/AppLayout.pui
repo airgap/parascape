@@ -142,7 +142,7 @@
 	// buttons (36px, filled bg) — not bare icon buttons. Match the bg
 	// token + circular shape on the nav/tools toggles.
 	const TRIGGER_STYLE =
-		'background: var(--color-background-layout-toggle-default-2hgjdu, #424650); color: var(--color-text-layout-toggle-2zb9pi, #fbfbfb); border: 0; border-radius: 50%; inline-size: 36px; block-size: 36px;';
+		'background: var(--color-background-layout-toggle-default-2hgjdu, #424650); color: var(--color-text-layout-toggle-2zb9pi, #fbfbfb); border: 0; border-radius: 50%; inline-size: 36px; block-size: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center;';
 	let navShown = $state(navigationOpen);
 	let toolsShown = $state(toolsOpen);
 	let navHideTimer: ReturnType<typeof setTimeout> | undefined;
