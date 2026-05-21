@@ -142,7 +142,7 @@
 	// buttons (36px, filled bg) — not bare icon buttons. Match the bg
 	// token + circular shape on the nav/tools toggles.
 	const TRIGGER_STYLE =
-		'background: var(--color-background-layout-toggle-default-2hgjdu, #424650); color: var(--color-text-layout-toggle-2zb9pi, #fbfbfb); border: 0; border-radius: 50%; inline-size: 36px; block-size: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center;';
+		'background: var(--color-background-layout-toggle-default-2hgjdu, #424650); color: var(--color-text-layout-toggle-2zb9pi, #fbfbfb); border: 0; border-radius: 50%; inline-size: 36px; block-size: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; transition: background 0.1s ease;';
 	let navShown = $state(navigationOpen);
 	let toolsShown = $state(toolsOpen);
 	let navHideTimer: ReturnType<typeof setTimeout> | undefined;
@@ -195,7 +195,7 @@
 			/>{#if snip(navigation)}{@render (navigation as import('svelte').Snippet)()}{:else}{navigation}{/if}</div>{/if}</aside
 		>{/if}
 	{#if !navigationHide}<Button
-			class={T['navigation-toggle']}
+			class={cx(T['navigation-toggle'], 'app-layout-trigger')}
 			variant="icon"
 			iconName="menu"
 			formAction="none"
@@ -225,7 +225,7 @@
 			>{/if}
 	</main>
 	{#if !toolsHide}<Button
-			class={T['tools-toggle']}
+			class={cx(T['tools-toggle'], 'app-layout-trigger')}
 			variant="icon"
 			iconName="status-info"
 			formAction="none"
@@ -256,3 +256,16 @@
 		>{/if}
 	{#if has(splitPanel)}{#if snip(splitPanel)}{@render (splitPanel as import('svelte').Snippet)()}{:else}{splitPanel}{/if}{/if}
 </div>
+
+<style>
+	/* Hover/active states for the circular drawer triggers. The base
+	   appearance is set inline (TRIGGER_STYLE), so the hover bg needs
+	   !important to override it; the inline `transition` animates it.
+	   :global because the class lands on the child Button's element. */
+	:global(.app-layout-trigger:hover) {
+		background: var(--color-background-layout-toggle-hover-0cpm7g, #656871) !important;
+	}
+	:global(.app-layout-trigger:active) {
+		background: var(--color-background-layout-toggle-active-ap91vm, #424650) !important;
+	}
+</style>
