@@ -28,7 +28,7 @@
 	type Option = { value: string; label?: string; description?: string; disabled?: boolean };
 	let {
 		options = [],
-		selectedOption = undefined,
+		selectedOption = $bindable(undefined),
 		placeholder = undefined,
 		disabled = false,
 		readOnly = false,

@@ -44,7 +44,7 @@
 	};
 	let {
 		options = [],
-		selectedId = undefined,
+		selectedId = $bindable(undefined),
 		label = undefined,
 		ariaLabelledby = undefined,
 		onChange = undefined,
@@ -74,6 +74,7 @@
 	};
 	function onClick(o: Option) {
 		if (o.disabled) return;
+		selectedId = o.id;
 		onChange?.({ detail: { selectedId: o.id } });
 	}
 </script>

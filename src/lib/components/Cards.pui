@@ -82,7 +82,7 @@
 		ariaLabels = undefined,
 		variant = 'container',
 		selectionType = undefined,
-		selectedItems = [],
+		selectedItems = $bindable([]),
 		onSelectionChange = undefined,
 		trackBy = undefined,
 		class: extraClass = undefined,
@@ -188,7 +188,6 @@
 		return (selectedItems || []).some((s, i) => itemKey(s, i) === k);
 	};
 	const toggleSelection = (item: any, index: number) => {
-		if (!onSelectionChange) return;
 		const k = itemKey(item, index);
 		const prev = selectedItems || [];
 		const already = prev.some((s, i) => itemKey(s, i) === k);
@@ -200,7 +199,10 @@
 				: already
 					? prev.filter((s, i) => itemKey(s, i) !== k)
 					: [...prev, item];
-		onSelectionChange({ detail: { selectedItems: next } });
+		// Self-assign so `bind:selectedItems` reflects the toggle; still
+		// fire onSelectionChange for the controlled Cloudscape API.
+		selectedItems = next;
+		onSelectionChange?.({ detail: { selectedItems: next } });
 	};
 </script>
 

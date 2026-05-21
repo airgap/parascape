@@ -27,7 +27,7 @@
 		disabled = false,
 		wrapText = true,
 		ariaLabel = undefined,
-		pressed = false,
+		pressed = $bindable(false),
 		onChange = undefined,
 		class: extraClass = undefined,
 		...rest
@@ -73,6 +73,10 @@
 	{disabled}
 	{wrapText}
 	{ariaLabel}
-	onClick={() => onChange?.(!pressed)}
+	onClick={() => {
+		const next = !pressed;
+		pressed = next;
+		onChange?.(next);
+	}}
 	{...rest}
 >{#if typeof children === 'string'}{children}{:else}{@render children?.()}{/if}</Button>

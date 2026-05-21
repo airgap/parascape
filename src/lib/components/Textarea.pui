@@ -12,7 +12,7 @@
 	import '../cloudscape/textarea.scoped.css';
 
 	let {
-		value = '',
+		value = $bindable(''),
 		rows = undefined,
 		placeholder = undefined,
 		name = undefined,
@@ -143,8 +143,11 @@
 		aria-invalid={invalid ? 'true' : undefined}
 		{value}
 		autofocus={autoFocus ? true : undefined}
-		oninput={(e: Event) =>
-			onChange?.(ce({ value: (e.currentTarget as HTMLTextAreaElement).value }))}
+		oninput={(e: Event) => {
+			const v = (e.currentTarget as HTMLTextAreaElement).value;
+			value = v;
+			onChange?.(ce({ value: v }));
+		}}
 		onfocus={() => onFocus?.(ce(undefined))}
 		onblur={() => onBlur?.(ce(undefined))}
 		onkeydown={(e: KeyboardEvent) => onKeyDown?.(ce(kbd(e)))}

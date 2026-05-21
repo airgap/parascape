@@ -33,7 +33,7 @@
 	import '../cloudscape/text-filter.scoped.css';
 
 	let {
-		filteringText = '',
+		filteringText = $bindable(''),
 		filteringPlaceholder = undefined,
 		filteringAriaLabel = undefined,
 		filteringClearAriaLabel = 'Clear',
@@ -85,6 +85,7 @@
 	// (faithful observable: same { filteringText } detail, on a delay).
 	let __t: ReturnType<typeof setTimeout> | undefined;
 	function handle(value: string) {
+		filteringText = value;
 		onChange?.(ce({ filteringText: value }));
 		if (__t) clearTimeout(__t);
 		__t = setTimeout(() => onDelayedChange?.(ce({ filteringText: value })), 200);

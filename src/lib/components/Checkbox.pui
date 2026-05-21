@@ -26,7 +26,7 @@
 	let {
 		controlId = undefined,
 		name = undefined,
-		checked = false,
+		checked = $bindable(false),
 		disabled = false,
 		readOnly = false,
 		ariaRequired = undefined,
@@ -74,11 +74,9 @@
 
 	function handleClick() {
 		if (disabled || readOnly) return;
-		onChange?.(
-			indeterminate
-				? { checked: true, indeterminate: false }
-				: { checked: !checked, indeterminate: false },
-		);
+		const next = indeterminate ? true : !checked;
+		checked = next;
+		onChange?.({ checked: next, indeterminate: false });
 	}
 </script>
 

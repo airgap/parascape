@@ -28,7 +28,7 @@
 	import '../cloudscape/file-upload.scoped.css';
 
 	let {
-		value = [],
+		value = $bindable([]),
 		multiple = false,
 		accept = undefined,
 		showFileLastModified = false,
@@ -99,7 +99,10 @@
 		{ariaLabel}
 		{ariaDescribedby}
 		{controlId}
-		onChange={(e: { detail: { value: File[] } }) => onChange?.(e)}
+		onChange={(e: { detail: { value: File[] } }) => {
+			value = e.detail.value;
+			onChange?.(e);
+		}}
 	>{uploadText}</FileInput>
 	{#if has(errorText) || has(warningText) || has(constraintText)}
 		<div class={S.hints}>

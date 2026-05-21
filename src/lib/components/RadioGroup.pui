@@ -18,7 +18,7 @@
 	import '../cloudscape/radio-group.scoped.css';
 
 	let {
-		value = undefined,
+		value = $bindable(undefined),
 		items = [],
 		name = undefined,
 		direction = 'vertical',
@@ -87,7 +87,10 @@
 			disabled={item.disabled}
 			{readOnly}
 			description={item.description}
-			onChange={() => onChange?.({ detail: { value: item.value } })}
+			onChange={() => {
+				value = item.value;
+				onChange?.({ detail: { value: item.value } });
+			}}
 		>{item.label}</RadioButton>
 	{/each}
 </div>

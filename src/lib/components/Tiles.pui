@@ -23,7 +23,7 @@
 	import '../cloudscape/tiles.scoped.css';
 
 	let {
-		value = undefined,
+		value = $bindable(undefined),
 		items = [],
 		name = undefined,
 		columns = undefined,
@@ -117,7 +117,10 @@
 				)}
 				onclick={() => {
 					if (item.disabled || readOnly) return;
-					if (value !== item.value) onChange?.({ value: item.value });
+					if (value !== item.value) {
+						value = item.value;
+						onChange?.({ value: item.value });
+					}
 				}}
 			>
 				<div class={cx(S.control, !item.image && S['no-image'])}>

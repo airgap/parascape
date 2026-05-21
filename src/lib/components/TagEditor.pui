@@ -22,7 +22,7 @@
 
 	type Tag = { key: string; value: string; existing?: boolean; markedForRemoval?: boolean };
 	let {
-		tags = [],
+		tags = $bindable([]),
 		i18nStrings = undefined,
 		loading = false,
 		tagLimit = 50,

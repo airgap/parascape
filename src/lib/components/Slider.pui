@@ -24,7 +24,7 @@
 	import '../cloudscape/slider.scoped.css';
 
 	let {
-		value = 0,
+		value = $bindable(0),
 		min = 0,
 		max = 100,
 		step = undefined,
@@ -100,8 +100,11 @@
 				tabindex="0"
 				aria-label={ariaLabel}
 				aria-valuenow={clamped}
-				oninput={(e: Event) =>
-					onChange?.({ value: Number((e.currentTarget as HTMLInputElement).value) })}
+				oninput={(e: Event) => {
+					const v = Number((e.currentTarget as HTMLInputElement).value);
+					value = v;
+					onChange?.({ value: v });
+				}}
 			/>
 		</div>
 		<!-- SliderLabels (slider-labels.js), no-referenceValues path:

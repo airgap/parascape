@@ -28,7 +28,7 @@
 	import '../cloudscape/date-picker.scoped.css';
 
 	let {
-		value = '',
+		value = $bindable(''),
 		placeholder = 'YYYY/MM/DD',
 		disabled = false,
 		readOnly = false,
@@ -115,7 +115,10 @@
 				{ariaRequired}
 				{autoFocus}
 				{granularity}
-				{onChange}
+				onChange={(e) => {
+					value = e.detail.value;
+					onChange?.(e);
+				}}
 				{onBlur}
 				{onFocus}
 			/>

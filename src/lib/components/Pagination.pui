@@ -25,7 +25,7 @@
 	import '../cloudscape/pagination.scoped.css';
 
 	let {
-		currentPageIndex = 1,
+		currentPageIndex = $bindable(1),
 		pagesCount = 1,
 		openEnd = false,
 		disabled = false,
@@ -94,6 +94,7 @@
 
 	function go(i: number) {
 		if (disabled) return;
+		currentPageIndex = i;
 		onChange?.({ currentPageIndex: i });
 	}
 </script>

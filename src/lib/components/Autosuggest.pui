@@ -22,7 +22,7 @@
 
 	type Option = { value: string; label?: string; description?: string; disabled?: boolean };
 	let {
-		value = '',
+		value = $bindable(''),
 		options = [],
 		filteringType = 'auto',
 		statusType = 'finished',
@@ -105,7 +105,10 @@
 		{disableBrowserAutocorrect}
 		autoComplete={false}
 		nativeAttributes={__comboAttrs}
-		{onChange}
+		onChange={(e) => {
+			value = e.detail.value;
+			onChange?.(e);
+		}}
 		{onBlur}
 		{onFocus}
 		{onKeyDown}

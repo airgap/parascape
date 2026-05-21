@@ -36,7 +36,7 @@
 	import '../cloudscape/prompt-input.test-classes.scoped.css';
 
 	let {
-		value = '',
+		value = $bindable(''),
 		placeholder = undefined,
 		disabled = false,
 		readOnly = false,
@@ -113,6 +113,7 @@
 	const placeholderVisible = $derived(!value && has(placeholder));
 	const handleInput = (e: Event) => {
 		const v = (e.target as HTMLTextAreaElement).value;
+		value = v;
 		onChange?.({ detail: { value: v } });
 	};
 	const handleKeyDown = (e: KeyboardEvent) => {

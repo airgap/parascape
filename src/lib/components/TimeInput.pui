@@ -14,7 +14,7 @@
 	import '../cloudscape/time-input.scoped.css';
 
 	let {
-		value = '',
+		value = $bindable(''),
 		format = 'hh:mm:ss',
 		use24Hour = true,
 		autoComplete = true,
@@ -58,6 +58,9 @@
 	{controlId}
 	{disableBrowserAutocorrect}
 	{autoComplete}
-	onChange={(e) => onChange?.({ value: e.detail.value })}
+	onChange={(e) => {
+		value = e.detail.value;
+		onChange?.({ value: e.detail.value });
+	}}
 	{...rest}
 />

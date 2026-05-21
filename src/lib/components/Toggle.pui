@@ -21,7 +21,7 @@
 	let {
 		controlId = undefined,
 		name = undefined,
-		checked = false,
+		checked = $bindable(false),
 		disabled = false,
 		readOnly = false,
 		description = undefined,
@@ -67,7 +67,9 @@
 
 	function handleClick() {
 		if (disabled || readOnly) return;
-		onChange?.({ detail: { checked: !checked } });
+		const next = !checked;
+		checked = next;
+		onChange?.({ detail: { checked: next } });
 	}
 </script>
 

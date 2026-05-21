@@ -18,7 +18,7 @@
 	import '../cloudscape/date-input.scoped.css';
 
 	let {
-		value = '',
+		value = $bindable(''),
 		placeholder = 'YYYY/MM/DD',
 		disabled = false,
 		readOnly = false,
@@ -55,6 +55,9 @@
 	{controlId}
 	{disableBrowserAutocorrect}
 	autoComplete={false}
-	onChange={(e) => onChange?.({ value: e.detail.value })}
+	onChange={(e) => {
+		value = e.detail.value;
+		onChange?.({ value: e.detail.value });
+	}}
 	{...rest}
 />

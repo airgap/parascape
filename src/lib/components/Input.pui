@@ -31,7 +31,7 @@
 	import '../cloudscape/input.scoped.css';
 
 	let {
-		value = '',
+		value = $bindable(''),
 		type = 'text',
 		autoComplete = true,
 		disabled = false,
@@ -141,6 +141,9 @@
 
 	// internal.js handleChange → fireNonCancelableEvent(onChange,{value})
 	function handleChange(v: string) {
+		// Self-assign so `bind:value` reflects user input; still fire
+		// onChange so the controlled Cloudscape API keeps working.
+		value = v;
 		onChange?.(ce({ value: v }));
 	}
 	// nativeAttributes/nativeInputAttributes className is concatenated
