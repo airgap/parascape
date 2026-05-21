@@ -44,7 +44,7 @@
 
 	let {
 		tabs = [],
-		activeTabId: controlledTabId = undefined,
+		activeTabId = $bindable(undefined),
 		variant = 'default',
 		disableContentPaddings = false,
 		fitHeight = false,
@@ -69,15 +69,18 @@
 	const snip = (v: unknown) => typeof v === 'function';
 
 	const firstEnabled = $derived(tabs.find((t) => !t.disabled)?.id ?? tabs[0]?.id);
-	let uncontrolled = $state<string | undefined>(undefined);
-	derived activeTabId = controlledTabId ?? uncontrolled ?? firstEnabled;
+	// Effective selection: the bindable prop when set, else the first
+	// enabled tab (Cloudscape's uncontrolled default).
+	derived effectiveTabId = activeTabId ?? firstEnabled;
 
 	function select(t: Tab) {
 		if (t.disabled) return;
-		if (controlledTabId === undefined) uncontrolled = t.id;
+		// Self-assign so `bind:activeTabId` reflects the selection; still
+		// fire onChange for the controlled Cloudscape API.
+		activeTabId = t.id;
 		onChange?.({ activeTabId: t.id });
 	}
-	const isActive = (t: Tab) => activeTabId === t.id && !t.disabled;
+	const isActive = (t: Tab) => effectiveTabId === t.id && !t.disabled;
 </script>
 
 <div
