@@ -58,10 +58,24 @@
 
 	const shikiLang = side === "cs" ? "tsx" : "pui";
 
-	// Gutter line numbers — one per displayed source line. Joined with
-	// newlines into a single <pre> so they line up with the code rows
-	// (same font + line-height); the gutter scrolls via -scrollY.
-	derived lineNumbersText = Array.from({ length: source.split("\n").length }, (_, i) => i + 1).join("\n");
+	// Gutter line numbers — one per displayed row, joined with newlines
+	// so they line up with the code rows (same font + line-height);
+	// the gutter scrolls via -scrollY. When imports are folded, the
+	// placeholder occupies ONE row in place of N original lines, so the
+	// numbering jumps past the hidden lines: rows up to and including the
+	// placeholder count normally (the placeholder shows the first folded
+	// line's number), and rows after resume at their ORIGINAL numbers.
+	derived lineNumbersText {
+		const displayed = source.split("\n").length;
+		if (!foldedImports || !foldLocation) {
+			return Array.from({ length: displayed }, (_, i) => i + 1).join("\n");
+		}
+		const a = foldLocation.line;
+		const hidden = foldedImports.text.split("\n").length;
+		const out: number[] = [];
+		for (let i = 0; i < displayed; i++) out.push(i <= a ? i + 1 : i + hidden);
+		return out.join("\n");
+	}
 
 	// Single reconcile effect: tracks scenario switches (initialSource)
 	// and the shared fold state (collapsed), and untracks everything it
