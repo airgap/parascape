@@ -30,6 +30,7 @@
   Composes parity Button✅.
 -->
 <script lang="pts">
+	import { onDestroy } from 'svelte';
 	import Button from './Button.pui';
 	import styles from '../cloudscape/app-layout.styles.js';
 	import testClasses from '../cloudscape/app-layout.test-classes.js';
@@ -130,6 +131,33 @@
 	const GUTTER = 'var(--space-layout-content-horizontal-buc0zz, 24px)';
 	const padStart = $derived(!navigationHide && navigationOpen ? GUTTER : '0px');
 	const padEnd = $derived(!toolsHide && toolsOpen ? GUTTER : '0px');
+
+	// Drawer slide animation. The aside's flex-basis transitions between
+	// the open width and the 60px rail; the panel content is kept in a
+	// fixed-width wrapper (clipped by overflow:hidden) so it reveals/
+	// hides as the width animates rather than reflowing. `*Shown` keeps
+	// the content mounted through the close transition, then drops it.
+	const DRAWER_MS = 200;
+	let navShown = $state(navigationOpen);
+	let toolsShown = $state(toolsOpen);
+	let navHideTimer: ReturnType<typeof setTimeout> | undefined;
+	let toolsHideTimer: ReturnType<typeof setTimeout> | undefined;
+	$effect(() => {
+		const open = navigationOpen;
+		clearTimeout(navHideTimer);
+		if (open) navShown = true;
+		else navHideTimer = setTimeout(() => (navShown = false), DRAWER_MS);
+	});
+	$effect(() => {
+		const open = toolsOpen;
+		clearTimeout(toolsHideTimer);
+		if (open) toolsShown = true;
+		else toolsHideTimer = setTimeout(() => (toolsShown = false), DRAWER_MS);
+	});
+	onDestroy(() => {
+		clearTimeout(navHideTimer);
+		clearTimeout(toolsHideTimer);
+	});
 </script>
 
 <!--
@@ -147,10 +175,8 @@
 	{#if !navigationHide && has(navigation)}<aside
 			class={cx(T.navigation, !navigationOpen && T['drawer-closed'])}
 			aria-label={ariaLabels?.navigation}
-			style={navigationOpen
-				? `inline-size: ${navigationWidth}px; flex: 0 0 ${navigationWidth}px; position: relative; box-sizing: border-box;`
-				: 'inline-size: 60px; flex: 0 0 60px; box-sizing: border-box;'}
-			>{#if navigationOpen}<Button
+			style={`flex: 0 0 ${navigationOpen ? navigationWidth : 60}px; inline-size: ${navigationOpen ? navigationWidth : 60}px; position: relative; box-sizing: border-box; overflow: hidden; transition: flex-basis ${DRAWER_MS}ms ease, inline-size ${DRAWER_MS}ms ease;`}
+			>{#if navShown}<div style={`position: relative; box-sizing: border-box; inline-size: ${navigationWidth}px; block-size: 100%;`}><Button
 				class={T['navigation-close']}
 				variant="icon"
 				iconName="angle-left"
@@ -161,7 +187,7 @@
 					navigationOpen = false;
 					onNavigationChange?.({ detail: { open: false } });
 				}}
-			/>{#if snip(navigation)}{@render (navigation as import('svelte').Snippet)()}{:else}{navigation}{/if}{/if}</aside
+			/>{#if snip(navigation)}{@render (navigation as import('svelte').Snippet)()}{:else}{navigation}{/if}</div>{/if}</aside
 		>{/if}
 	{#if !navigationHide}<Button
 			class={T['navigation-toggle']}
@@ -169,7 +195,7 @@
 			iconName="menu"
 			formAction="none"
 			ariaLabel={ariaLabels?.navigationToggle}
-			style={navigationOpen ? 'display: none;' : 'position: absolute; inset-inline-start: 16px; inset-block-start: 12px; z-index: 1;'}
+			style={!navShown ? 'position: absolute; inset-inline-start: 16px; inset-block-start: 12px; z-index: 1;' : 'display: none;'}
 			onClick={() => {
 				const next = !navigationOpen;
 				navigationOpen = next;
@@ -199,7 +225,7 @@
 			iconName="status-info"
 			formAction="none"
 			ariaLabel={ariaLabels?.toolsToggle}
-			style={toolsOpen ? 'display: none;' : 'position: absolute; inset-inline-end: 16px; inset-block-start: 12px; z-index: 1;'}
+			style={!toolsShown ? 'position: absolute; inset-inline-end: 16px; inset-block-start: 12px; z-index: 1;' : 'display: none;'}
 			onClick={() => {
 				const next = !toolsOpen;
 				toolsOpen = next;
@@ -209,20 +235,19 @@
 	{#if !toolsHide && has(tools)}<aside
 			class={cx(T.tools, !toolsOpen && T['drawer-closed'])}
 			aria-label={ariaLabels?.tools}
-			style={toolsOpen
-				? `inline-size: ${toolsWidth}px; flex: 0 0 ${toolsWidth}px; box-sizing: border-box;`
-				: 'inline-size: 60px; flex: 0 0 60px; box-sizing: border-box;'}
-			>{#if toolsOpen}<Button
+			style={`flex: 0 0 ${toolsOpen ? toolsWidth : 60}px; inline-size: ${toolsOpen ? toolsWidth : 60}px; box-sizing: border-box; overflow: hidden; display: flex; justify-content: flex-end; transition: flex-basis ${DRAWER_MS}ms ease, inline-size ${DRAWER_MS}ms ease;`}
+			>{#if toolsShown}<div style={`position: relative; box-sizing: border-box; inline-size: ${toolsWidth}px; block-size: 100%;`}><Button
 				class={T['tools-close']}
 				variant="icon"
-				iconName="close"
+				iconName="angle-right"
 				formAction="none"
 				ariaLabel={ariaLabels?.toolsClose}
+				style="position: absolute; inset-inline-start: 4px; inset-block-start: 4px; z-index: 1;"
 				onClick={() => {
 					toolsOpen = false;
 					onToolsChange?.({ detail: { open: false } });
 				}}
-			/>{#if snip(tools)}{@render (tools as import('svelte').Snippet)()}{:else}{tools}{/if}{/if}</aside
+			/>{#if snip(tools)}{@render (tools as import('svelte').Snippet)()}{:else}{tools}{/if}</div>{/if}</aside
 		>{/if}
 	{#if has(splitPanel)}{#if snip(splitPanel)}{@render (splitPanel as import('svelte').Snippet)()}{:else}{splitPanel}{/if}{/if}
 </div>
