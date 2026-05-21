@@ -9,21 +9,22 @@
 
 	signal raw = 'design, Engineering,  research , design, ops, ';
 
+	// Free, named transforms. `splitList` and `unique` have no
+	// `.method()` form, so they can't join a `.`-chain — `|>` slots
+	// them inline between the method stages. Drop the operator and the
+	// chain inverts to read inside-out:
+	//   unique(splitList(raw).map(clean).filter(.length > 0)).sort()
+	// — `unique` is written first but runs fourth. `|>` keeps reading
+	// order == execution order.
+	const splitList = (s: string) => s.split(',');
+	const clean = (s: string) => s.trim().toLowerCase();
 	const unique = <T>(xs: T[]) => Array.from(new Set(xs));
 
-	// Comma-separated text → trimmed, lowercased, deduped, sorted
-	// tag list. Each step is one stage of the pipeline, so the
-	// reading order matches the operational order. Leading-dot
-	// lambdas (`.trim()`, `.length > 0`) are the per-item callbacks
-	// and `|>` composes the stages without naming intermediates —
-	// the React equivalent has to hoist a `useMemo` and either chain
-	// inside it or invent a name for every intermediate array.
 	derived tags =
 		raw
-		|> .split(',')
-		|> .map(.trim())
+		|> splitList
+		|> .map(clean)
 		|> .filter(.length > 0)
-		|> .map(.toLowerCase())
 		|> unique
 		|> .sort();
 </script>

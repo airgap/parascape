@@ -301,38 +301,262 @@ function findProducerStart(src, producerEnd) {
   return 0;
 }
 
-// Render the per-stage body for a TRANSFORM step. The synthesised
-// loop iterates with `__src` / `__x` / `__i`, so callbacks get the
-// usual `(value, index, source)` triple.
-function transformBody(stage) {
+// Temp-variable name sets for the synthesised loop. The default is
+// `__`-prefixed (hygienic) so the names can't collide with user
+// identifiers in compiled output. The `readable` set swaps in bare
+// names for display contexts (demos / tooltips) where legibility beats
+// collision-safety — do NOT use it for code that actually runs against
+// arbitrary user source.
+const HYGIENIC_NAMES = { src: "__src", out: "__out", i: "__i", x: "__x", acc: "__acc", start: "__start" };
+const READABLE_NAMES = { src: "arr", out: "out", i: "i", x: "x", acc: "acc", start: "start" };
+
+// ── Callback inlining ───────────────────────────────────────────────
+// A stage callback is either a named reference (`clean`) — which has to
+// stay a call, exactly like native `.map(clean)` would — or an inline
+// arrow with an expression body (`(it) => it.length > 0`), which we
+// splice straight into the loop. Inlining matters: the IIFE form
+// `((it) => it.length > 0)(x, i, arr)` creates and calls a function
+// every iteration, which is the per-element overhead fusion exists to
+// remove. We only inline the provably-safe shape (simple identifier
+// params; an expression body with no `{`, no nested `=>`/`function`;
+// no more params than the loop supplies) and fall back to the call for
+// everything else.
+
+// Index of the top-level `=>` (outside strings / brackets), or -1.
+function findTopLevelArrow(s) {
+  let i = 0;
+  let depth = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (c === '"' || c === "'") {
+      i = skipString(s, i);
+      continue;
+    }
+    if (c === "`") {
+      i = skipTemplate(s, i);
+      continue;
+    }
+    if (c === "(" || c === "[" || c === "{") depth++;
+    else if (c === ")" || c === "]" || c === "}") depth--;
+    else if (depth === 0 && c === "=" && s[i + 1] === ">") return i;
+    i++;
+  }
+  return -1;
+}
+
+// Parse `params => expr` into { params, body }, or null if it isn't a
+// plain expression-bodied arrow with identifier params.
+function parseSimpleArrow(s) {
+  s = s.trim();
+  if (/^async\b/.test(s)) return null;
+  const arrow = findTopLevelArrow(s);
+  if (arrow < 0) return null;
+  let head = s.slice(0, arrow).trim();
+  const body = s.slice(arrow + 2).trim();
+  if (body === "" || body[0] === "{") return null; // block body
+  if (head[0] === "(") {
+    if (head[head.length - 1] !== ")") return null;
+    head = head.slice(1, -1).trim();
+  }
+  const params = head === "" ? [] : head.split(",").map(p => p.trim());
+  for (const p of params) {
+    if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(p)) return null; // no destructuring / defaults / types
+  }
+  return { params, body };
+}
+
+// Replace whole-identifier occurrences of `name` with `repl`, skipping
+// strings / templates / comments and property accesses (`.name`).
+function substituteIdent(body, name, repl) {
+  if (!name || name === repl) return body;
+  let out = "";
+  let i = 0;
+  while (i < body.length) {
+    const c = body[i];
+    if (c === '"' || c === "'") {
+      const e = skipString(body, i);
+      out += body.slice(i, e);
+      i = e;
+      continue;
+    }
+    if (c === "`") {
+      const e = skipTemplate(body, i);
+      out += body.slice(i, e);
+      i = e;
+      continue;
+    }
+    if (c === "/" && body[i + 1] === "/") {
+      const nl = body.indexOf("\n", i);
+      const e = nl < 0 ? body.length : nl;
+      out += body.slice(i, e);
+      i = e;
+      continue;
+    }
+    if (c === "/" && body[i + 1] === "*") {
+      const e = body.indexOf("*/", i + 2);
+      const s2 = e < 0 ? body.length : e + 2;
+      out += body.slice(i, s2);
+      i = s2;
+      continue;
+    }
+    if (isIdentStart(c)) {
+      let j = i + 1;
+      while (j < body.length && isIdentCont(body[j])) j++;
+      const word = body.slice(i, j);
+      const prev = out.replace(/\s+$/, "").slice(-1);
+      out += word === name && prev !== "." ? repl : word;
+      i = j;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
+
+// Find the sole top-level comparison operator in `s` (outside strings /
+// brackets), or null if there are zero, more than one, or any top-level
+// logical / ternary / assignment operator that would make a flip
+// unsafe. Used to turn a filter guard's `!(a > b)` into `a <= b`.
+function soleTopLevelComparison(s) {
+  const cmp = [];
+  let depth = 0;
+  let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    const c2 = s[i + 1];
+    const c3 = s[i + 2];
+    if (c === '"' || c === "'") {
+      i = skipString(s, i);
+      continue;
+    }
+    if (c === "`") {
+      i = skipTemplate(s, i);
+      continue;
+    }
+    if (c === "(" || c === "[" || c === "{") {
+      depth++;
+      i++;
+      continue;
+    }
+    if (c === ")" || c === "]" || c === "}") {
+      depth--;
+      i++;
+      continue;
+    }
+    if (depth > 0) {
+      i++;
+      continue;
+    }
+    // Top level: anything below makes a clean flip unsafe → bail.
+    if (c === "&" && c2 === "&") return null;
+    if (c === "|" && c2 === "|") return null;
+    if (c === "?" && c2 === "?") return null; // ??
+    if (c === "?" && c2 === ".") {
+      i += 2;
+      continue;
+    } // ?. optional chaining — fine
+    if (c === "?" || c === ":") return null; // ternary
+    // Shifts are not comparisons — skip the whole operator.
+    if (c === "<" && c2 === "<") {
+      i += 2;
+      continue;
+    }
+    if (c === ">" && c2 === ">") {
+      i += c3 === ">" ? 3 : 2;
+      continue;
+    }
+    // Comparison operators (3-char first).
+    if ((c === "=" && c2 === "=" && c3 === "=") || (c === "!" && c2 === "=" && c3 === "=")) {
+      cmp.push({ start: i, text: s.slice(i, i + 3) });
+      i += 3;
+      continue;
+    }
+    if (
+      (c === "=" && c2 === "=") ||
+      (c === "!" && c2 === "=") ||
+      (c === "<" && c2 === "=") ||
+      (c === ">" && c2 === "=")
+    ) {
+      cmp.push({ start: i, text: s.slice(i, i + 2) });
+      i += 2;
+      continue;
+    }
+    if (c === "<" || c === ">") {
+      cmp.push({ start: i, text: c });
+      i++;
+      continue;
+    }
+    if (c === "=") return null; // assignment / arrow — bail
+    i++;
+  }
+  return cmp.length === 1 ? cmp[0] : null;
+}
+
+// Negate a predicate for a skip/return guard. A lone comparison flips
+// its operator (`x.length > 0` → `x.length <= 0`); everything else keeps
+// the always-correct `!(...)` wrapper.
+const FLIP_CMP = { ">": "<=", "<": ">=", ">=": "<", "<=": ">", "===": "!==", "!==": "===", "==": "!=", "!=": "==" };
+function negate(pred) {
+  pred = pred.trim();
+  const op = soleTopLevelComparison(pred);
+  if (op) return pred.slice(0, op.start) + FLIP_CMP[op.text] + pred.slice(op.start + op.text.length);
+  return `!(${pred})`;
+}
+
+// Apply a callback to positional argument expressions — inlined when
+// safe, otherwise a call `(cb)(...args)`.
+function applyCb(cb, args) {
+  const a = parseSimpleArrow(cb);
+  if (a && a.params.length <= args.length && !/[{]|=>|\bfunction\b/.test(a.body)) {
+    let body = a.body;
+    for (let k = 0; k < a.params.length; k++) body = substituteIdent(body, a.params[k], args[k]);
+    return body;
+  }
+  // A bare reference (`clean`, `obj.fn`) is called directly; only wrap a
+  // compound callee (an arrow we couldn't inline, a `?:`, etc.) in parens.
+  const callee = isSimpleRef(cb) ? cb.trim() : `(${cb})`;
+  return `${callee}(${args.join(", ")})`;
+}
+
+// A reference that can be called without wrapping parens — an identifier
+// with optional `.prop` / `?.prop` / `[…]` access chains.
+function isSimpleRef(s) {
+  return /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*|\?\.[A-Za-z_$][\w$]*|\[[^\]]*\])*$/.test(s.trim());
+}
+
+// Render the per-stage body for a TRANSFORM step. The synthesised loop
+// iterates with `n.src` / `n.x` / `n.i`, so callbacks get the usual
+// `(value, index, source)` triple.
+function transformBody(stage, n) {
   if (stage.name === "map") {
-    return `\n\t\t__x = (${stage.args})(__x, __i, __src);`;
+    return `\n\t\t${n.x} = ${applyCb(stage.args, [n.x, n.i, n.src])};`;
   }
   if (stage.name === "filter") {
-    return `\n\t\tif (!(${stage.args})(__x, __i, __src)) continue;`;
+    return `\n\t\tif (${negate(applyCb(stage.args, [n.x, n.i, n.src]))}) continue;`;
   }
   return "";
 }
 
 // Build the full IIFE that replaces the chain. `producer` is the
-// source expression preceding the first `.method()` call; `stages`
-// is the fusable prefix.
-function synthesize(producer, stages) {
+// source expression preceding the first `.method()` call; `stages` is
+// the fusable prefix; `n` is the temp-name set.
+function synthesize(producer, stages, n) {
   const last = stages[stages.length - 1];
   const isTerminal = TERMINAL.has(last.name);
   const xforms = isTerminal ? stages.slice(0, -1) : stages;
-  const xformsBody = xforms.map(transformBody).join("");
+  const xformsBody = xforms.map(s => transformBody(s, n)).join("");
 
   if (!isTerminal) {
     return (
-      `((__src) => {\n` +
-      `\tconst __out = [];\n` +
-      `\tfor (let __i = 0; __i < __src.length; __i++) {\n` +
-      `\t\tlet __x = __src[__i];` +
+      `((${n.src}) => {\n` +
+      `\tconst ${n.out} = [];\n` +
+      `\tfor (let ${n.i} = 0; ${n.i} < ${n.src}.length; ${n.i}++) {\n` +
+      `\t\tlet ${n.x} = ${n.src}[${n.i}];` +
       xformsBody +
-      `\n\t\t__out.push(__x);\n` +
+      `\n\t\t${n.out}.push(${n.x});\n` +
       `\t}\n` +
-      `\treturn __out;\n` +
+      `\treturn ${n.out};\n` +
       `})(${producer})`
     );
   }
@@ -340,11 +564,11 @@ function synthesize(producer, stages) {
   switch (last.name) {
     case "forEach":
       return (
-        `((__src) => {\n` +
-        `\tfor (let __i = 0; __i < __src.length; __i++) {\n` +
-        `\t\tlet __x = __src[__i];` +
+        `((${n.src}) => {\n` +
+        `\tfor (let ${n.i} = 0; ${n.i} < ${n.src}.length; ${n.i}++) {\n` +
+        `\t\tlet ${n.x} = ${n.src}[${n.i}];` +
         xformsBody +
-        `\n\t\t(${last.args})(__x, __i, __src);\n` +
+        `\n\t\t${applyCb(last.args, [n.x, n.i, n.src])};\n` +
         `\t}\n` +
         `})(${producer})`
       );
@@ -357,59 +581,59 @@ function synthesize(producer, stages) {
       // element AS the accumulator and starts at index 1. The
       // emitted loop handles both forms.
       return (
-        `((__src) => {\n` +
-        `\tlet __acc = ${init};\n` +
-        `\tlet __start = 0;\n` +
-        (hasInit ? "" : `\tif (__src.length > 0) { __acc = __src[0]; __start = 1; }\n`) +
-        `\tfor (let __i = __start; __i < __src.length; __i++) {\n` +
-        `\t\tlet __x = __src[__i];` +
+        `((${n.src}) => {\n` +
+        `\tlet ${n.acc} = ${init};\n` +
+        `\tlet ${n.start} = 0;\n` +
+        (hasInit ? "" : `\tif (${n.src}.length > 0) { ${n.acc} = ${n.src}[0]; ${n.start} = 1; }\n`) +
+        `\tfor (let ${n.i} = ${n.start}; ${n.i} < ${n.src}.length; ${n.i}++) {\n` +
+        `\t\tlet ${n.x} = ${n.src}[${n.i}];` +
         xformsBody +
-        `\n\t\t__acc = (${cb})(__acc, __x, __i, __src);\n` +
+        `\n\t\t${n.acc} = ${applyCb(cb, [n.acc, n.x, n.i, n.src])};\n` +
         `\t}\n` +
-        `\treturn __acc;\n` +
+        `\treturn ${n.acc};\n` +
         `})(${producer})`
       );
     }
     case "some":
       return (
-        `((__src) => {\n` +
-        `\tfor (let __i = 0; __i < __src.length; __i++) {\n` +
-        `\t\tlet __x = __src[__i];` +
+        `((${n.src}) => {\n` +
+        `\tfor (let ${n.i} = 0; ${n.i} < ${n.src}.length; ${n.i}++) {\n` +
+        `\t\tlet ${n.x} = ${n.src}[${n.i}];` +
         xformsBody +
-        `\n\t\tif ((${last.args})(__x, __i, __src)) return true;\n` +
+        `\n\t\tif (${applyCb(last.args, [n.x, n.i, n.src])}) return true;\n` +
         `\t}\n` +
         `\treturn false;\n` +
         `})(${producer})`
       );
     case "every":
       return (
-        `((__src) => {\n` +
-        `\tfor (let __i = 0; __i < __src.length; __i++) {\n` +
-        `\t\tlet __x = __src[__i];` +
+        `((${n.src}) => {\n` +
+        `\tfor (let ${n.i} = 0; ${n.i} < ${n.src}.length; ${n.i}++) {\n` +
+        `\t\tlet ${n.x} = ${n.src}[${n.i}];` +
         xformsBody +
-        `\n\t\tif (!(${last.args})(__x, __i, __src)) return false;\n` +
+        `\n\t\tif (${negate(applyCb(last.args, [n.x, n.i, n.src]))}) return false;\n` +
         `\t}\n` +
         `\treturn true;\n` +
         `})(${producer})`
       );
     case "find":
       return (
-        `((__src) => {\n` +
-        `\tfor (let __i = 0; __i < __src.length; __i++) {\n` +
-        `\t\tlet __x = __src[__i];` +
+        `((${n.src}) => {\n` +
+        `\tfor (let ${n.i} = 0; ${n.i} < ${n.src}.length; ${n.i}++) {\n` +
+        `\t\tlet ${n.x} = ${n.src}[${n.i}];` +
         xformsBody +
-        `\n\t\tif ((${last.args})(__x, __i, __src)) return __x;\n` +
+        `\n\t\tif (${applyCb(last.args, [n.x, n.i, n.src])}) return ${n.x};\n` +
         `\t}\n` +
         `\treturn undefined;\n` +
         `})(${producer})`
       );
     case "findIndex":
       return (
-        `((__src) => {\n` +
-        `\tfor (let __i = 0; __i < __src.length; __i++) {\n` +
-        `\t\tlet __x = __src[__i];` +
+        `((${n.src}) => {\n` +
+        `\tfor (let ${n.i} = 0; ${n.i} < ${n.src}.length; ${n.i}++) {\n` +
+        `\t\tlet ${n.x} = ${n.src}[${n.i}];` +
         xformsBody +
-        `\n\t\tif ((${last.args})(__x, __i, __src)) return __i;\n` +
+        `\n\t\tif (${applyCb(last.args, [n.x, n.i, n.src])}) return ${n.i};\n` +
         `\t}\n` +
         `\treturn -1;\n` +
         `})(${producer})`
@@ -422,9 +646,10 @@ function synthesize(producer, stages) {
 // synthesised loop. Iterative: rewrite the leftmost chain, re-scan
 // from after the rewrite, repeat. The replacement is a self-contained
 // IIFE so it can sit in any expression position the original chain did.
-export function lowerFusion(src) {
+export function lowerFusion(src, opts) {
+  const names = opts?.readable ? READABLE_NAMES : HYGIENIC_NAMES;
   for (let safety = 0; safety < 4096; safety++) {
-    const hit = findNextFusableChain(src, 0);
+    const hit = findNextFusableChain(src, 0, names);
     if (!hit) return src;
     src = src.slice(0, hit.start) + hit.replacement + src.slice(hit.end);
     // move on past the rewritten span on the next pass — but we
@@ -435,7 +660,7 @@ export function lowerFusion(src) {
   return src;
 }
 
-function findNextFusableChain(src, from) {
+function findNextFusableChain(src, from, names = HYGIENIC_NAMES) {
   let i = from;
   while (i < src.length) {
     const c = src[i];
@@ -496,7 +721,7 @@ function findNextFusableChain(src, from) {
       continue;
     }
     const chainEnd = fusable[fusable.length - 1].end;
-    const replacement = synthesize(producer, fusable);
+    const replacement = synthesize(producer, fusable, names);
     return { start: producerStart, end: chainEnd, replacement };
   }
   return null;
@@ -506,11 +731,12 @@ function findNextFusableChain(src, from) {
 // editors / tooltips that want to show "this chain fuses to <loop>".
 // Returns `{ start, end, original, fused }` per chain, in source
 // order, with non-overlapping ranges (we skip past each match).
-export function findFusableChains(src) {
+export function findFusableChains(src, opts) {
+  const names = opts?.readable ? READABLE_NAMES : HYGIENIC_NAMES;
   const out = [];
   let from = 0;
   for (let safety = 0; safety < 4096; safety++) {
-    const hit = findNextFusableChain(src, from);
+    const hit = findNextFusableChain(src, from, names);
     if (!hit) break;
     out.push({
       start: hit.start,

@@ -7,16 +7,24 @@ import Header from "@cloudscape-design/components/header";
 import Input from "@cloudscape-design/components/input";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 
+const splitList = (s: string) => s.split(",");
+const clean = (s: string) => s.trim().toLowerCase();
+const unique = <T,>(xs: T[]) => Array.from(new Set(xs));
+
 export default function TagsCloudscape() {
   const [raw, setRaw] = useState("design, Engineering,  research , design, ops, ");
-  const tags = useMemo(() => {
-    const split = raw.split(",");
-    const trimmed = split.map(s => s.trim());
-    const nonEmpty = trimmed.filter(s => s.length > 0);
-    const lower = nonEmpty.map(s => s.toLowerCase());
-    const deduped = Array.from(new Set(lower));
-    return deduped.sort();
-  }, [raw]);
+  // Same transforms as the Para side. With no pipeline operator the free
+  // functions wrap the method chain inside-out: `unique` is read first but
+  // runs after split/map/filter, and `.sort()` hangs off the outside.
+  const tags = useMemo(
+    () =>
+      unique(
+        splitList(raw)
+          .map(clean)
+          .filter(s => s.length > 0),
+      ).sort(),
+    [raw],
+  );
   return (
     <Container
       header={

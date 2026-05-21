@@ -301,10 +301,10 @@
 			</table>
 		</header>
 
-		<section class="grid" bind:this={gridEl}>
+		<section class="grid" class:wide={active.id === "06-app-shell"} bind:this={gridEl}>
 			{#key active.id}
 				<DemoPane side="cs" initialSource={active.csSrc} label="Cloudscape (React)" ext=".tsx" />
-				<DemoPane side="ps" initialSource={active.psSrc} label="Parascape (.pui)" ext=".pui" />
+				<DemoPane side="ps" initialSource={active.psSrc} label="Parascape (.pui)" ext=".pui" teach={active.id === "01-form"} />
 			{/key}
 		</section>
 	</main>
@@ -582,6 +582,12 @@
 		grid-template-columns: 1fr 1fr;
 		gap: 18px;
 		min-width: 0;
+	}
+	/* Page-layout scenarios (app shell) need the full width to fit
+	   nav + content + tools without overflowing — stack the two panes
+	   instead of placing them side by side. */
+	.grid.wide {
+		grid-template-columns: 1fr;
 	}
 	/* The .cell / .cell-head / pre.code / .render rules used to live
 	   here too; they moved to DemoPane.pui with the rest of the pane

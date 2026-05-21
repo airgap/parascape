@@ -350,21 +350,20 @@ function lowerImports(code: string): string {
 /**
  * Compile a TSX source into a React component constructor.
  *
- * The Cloudscape (React) side runs through the SAME loop-fusion pass
- * as the Para side. Fusion is a language-agnostic source transform —
- * a `.map().filter().reduce()` chain in plain TSX fuses exactly like
- * one written with Para's `|>`. Running it here keeps the demo
- * honest: when both panes show a fused-chain tooltip, both panes
- * actually run the fused loop, so the visible diff is readability,
- * not speed.
+ * The Cloudscape (React) side runs the code AS WRITTEN — no loop
+ * fusion. Fusion is a Para compiler optimization; React/Cloudscape
+ * doesn't do it, so applying it here would misrepresent what the React
+ * code actually runs. Method chains on this side keep their
+ * intermediate arrays; only the Para pane fuses (and is annotated as
+ * such). The rendered output is identical either way — fusion only
+ * changes how the work is done, not the result.
  */
 export function compileCloudscape(src: string): ComponentType<Record<string, unknown>> {
-  // async-block desugar + fusion BEFORE sucrase strips types — both
-  // are syntactic no-ops on everything they don't match, so plain
-  // TSX is unaffected; a React snippet that uses `async { … }` or a
-  // method chain gets the same treatment as the Para side.
-  const fused = lowerFusion(lowerAsyncBlock(src));
-  const { code } = transform(fused, {
+  // async-block desugar BEFORE sucrase strips types — a no-op on
+  // anything without `async { … }`, so plain TSX is unaffected. No
+  // fusion: see the note above.
+  const lowered0 = lowerAsyncBlock(src);
+  const { code } = transform(lowered0, {
     transforms: ["typescript", "jsx"],
     jsxRuntime: "automatic",
     jsxImportSource: "react",

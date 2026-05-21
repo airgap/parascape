@@ -12,7 +12,7 @@
 -->
 <script lang="pts">
 	import { onDestroy } from "svelte";
-	import { highlight as shikiHighlight, ready as shikiReady } from "./pui-shiki";
+	import { highlight as shikiHighlight, highlightSync, ready as shikiReady } from "./pui-shiki";
 	import {
 		compileCloudscape,
 		compileParascape,
@@ -26,8 +26,10 @@
 		initialSource: string;
 		label: string;
 		ext: string;
+		/** Show teaching POIs (first signal / first derived). Intro demo only. */
+		teach?: boolean;
 	};
-	let { side, initialSource, label, ext }: Props = $props();
+	let { side, initialSource, label, ext, teach = false }: Props = $props();
 
 	// `source` is the SINGLE source of truth for both the textarea
 	// (editable input) and the Shiki-highlighted pre (visible
@@ -157,22 +159,143 @@
 	// .pipeline-fused match, and pin a separate tooltip element on
 	// top of the textarea at that span's bounding rect. Tooltip
 	// itself is pointer-events: none so it doesn't intercept clicks.
-	signal hoverTip: { fused: string; left: number; top: number } | null = null;
-	const onEditorMouseMove = (e: MouseEvent) => {
-		const all = document.elementsFromPoint(e.clientX, e.clientY);
-		const span = all.find(
-			(el): el is HTMLElement =>
-				el instanceof HTMLElement && el.classList.contains("pipeline-fused"),
-		);
-		if (!span) {
-			hoverTip = null;
+	// A POI hotspot (fusion box, or a teaching `signal`/`derived` marker)
+	// is the sole tooltip trigger — hover/focus shows it. `kind: "code"`
+	// renders the content syntax-highlighted (the fused form); `"text"`
+	// renders it as prose (the concept explanation).
+	type HoverTip = { kind: "code" | "text"; label: string; content: string; left: number; top: number };
+	signal hoverTip: HoverTip | null = null;
+	const showTip = (e: Event, kind: "code" | "text", label: string, content: string) => {
+		const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		// Clamp left so the tooltip's max-width box stays in the viewport
+		// (the hotspot can sit near the right edge of a narrow pane).
+		const tipMaxW = Math.min(560, window.innerWidth * 0.8);
+		const left = Math.max(8, Math.min(r.left, window.innerWidth - tipMaxW - 12));
+		hoverTip = { kind, label, content, left, top: r.bottom + 6 };
+	};
+	const showFusionTip = (e: Event, fused: string) => showTip(e, "code", "fuses to", fused);
+	const showConceptTip = (e: Event, label: string, text: string) => showTip(e, "text", label, text);
+	const hideFusionTip = () => (hoverTip = null);
+
+	// Syntax-highlight the fused-form tooltip with Shiki (lang "tsx" —
+	// the fused form is plain JS). Memoised by source string so the
+	// repeated re-renders while hovering one chain don't re-run Shiki.
+	let fusedKey = "";
+	let fusedHtmlCache = "";
+	function fusedHtml(code: string): string {
+		if (code !== fusedKey) {
+			fusedKey = code;
+			fusedHtmlCache = highlightSync(code, "tsx");
+		}
+		return fusedHtmlCache;
+	}
+
+	// Fused-pipeline box. Shiki splits a multi-line decoration into one
+	// `.pipeline-fused` span per line, which would render as a ragged
+	// stack of inline highlights. Instead, measure the union rect of
+	// each chain's spans (grouped by their `data-fused` value) and draw
+	// ONE box around the whole pipeline. Coords are in the pre's CONTENT
+	// space (scroll-independent); the overlay is translated by the live
+	// scroll offset so the box tracks the text as the editor scrolls.
+	signal fusionBoxes: { left: number; top: number; width: number; height: number; fused: string }[] = [];
+	// Teaching POIs (first signal / first derived) — a dot at the end of
+	// the marked line, no box. Only populated when `teach` is set.
+	signal conceptPois: { left: number; top: number; label: string; text: string }[] = [];
+	signal scrollX = 0;
+	signal scrollY = 0;
+	const FUSION_BOX_PAD = 3;
+	// Measure the TEXT bounds of a span, not its element box, with any
+	// leading indentation trimmed. Two reasons: when a decoration fully
+	// covers a line Shiki puts the class on the `.line` block element
+	// (full editor width), so `getBoundingClientRect()` would balloon
+	// the box edge-to-edge; and a continuation line's span includes the
+	// leading tabs, which we don't want inside the box. A Range from the
+	// first non-whitespace glyph to the end gives tight, gutter-free
+	// bounds.
+	function textRect(el: Element): DOMRect {
+		const range = document.createRange();
+		range.selectNodeContents(el);
+		const txt = el.textContent ?? "";
+		const lead = txt.length - txt.trimStart().length;
+		if (lead > 0) {
+			const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+			let acc = 0;
+			let node = walker.nextNode();
+			while (node) {
+				const len = node.textContent?.length ?? 0;
+				if (acc + len > lead) {
+					range.setStart(node, lead - acc);
+					break;
+				}
+				acc += len;
+				node = walker.nextNode();
+			}
+		}
+		const r = range.getBoundingClientRect();
+		return r.width === 0 && r.height === 0 ? el.getBoundingClientRect() : r;
+	}
+	function measureFusionBoxes() {
+		if (!preEl) return;
+		const base = preEl.getBoundingClientRect();
+		const groups = new Map<string, { l: number; t: number; r: number; b: number }>();
+		for (const el of preEl.querySelectorAll(".pipeline-fused")) {
+			const key = (el as HTMLElement).getAttribute("data-fused") ?? "";
+			const r = textRect(el);
+			const g = groups.get(key);
+			if (!g) groups.set(key, { l: r.left, t: r.top, r: r.right, b: r.bottom });
+			else {
+				g.l = Math.min(g.l, r.left);
+				g.t = Math.min(g.t, r.top);
+				g.r = Math.max(g.r, r.right);
+				g.b = Math.max(g.b, r.bottom);
+			}
+		}
+		fusionBoxes = [...groups.entries()].map(([fused, g]) => ({
+			left: g.l - base.left + preEl.scrollLeft - FUSION_BOX_PAD,
+			top: g.t - base.top + preEl.scrollTop - FUSION_BOX_PAD,
+			width: g.r - g.l + FUSION_BOX_PAD * 2,
+			height: g.b - g.t + FUSION_BOX_PAD * 2,
+			fused,
+		}));
+	}
+	// Concept POIs: a dot just past the end of the line carrying the
+	// first `signal` / `derived` keyword (marked with `.poi-concept`).
+	function measureConceptPois() {
+		if (!preEl) {
+			conceptPois = [];
 			return;
 		}
-		const r = span.getBoundingClientRect();
-		const fused = span.getAttribute("data-fused") ?? "";
-		hoverTip = { fused, left: r.left, top: r.bottom + 6 };
-	};
-	const onEditorMouseLeave = () => (hoverTip = null);
+		const base = preEl.getBoundingClientRect();
+		conceptPois = [...preEl.querySelectorAll(".poi-concept")].map((el) => {
+			const line = el.closest(".line") ?? el;
+			const lr = textRect(line);
+			return {
+				left: lr.right - base.left + preEl.scrollLeft + 10,
+				top: (lr.top + lr.bottom) / 2 - base.top + preEl.scrollTop,
+				label: (el as HTMLElement).getAttribute("data-poi-label") ?? "",
+				text: (el as HTMLElement).getAttribute("data-poi-text") ?? "",
+			};
+		});
+	}
+	function measurePois() {
+		measureFusionBoxes();
+		measureConceptPois();
+	}
+	// Re-measure after each re-highlight (content / theme change), once
+	// the new @html has painted.
+	effect {
+		highlighted;
+		if (!preEl) return;
+		const id = requestAnimationFrame(measurePois);
+		return () => cancelAnimationFrame(id);
+	}
+	// Re-measure when the pane resizes (a width change shifts the box).
+	effect {
+		if (!editorWrapEl) return;
+		const ro = new ResizeObserver(() => measurePois());
+		ro.observe(editorWrapEl);
+		return () => ro.disconnect();
+	}
 
 	// Re-highlight whenever source changes. Shiki init is async — until
 	// it resolves, fall back to escaped raw text.
@@ -184,7 +307,7 @@
 			highlighted = `<pre><code>${src.replace(/[<&]/g, (c) => (c === "<" ? "&lt;" : "&amp;"))}</code></pre>`;
 			return;
 		}
-		shikiHighlight(src, shikiLang).then((html) => (highlighted = html));
+		shikiHighlight(src, shikiLang, { concepts: teach && side === "ps" }).then((html) => (highlighted = html));
 	}
 
 	// Debounced compile + mount. Always uses the expanded source so
@@ -218,6 +341,10 @@
 			preEl.scrollTop = textareaEl.scrollTop;
 			preEl.scrollLeft = textareaEl.scrollLeft;
 		}
+		if (textareaEl) {
+			scrollX = textareaEl.scrollLeft;
+			scrollY = textareaEl.scrollTop;
+		}
 	};
 
 	// Tab → insert a literal tab (the repo prettier uses tabs but a
@@ -243,14 +370,46 @@
 
 <div class="cell">
 	<header class="cell-head"><b>{label}</b><span>{ext}</span></header>
-	<div
-		class="editor-wrap"
-		bind:this={editorWrapEl}
-		onmousemove={onEditorMouseMove}
-		onmouseleave={onEditorMouseLeave}
-		role="presentation"
-	>
+	<div class="editor-wrap" bind:this={editorWrapEl}>
 		<pre class="code" bind:this={preEl}>{@html highlighted}</pre>
+		<div class="fusion-overlay" aria-hidden="true">
+			<div class="fusion-boxes" style="transform: translate({-scrollX}px, {-scrollY}px)">
+				{#each fusionBoxes as b}
+					<div
+						class="fusion-box"
+						style="left: {b.left}px; top: {b.top}px; width: {b.width}px; height: {b.height}px"
+					></div>
+				{/each}
+			</div>
+		</div>
+		<div class="fusion-poi-layer">
+			<div class="fusion-poi-anchor" style="transform: translate({-scrollX}px, {-scrollY}px)">
+				{#each fusionBoxes as b}
+					<button
+						type="button"
+						class="fusion-poi"
+						style="left: {b.left + b.width}px; top: {b.top}px"
+						aria-label="Show what this pipeline fuses to"
+						onpointerenter={(e) => showFusionTip(e, b.fused)}
+						onpointerleave={hideFusionTip}
+						onfocus={(e) => showFusionTip(e, b.fused)}
+						onblur={hideFusionTip}
+					></button>
+				{/each}
+				{#each conceptPois as p}
+					<button
+						type="button"
+						class="fusion-poi poi-concept-dot"
+						style="left: {p.left}px; top: {p.top}px"
+						aria-label="What is {p.label}?"
+						onpointerenter={(e) => showConceptTip(e, p.label, p.text)}
+						onpointerleave={hideFusionTip}
+						onfocus={(e) => showConceptTip(e, p.label, p.text)}
+						onblur={hideFusionTip}
+					></button>
+				{/each}
+			</div>
+		</div>
 		<textarea
 			class="editor-input"
 			bind:value={source}
@@ -286,8 +445,12 @@
 			style:left="{hoverTip.left}px"
 			style:top="{hoverTip.top}px"
 		>
-			<span class="pipeline-tip-label">fuses to</span>
-			<code>{hoverTip.fused}</code>
+			<div class="pipeline-tip-label" class:concept={hoverTip.kind === "text"}>{hoverTip.label}</div>
+			{#if hoverTip.kind === "code"}
+				<div class="pipeline-tip-code">{@html fusedHtml(hoverTip.content)}</div>
+			{:else}
+				<div class="pipeline-tip-text">{hoverTip.content}</div>
+			{/if}
 		</div>
 	{/if}
 	<div class="render" bind:this={renderTarget}></div>
@@ -297,7 +460,10 @@
 <style>
 	.cell {
 		display: grid;
-		grid-template-rows: auto 1fr auto auto;
+		/* head, editor (fixed 420px), render (absorbs the cell's stretch
+		   so a taller sibling pane doesn't leave a gap above the shorter
+		   pane's render zone), error. */
+		grid-template-rows: auto auto 1fr auto;
 		background: var(--bg-elev, #fff);
 		border: 1px solid var(--border, #e5e7eb);
 		border-radius: 8px;
@@ -411,33 +577,114 @@
 	:global(.editor-wrap pre.shiki) {
 		background-color: transparent !important;
 	}
-	/* `|>` pipeline highlight — pui-shiki passes the lowered form as
-	   `data-fused` on a span Shiki wraps around each chain. The
-	   parent <pre.code> has `pointer-events: none` so hover never
-	   fires on its descendants by default; the highlight span has
-	   to opt back in. Render as a fitted block: a soft accent-tinted
-	   background sized to its inline content, with the tooltip
-	   bubble pinned below. */
+	/* `|>` pipeline chains — pui-shiki marks each chain with a
+	   `.pipeline-fused` span (carrying the lowered form as
+	   `data-fused`). These spans are invisible and inert: they only
+	   exist so `measureFusionBoxes` can find each chain's extent. The
+	   visible box is `.fusion-box`; the tooltip trigger is the
+	   `.fusion-poi` hotspot. */
 	:global(.editor-wrap pre.shiki .pipeline-fused) {
 		position: relative;
+	}
+	/* Fused-pipeline box overlay. Sits between the colored <pre> (z0)
+	   and the textarea (z1): same stacking level as the pre but later
+	   in DOM order, so it paints over the text while the textarea's
+	   caret/selection stay on top. pointer-events:none → never blocks
+	   typing. The inner `.fusion-boxes` is translated by the scroll
+	   offset so boxes track the text. */
+	.fusion-overlay {
+		position: absolute;
+		inset: 0;
+		z-index: 0;
+		overflow: hidden;
+		pointer-events: none;
+	}
+	.fusion-boxes {
+		position: absolute;
+		inset: 0;
+	}
+	.fusion-box {
+		position: absolute;
+		box-sizing: border-box;
+		border: 1.5px solid color-mix(in oklab, var(--accent, #b04a2a) 70%, transparent);
+		background: color-mix(in oklab, var(--accent, #b04a2a) 8%, transparent);
+		border-radius: 5px;
+	}
+	/* POI hotspot — the sole tooltip trigger. Lives ABOVE the textarea
+	   (z2) so it's directly hoverable/focusable; pinned at the box's
+	   top-right corner (in the dead space past the widest line, so it
+	   never blocks click-to-place-caret). The layer is pointer-events:
+	   none; only the dots opt back in. */
+	.fusion-poi-layer {
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		overflow: hidden;
+		pointer-events: none;
+	}
+	.fusion-poi-anchor {
+		position: absolute;
+		inset: 0;
+	}
+	.fusion-poi {
+		position: absolute;
+		width: 12px;
+		height: 12px;
+		margin: 0;
+		padding: 0;
+		border: 1.5px solid var(--bg-code, #f8fafc);
+		border-radius: 50%;
+		background: var(--accent, #b04a2a);
+		transform: translate(-50%, -50%);
 		pointer-events: auto;
-		background: color-mix(in oklab, var(--accent, #b04a2a) 14%, transparent);
-		outline: 1px solid color-mix(in oklab, var(--accent, #b04a2a) 30%, transparent);
-		border-radius: 3px;
-		padding: 1px 2px;
-		margin: -1px -2px;
 		cursor: help;
+		transition: background 0.12s ease;
 	}
-	:global(.editor-wrap pre.shiki .pipeline-fused:hover) {
-		background: color-mix(in oklab, var(--accent, #b04a2a) 24%, transparent);
-		outline-color: var(--accent, #b04a2a);
+	/* Pulsing ring behind the dot — Cloudscape-style hotspot affordance. */
+	.fusion-poi::after {
+		content: "";
+		position: absolute;
+		inset: -1.5px;
+		border-radius: 50%;
+		background: var(--accent, #b04a2a);
+		z-index: -1;
+		animation: fusion-poi-pulse 2.2s ease-out infinite;
 	}
-	/* Pipeline tooltip — separate element pinned in viewport space
-	   (the textarea overlays everything in `.editor-wrap`, so a
-	   :hover-driven ::after on `.pipeline-fused` never fires because
-	   the cursor is always on the textarea). The mousemove handler
-	   on `.editor-wrap` updates `hoverTip`; the element below
-	   renders at the span's viewport coords. */
+	.fusion-poi:hover,
+	.fusion-poi:focus-visible {
+		background: color-mix(in oklab, var(--accent, #b04a2a) 80%, white);
+		outline: none;
+	}
+	/* Teaching (concept) hotspots use a cooler tint to read as
+	   informational rather than perf-related. */
+	.poi-concept-dot {
+		background: var(--info, #4a78b0);
+	}
+	.poi-concept-dot::after {
+		background: var(--info, #4a78b0);
+	}
+	.poi-concept-dot:hover,
+	.poi-concept-dot:focus-visible {
+		background: color-mix(in oklab, var(--info, #4a78b0) 80%, white);
+	}
+	@keyframes fusion-poi-pulse {
+		0% {
+			transform: scale(1);
+			opacity: 0.55;
+		}
+		100% {
+			transform: scale(2.6);
+			opacity: 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.fusion-poi::after {
+			animation: none;
+		}
+	}
+	/* Pipeline tooltip — a separate element pinned in viewport space.
+	   The `.fusion-poi` hotspot's pointerenter/focus sets `hoverTip`
+	   to the dot's viewport rect; this renders just below it. */
 	.pipeline-tip {
 		position: fixed;
 		max-width: min(560px, 80vw);
@@ -447,28 +694,56 @@
 		border: 1px solid var(--border, #424650);
 		border-radius: 6px;
 		font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-		white-space: pre-wrap;
-		word-break: break-all;
+		/* `normal` here so the template's newline/indent between the
+		   label and the code block isn't rendered as a blank line; the
+		   code's own <pre> handles its wrapping. */
+		white-space: normal;
 		z-index: 50;
 		box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 		pointer-events: none;
 	}
 	.pipeline-tip-label {
-		display: inline-block;
+		display: block;
 		font-family: ui-sans-serif, system-ui, sans-serif;
 		font-size: 10px;
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.8px;
 		color: var(--accent, #b04a2a);
-		margin-right: 8px;
+		margin-bottom: 6px;
 	}
-	.pipeline-tip code {
-		font: inherit;
-		color: inherit;
-		background: none;
-		border: 0;
+	.pipeline-tip-label.concept {
+		color: var(--info, #4a78b0);
+	}
+	/* Prose body for concept POIs (signal / derived explanations). */
+	.pipeline-tip-text {
+		font-family: ui-sans-serif, system-ui, sans-serif;
+		font-size: 12px;
+		line-height: 1.5;
+		max-width: 320px;
+		color: var(--fg-body, #c6c6cd);
+	}
+	/* Shiki-highlighted fused form. pui-shiki runs `defaultColor:false`,
+	   so tokens carry --shiki-light / --shiki-dark vars; pick the active
+	   one off [data-theme] (the tooltip is outside .editor-wrap, so the
+	   editor's color rules don't reach it). Reset the <pre> chrome and
+	   force a transparent background so the tooltip surface shows. */
+	:global(.pipeline-tip-code pre.shiki),
+	:global(.pipeline-tip-code pre.shiki span) {
+		color: var(--shiki-light, inherit);
+	}
+	:global([data-theme="dark"] .pipeline-tip-code pre.shiki),
+	:global([data-theme="dark"] .pipeline-tip-code pre.shiki span) {
+		color: var(--shiki-dark, inherit);
+	}
+	:global(.pipeline-tip-code pre.shiki) {
+		margin: 0;
 		padding: 0;
+		background: transparent !important;
+		font: inherit;
+		tab-size: 2;
+		white-space: pre-wrap;
+		word-break: break-word;
 	}
 	/* Import-fold overlay button — pinned above the textarea, sized
 	   to the one line where the `… N imports` placeholder lives.
