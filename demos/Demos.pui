@@ -31,6 +31,9 @@
 
 	signal activeId = scenarios[0].id;
 	derived active = scenarios.find((s) => s.id === activeId) ?? scenarios[0];
+	// Shared import-fold state — both panes bind to this one signal, so
+	// expanding/collapsing the imports on either side drives the other.
+	signal importsCollapsed = true;
 
 	// Theme switcher — light / dark / auto. "auto" delegates to the
 	// OS via prefers-color-scheme. The choice is stored in localStorage
@@ -307,8 +310,8 @@
 
 		<section class="grid" class:wide={active.id === "06-app-shell"} bind:this={gridEl}>
 			{#key active.id}
-				<DemoPane side="cs" initialSource={active.csSrc} label="Cloudscape (React)" ext=".tsx" />
-				<DemoPane side="ps" initialSource={active.psSrc} label="Parascape (.pui)" ext=".pui" teach={active.id === "01-form"} />
+				<DemoPane side="cs" initialSource={active.csSrc} label="Cloudscape (React)" ext=".tsx" bind:collapsed={importsCollapsed} />
+				<DemoPane side="ps" initialSource={active.psSrc} label="Parascape (.pui)" ext=".pui" teach={active.id === "01-form"} bind:collapsed={importsCollapsed} />
 			{/key}
 		</section>
 	</main>

@@ -11,7 +11,7 @@
       other side.
 -->
 <script lang="pts">
-	import { onDestroy } from "svelte";
+	import { onDestroy, untrack } from "svelte";
 	import { highlight as shikiHighlight, highlightSync, ready as shikiReady } from "./pui-shiki";
 	import {
 		compileCloudscape,
@@ -28,8 +28,10 @@
 		ext: string;
 		/** Show teaching POIs (first signal / first derived). Intro demo only. */
 		teach?: boolean;
+		/** Shared (two-way) import-fold state, synced across both panes. */
+		collapsed?: boolean;
 	};
-	let { side, initialSource, label, ext, teach = false }: Props = $props();
+	let { side, initialSource, label, ext, teach = false, collapsed = $bindable(true) }: Props = $props();
 
 	// `source` is the SINGLE source of truth for both the textarea
 	// (editable input) and the Shiki-highlighted pre (visible
@@ -56,21 +58,37 @@
 
 	const shikiLang = side === "cs" ? "tsx" : "pui";
 
-	// Reset to a new initial source when the parent swaps it (scenario
-	// nav). Auto-fold the import block on first sight so the demo
-	// opens with the body in view; the user expands by clicking.
+	// Single reconcile effect: tracks scenario switches (initialSource)
+	// and the shared fold state (collapsed), and untracks everything it
+	// mutates so live edits to `source` never retrigger it. On a
+	// scenario switch it resets to the full source; then it folds or
+	// unfolds the imports to match `collapsed`. Because `collapsed` is a
+	// $bindable prop bound to the SAME parent signal in both panes,
+	// toggling the fold on one side drives the other side through here.
+	let lastInitial: string | null = null;
 	effect {
-		const next = initialSource;
-		const block = findImportsBlock(next);
-		if (block) {
-			const placeholder = makePlaceholder(block.count);
-			source = next.slice(0, block.start) + placeholder + next.slice(block.end);
-			foldedImports = { text: block.text, count: block.count };
-		} else {
-			source = next;
-			foldedImports = null;
-		}
-		error = null;
+		const init = initialSource;
+		const want = collapsed;
+		untrack(() => {
+			if (init !== lastInitial) {
+				lastInitial = init;
+				source = init;
+				foldedImports = null;
+				error = null;
+			}
+			if (want && !foldedImports) {
+				const block = findImportsBlock(source);
+				if (block) {
+					source = source.slice(0, block.start) + makePlaceholder(block.count) + source.slice(block.end);
+					foldedImports = { text: block.text, count: block.count };
+				}
+			} else if (!want && foldedImports) {
+				const ph = makePlaceholder(foldedImports.count);
+				const idx = source.indexOf(ph);
+				if (idx >= 0) source = source.slice(0, idx) + foldedImports.text + source.slice(idx + ph.length);
+				foldedImports = null;
+			}
+		});
 	}
 
 	// The placeholder text we splice into source while imports are
@@ -126,20 +144,22 @@
 		return { start: idx, length: placeholder.length, line };
 	}
 
+	// When expanded, where to anchor the "Hide imports" chip: the line
+	// just after the import block (the blank separator line), so the
+	// chip never sits on top of code.
+	derived expandedAnchor {
+		if (foldedImports) return null as { line: number } | null;
+		const block = findImportsBlock(source);
+		if (!block) return null;
+		const lastImportLine = source.slice(0, block.end).split("\n").length - 1;
+		return { line: lastImportLine + 1 };
+	}
+
+	// Flip the SHARED fold state; the reconcile effect above performs the
+	// actual fold/unfold, and the bind:collapsed link mirrors it to the
+	// sibling pane.
 	function toggleFold() {
-		if (foldedImports && foldLocation) {
-			// Unfold — splice saved text back into source.
-			const { start, length } = foldLocation;
-			source = source.slice(0, start) + foldedImports.text + source.slice(start + length);
-			foldedImports = null;
-		} else {
-			// Re-fold — find imports in current source and hide them.
-			const block = findImportsBlock(source);
-			if (!block) return;
-			const placeholder = makePlaceholder(block.count);
-			source = source.slice(0, block.start) + placeholder + source.slice(block.end);
-			foldedImports = { text: block.text, count: block.count };
-		}
+		collapsed = !collapsed;
 	}
 
 	// What the compile path consumes — always the EXPANDED form so a
@@ -420,23 +440,33 @@
 			autocomplete="off"
 			autocapitalize="off"
 		></textarea>
-		{#if foldLocation}
-			<!--
-			  Overlay button that lives ABOVE the textarea so a click on
-			  the `… N imports` placeholder line gets intercepted before
-			  the textarea sees it. Without this, pointer-events on the
-			  textarea would steal every click in the editor area. Top
-			  is computed from the line index times the font line-height
-			  (12px × 1.55 = 18.6px), plus the editor-wrap top padding.
-			-->
+		<!--
+		  Import fold control — a visible pill chip pinned above the
+		  textarea (z2) so its click is intercepted before the editor
+		  sees it. Rendered in BOTH states so the fold is reversible:
+		  "Show N imports" over the folded placeholder line, or "Hide
+		  imports" on the blank line after the imports when expanded.
+		  Top is line-index × line-height (12px × 1.55 = 18.6px) + the
+		  editor's 14px top padding, minus the live scroll offset so the
+		  chip tracks its line. Clicking flips the shared `collapsed`
+		  state, which syncs to the other pane via bind:.
+		-->
+		{#if foldedImports && foldLocation}
 			<button
 				type="button"
-				class="fold-toggle"
-				style:top="{14 + foldLocation.line * 18.6}px"
-				aria-label="Expand {foldedImports?.count} imports"
-				title="Click to expand imports"
+				class="import-toggle"
+				style:top="{14 + foldLocation.line * 18.6 - scrollY}px"
+				aria-label="Show {foldedImports.count} imports"
 				onclick={toggleFold}
-			></button>
+			><span class="chev" aria-hidden="true">▸</span>Show {foldedImports.count} imports</button>
+		{:else if expandedAnchor}
+			<button
+				type="button"
+				class="import-toggle"
+				style:top="{14 + expandedAnchor.line * 18.6 - scrollY}px"
+				aria-label="Hide imports"
+				onclick={toggleFold}
+			><span class="chev" aria-hidden="true">▾</span>Hide imports</button>
 		{/if}
 	</div>
 	{#if hoverTip}
@@ -745,33 +775,39 @@
 		white-space: pre-wrap;
 		word-break: break-word;
 	}
-	/* Import-fold overlay button — pinned above the textarea, sized
-	   to the one line where the `… N imports` placeholder lives.
-	   The textarea handles every other click below; this one
-	   intercepts at the placeholder line so the user can actually
-	   expand without their click being eaten by the editor. */
-	.fold-toggle {
+	/* Import fold/unfold control — a small pill chip pinned above the
+	   textarea (z2) at the import line, so its click lands here and not
+	   in the editor. Opaque base colour covers the folded
+	   `… N imports` placeholder text beneath it. Present in both states
+	   ("Show N imports" / "Hide imports") so the fold is reversible. */
+	.import-toggle {
 		position: absolute;
-		left: 16px;
-		right: 16px;
-		height: 1.55em;
-		background: transparent;
-		border: 0;
-		padding: 0;
+		left: 14px;
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		height: 1.5em;
+		padding: 0 9px;
 		margin: 0;
+		font: 600 11px/1 ui-sans-serif, system-ui, sans-serif;
+		color: var(--accent, #b04a2a);
+		background: color-mix(in oklab, var(--accent, #b04a2a) 13%, var(--bg-elev, #fff));
+		border: 1px solid color-mix(in oklab, var(--accent, #b04a2a) 38%, transparent);
+		border-radius: 999px;
 		cursor: pointer;
 		z-index: 2;
-		font: inherit;
-		color: transparent;
-		text-align: left;
+		white-space: nowrap;
 	}
-	.fold-toggle:hover {
-		background: color-mix(in oklab, var(--accent, #b04a2a) 12%, transparent);
-		border-radius: 3px;
+	.import-toggle:hover {
+		background: color-mix(in oklab, var(--accent, #b04a2a) 22%, var(--bg-elev, #fff));
 	}
-	.fold-toggle:focus-visible {
+	.import-toggle:focus-visible {
 		outline: 2px solid var(--accent, #b04a2a);
-		outline-offset: 2px;
+		outline-offset: 1px;
+	}
+	.import-toggle .chev {
+		font-size: 9px;
+		line-height: 1;
 	}
 	.render {
 		padding: 16px;
