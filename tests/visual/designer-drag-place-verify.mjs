@@ -88,8 +88,8 @@ try {
 
   // 2. section to the very top (index 0)
   await page.locator(".add-tabs button", { hasText: "Sections" }).click();
-  await page.waitForSelector(".add-item:not(.compact)");
-  await dragOnto(".add-item:not(.compact)", 0); // first section item = Hero
+  await page.waitForSelector(".add-item:not(.compact):not(.add-free)");
+  await dragOnto(".add-item:not(.compact):not(.add-free)", 0); // first section item = Hero
   await page.waitForTimeout(200);
   const afterSec = await badges();
   ok(
@@ -120,7 +120,7 @@ try {
   ok(`canvas cleared (${empty.length})`, empty.length === 0);
   await page.waitForSelector(".empty");
   await page.locator(".add-tabs button", { hasText: "Sections" }).click();
-  await dragOnto(".add-item:not(.compact)", 0);
+  await dragOnto(".add-item:not(.compact):not(.add-free)", 0);
   await page.waitForTimeout(200);
   const afterEmpty = await badges();
   ok(`drop onto empty canvas adds one section (got [${afterEmpty.join(", ")}])`, afterEmpty.length === 1);

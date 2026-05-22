@@ -3,22 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Parascape — Builder</title>
+    <title>Parascape — Builder → Designer</title>
+    <!--
+      The standalone Builder was folded into the Designer (LYK-936): the Designer
+      now does stack + freeform layout, AI generation, and reusable components.
+      This route redirects so old links keep working.
+    -->
+    <meta http-equiv="refresh" content="0; url=/designer/" />
+    <script>
+      location.replace("/designer/");
+    </script>
   </head>
   <body>
-    <div id="app"></div>
-    <script>
-      // No-flash theme: mirror src/lib/theme.ts before first paint.
-      (function () {
-        try {
-          var t = localStorage.getItem("parascape-theme") || "auto";
-          var dark = t === "dark" || (t === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
-          document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
-          document.documentElement.setAttribute("data-theme-pref", t);
-          document.body.classList.toggle("awsui-dark-mode", dark);
-        } catch (e) {}
-      })();
-    </script>
-    <script type="module" src="./main.ts"></script>
+    <p>The Builder has moved into the <a href="/designer/">Designer</a>. Redirecting…</p>
   </body>
 </html>
