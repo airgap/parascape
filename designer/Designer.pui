@@ -30,10 +30,12 @@
 		identOf,
 	} from './component-meta';
 
-	// A node is either a preset section (type ∈ section ids, content in `values`)
-	// or a raw Parascape component (type === 'component', with comp/props/content).
-	// Container components (takesContent) can hold child component nodes, so the
-	// page is a tree, not a flat list — `sections` is the top-level (the stack).
+	// A node is either a preset section (type ∈ section ids, content in `values`),
+	// a raw Parascape component (type === 'component', with comp/props/content),
+	// or an instance of a user-defined named component (type === 'instance',
+	// `ref` = the NamedComponent id; it renders that component's `def`). Container
+	// components (takesContent) can hold child component nodes, so the page is a
+	// tree, not a flat list — `sections` is the top-level (the stack).
 	type Section = {
 		key: number;
 		type: string;
@@ -43,9 +45,11 @@
 		props?: Record<string, string | number | boolean>;
 		content?: string;
 		children?: Section[];
+		ref?: string;
 	};
 	const isComp = (s: Section) => s.type === 'component';
 	const isContainer = (s: Section) => isComp(s) && takesContent(s.comp!);
+	const isInstance = (s: Section) => s.type === 'instance';
 
 	// --- tree helpers (operate on the nested node tree by key) ---
 	function findNode(list: Section[], key: number): Section | null {
@@ -105,6 +109,8 @@
 	const isInteractive = (id?: string) => !!id && INTERACTIVE.has(id);
 	function subtreeHasInteractive(n: Section): boolean {
 		if (isComp(n) && isInteractive(n.comp)) return true;
+		// an instance is interactive iff its definition contains interactive content
+		if (isInstance(n)) return !!compById(n.ref)?.def.some(subtreeHasInteractive);
 		return !!n.children?.some(subtreeHasInteractive);
 	}
 	// path from a top-level node down to (and including) the node with `key`.
@@ -135,7 +141,11 @@
 	// is a project-global node-key counter so keys stay unique across pages.
 	type Doc = { sections: Section[]; codeOverride: string | null };
 	type Page = { id: number; name: string; route: string; params: string; doc: Doc };
-	type Project = { pages: Page[]; activePageId: number; nextKey: number };
+	// A reusable named component (symbol, LYK-949). `def` is a node tree edited in
+	// one place; page nodes reference it by id as instances (`Section.ref`). Lives
+	// on the project (shared across pages), not on any one page.
+	type NamedComponent = { id: string; name: string; def: Section[] };
+	type Project = { pages: Page[]; activePageId: number; nextKey: number; components: NamedComponent[]; nextCompId: number };
 	type Saved = { sections: Section[]; nextKey?: number; codeOverride?: string | null };
 	// Early Designer builds shipped an unprofessional footer default ("for-funzies
 	// … Not affiliated with AWS") and later a copyright line. Pages saved then keep
@@ -201,6 +211,8 @@
 			],
 			activePageId: 1,
 			nextKey: 6,
+			components: [],
+			nextCompId: 1,
 		};
 	}
 	// Normalize any persisted shape into a Project: the current `{ pages }` shape,
@@ -215,6 +227,18 @@
 					codeOverride: typeof (d as Doc)?.codeOverride === 'string' ? (d as Doc).codeOverride : null,
 				}),
 			);
+		// Named components (LYK-949). Each def is a node tree → scrub + nesting-repair
+		// it like a page's sections.
+		const cleanComponents = (v: unknown): NamedComponent[] =>
+			Array.isArray(v)
+				? (v as NamedComponent[])
+						.filter((c) => c && typeof c.id === 'string')
+						.map((c) => ({
+							id: c.id,
+							name: typeof c.name === 'string' && c.name ? c.name : 'Component',
+							def: fixNesting(scrub({ sections: Array.isArray(c.def) ? c.def : [] })).sections,
+						}))
+				: [];
 		if (Array.isArray(x?.pages)) {
 			const pages: Page[] = (x.pages as Page[]).map((p, i) => ({
 				id: typeof p.id === 'number' ? p.id : i + 1,
@@ -225,13 +249,22 @@
 			}));
 			if (!pages.length) return starterProject();
 			const activePageId = pages.some((p) => p.id === x.activePageId) ? (x.activePageId as number) : pages[0].id;
-			return { pages, activePageId, nextKey: typeof x.nextKey === 'number' ? x.nextKey : 1 };
+			const components = cleanComponents(x.components);
+			return {
+				pages,
+				activePageId,
+				nextKey: typeof x.nextKey === 'number' ? x.nextKey : 1,
+				components,
+				nextCompId: typeof x.nextCompId === 'number' ? x.nextCompId : components.length + 1,
+			};
 		}
 		if (Array.isArray(x?.sections)) {
 			return {
 				pages: [{ id: 1, name: 'Home', route: '/', params: '', doc: cleanDoc(x) }],
 				activePageId: 1,
 				nextKey: typeof x.nextKey === 'number' ? x.nextKey : 1,
+				components: [],
+				nextCompId: 1,
 			};
 		}
 		return starterProject();
@@ -250,6 +283,18 @@
 	signal activePageId = init.activePageId;
 	const _initActive = init.pages.find((p) => p.id === init.activePageId) ?? init.pages[0];
 	signal sections: Section[] = _initActive.doc.sections;
+
+	// --- reusable named components / symbols (LYK-949) ---
+	signal components: NamedComponent[] = init.components;
+	let nextCompId = init.nextCompId;
+	const compById = (id?: string): NamedComponent | undefined => (id ? components.find((c) => c.id === id) : undefined);
+	// Internal editing: while a symbol is open, `sections` holds its def and the
+	// page's own sections are stashed here; currentProject() routes persistence to
+	// the right place and exitComponentEdit() writes the edited def back.
+	signal editingComponentId: string | null = null;
+	let pageSectionsStash: Section[] | null = null;
+	let pageCodeStash: string | null = null;
+	derived editingComponent = editingComponentId ? compById(editingComponentId) : null;
 
 	signal selectedKey: number | null = null;
 	signal device = 'desktop';
@@ -280,7 +325,7 @@
 	// either a reorder of an existing section (dragKey) or a new item being drawn
 	// in from the palette (dragNew); both compute dropIndex the same way.
 	signal dragKey: number | null = null;
-	signal dragNew: { kind: 'section' | 'component'; id: string } | null = null;
+	signal dragNew: { kind: 'section' | 'component' | 'instance'; id: string } | null = null;
 	signal dropIndex: number | null = null;
 	// when hovering a container component's body, the drop nests inside it instead
 	// of inserting between top-level sections.
@@ -311,7 +356,8 @@
 	signal a11yResults: { impact: string; id: string; help: string; helpUrl: string; count: number; target: string }[] | null = null;
 
 	const defOf = (s: Section) => SECTION_BY_ID[s.type];
-	const labelOf = (s: Section) => (isComp(s) ? displayName(s.comp!) : defOf(s).name);
+	const labelOf = (s: Section) =>
+		isInstance(s) ? compById(s.ref)?.name ?? 'Component' : isComp(s) ? displayName(s.comp!) : defOf(s).name;
 	// true when this section, or any node nested inside it, is the selection.
 	const inSel = (s: Section) => selectedKey !== null && !!findNode([s], selectedKey);
 	derived selected = selectedKey === null ? null : findNode(sections, selectedKey);
@@ -324,20 +370,30 @@
 
 	// the active page's live doc (the editor edits sections/codeOverride directly;
 	// they're folded back into `pages` here for persistence).
-	const activeDoc = (): Doc => ({ sections: clone(sections), codeOverride });
+	// While a symbol is open, the live `sections` is its def, not the page's — so
+	// the page's sections come from the stash and the def is folded back into
+	// `components`. When not editing, behaves as before.
+	const pageSecsNow = (): Section[] => (editingComponentId ? pageSectionsStash ?? [] : sections);
+	const componentsNow = (): NamedComponent[] =>
+		editingComponentId ? components.map((c) => (c.id === editingComponentId ? { ...c, def: clone(sections) } : c)) : components;
+	const activeDoc = (): Doc => ({ sections: clone(pageSecsNow()), codeOverride: editingComponentId ? pageCodeStash : codeOverride });
 	function currentProject(): Project {
 		return {
 			pages: pages.map((p) => (p.id === activePageId ? { ...p, doc: activeDoc() } : p)),
 			activePageId,
 			nextKey,
+			components: clone(componentsNow()),
+			nextCompId,
 		};
 	}
 	effect {
-		// persist the whole project (all pages) to localStorage
+		// persist the whole project (all pages + components) to localStorage
 		const _s = sections,
 			_c = codeOverride,
 			_p = pages,
-			_a = activePageId; // track
+			_a = activePageId,
+			_cm = components,
+			_e = editingComponentId; // track
 		try {
 			localStorage.setItem(KEY, JSON.stringify(currentProject()));
 		} catch {}
@@ -436,6 +492,146 @@
 	const renamePage = (id: number, name: string) => (pages = pages.map((p) => (p.id === id ? { ...p, name } : p)));
 	const setRoute = (id: number, route: string) => (pages = pages.map((p) => (p.id === id ? { ...p, route } : p)));
 	const setParams = (id: number, params: string) => (pages = pages.map((p) => (p.id === id ? { ...p, params } : p)));
+
+	// --- named components / symbols (LYK-949) ---
+	// PascalCase identifier from a display name (for the exported tag / module).
+	const compIdent = (name: string): string => {
+		const id = name
+			.replace(/[^a-zA-Z0-9]+/g, ' ')
+			.trim()
+			.split(' ')
+			.filter(Boolean)
+			.map((w) => w[0].toUpperCase() + w.slice(1))
+			.join('');
+		return /^[A-Za-z]/.test(id) ? id : 'C' + (id || 'omponent');
+	};
+	// Unique identifier per component (export imports/tags can't collide on name).
+	derived identByComp {
+		const used = new Set<string>();
+		const map: Record<string, string> = {};
+		for (const c of components) {
+			const base = compIdent(c.name);
+			let id = base;
+			let n = 2;
+			while (used.has(id)) id = base + n++;
+			used.add(id);
+			map[c.id] = id;
+		}
+		return map;
+	}
+	function makeInstance(refId: string): Section {
+		return {
+			key: nextKey++,
+			type: 'instance',
+			ref: refId,
+			values: {},
+			style: { bg: 'transparent', fg: 'inherit', padY: 40, align: 'center', width: 1040 },
+		};
+	}
+	// Does `def` reference component `id` (directly or transitively)? Recursion
+	// guard so a component can't contain an instance of itself.
+	function defReferences(def: Section[], id: string, seen = new Set<string>()): boolean {
+		const walk = (list: Section[]): boolean =>
+			list.some((n) => {
+				if (isInstance(n) && n.ref) {
+					if (n.ref === id) return true;
+					if (!seen.has(n.ref)) {
+						seen.add(n.ref);
+						const c = compById(n.ref);
+						if (c && walk(c.def)) return true;
+					}
+				}
+				return n.children ? walk(n.children) : false;
+			});
+		return walk(def);
+	}
+	// Turn the current selection into a new named component; the selected node
+	// becomes the first instance of it.
+	function createComponentFromSelection() {
+		if (selectedKey === null) return;
+		const node = findNode(sections, selectedKey);
+		if (!node) return;
+		const name = (prompt('Name this component', 'My component') ?? '').trim();
+		if (!name) return;
+		const id = 'c' + nextCompId++;
+		components = [...components, { id, name, def: [reclone(node)] }];
+		const inst = makeInstance(id);
+		sections = mapTree(sections, selectedKey, () => inst);
+		selectedKey = inst.key;
+		showExport = false;
+	}
+	// May an instance of `compId` be added to the current canvas? Blocks recursion
+	// while editing a component (a component can't contain itself, directly or via
+	// another component that references it back).
+	const instanceAllowed = (compId: string): boolean =>
+		!editingComponentId || (compId !== editingComponentId && !defReferences(compById(compId)?.def ?? [], editingComponentId));
+	function addInstance(compId: string) {
+		if (!instanceAllowed(compId)) return;
+		insertSection(makeInstance(compId), sections.length);
+	}
+	// Open a component for internal editing: stash the page, swap `sections` to the
+	// component's def. "Done" writes the def back so every instance updates.
+	function enterComponentEdit(id: string) {
+		if (editingComponentId === id) return;
+		if (editingComponentId) exitComponentEdit();
+		const c = compById(id);
+		if (!c) return;
+		pageSectionsStash = clone(sections);
+		pageCodeStash = codeOverride;
+		editingComponentId = id;
+		sections = clone(c.def);
+		codeOverride = null;
+		selectedKey = null;
+		showExport = false;
+		showA11y = false;
+		codeMode = false;
+		resetHistory();
+	}
+	function exitComponentEdit() {
+		if (!editingComponentId) return;
+		const id = editingComponentId;
+		const def = clone(sections);
+		components = components.map((c) => (c.id === id ? { ...c, def } : c));
+		editingComponentId = null;
+		sections = pageSectionsStash ?? [];
+		codeOverride = pageCodeStash;
+		pageSectionsStash = null;
+		pageCodeStash = null;
+		selectedKey = null;
+		showExport = false;
+		resetHistory();
+	}
+	const renameComponent = (id: string, name: string) =>
+		(components = components.map((c) => (c.id === id ? { ...c, name } : c)));
+	// Delete a component, detaching every instance across the whole project by
+	// inlining its def in place (so the rendered content is preserved, not lost).
+	function deleteComponent(id: string) {
+		const c = compById(id);
+		if (!c) return;
+		const count = instanceCount(id);
+		if (count && !confirm(`"${c.name}" has ${count} instance${count === 1 ? '' : 's'}. Delete it and detach them (keep their content)?`)) return;
+		const inline = (list: Section[]): Section[] =>
+			list.flatMap((n) => {
+				if (isInstance(n) && n.ref === id) return c.def.map(reclone);
+				if (n.children) return [{ ...n, children: inline(n.children) }];
+				return [n];
+			});
+		if (editingComponentId === id) exitComponentEdit();
+		if (pageSectionsStash) pageSectionsStash = inline(pageSectionsStash);
+		sections = inline(sections);
+		pages = pages.map((p) => ({ ...p, doc: { ...p.doc, sections: inline(p.doc.sections) } }));
+		components = components.filter((x) => x.id !== id).map((x) => ({ ...x, def: inline(x.def) }));
+	}
+	// Count live instances of a component across the page, the stashed page, all
+	// pages' docs, and other components' defs.
+	function instanceCount(id: string): number {
+		const walk = (list: Section[]): number =>
+			list.reduce((acc, n) => acc + (isInstance(n) && n.ref === id ? 1 : 0) + (n.children ? walk(n.children) : 0), 0);
+		let total = walk(editingComponentId ? pageSectionsStash ?? [] : sections);
+		for (const p of pages) if (p.id !== activePageId) total += walk(p.doc.sections);
+		for (const c of components) if (c.id !== id) total += walk(c.def);
+		return total;
+	}
 
 	// --- keyboard shortcuts + clipboard (LYK-928) ---
 	let clipboard: Section | null = null;
@@ -564,7 +760,7 @@
 			e.dataTransfer.setData('text/plain', String(key));
 		}
 	}
-	function onPaletteDragStart(e: DragEvent, kind: 'section' | 'component', id: string) {
+	function onPaletteDragStart(e: DragEvent, kind: 'section' | 'component' | 'instance', id: string) {
 		dragNew = { kind, id };
 		dragKey = null;
 		if (e.dataTransfer) {
@@ -576,9 +772,17 @@
 		for (const d of document.querySelectorAll('.pdrop.nest-over')) d.classList.remove('nest-over');
 		el?.classList.add('nest-over');
 	}
-	// what's being dragged (a palette comp id, or the moving node's subtree)
+	// what's being dragged (a palette comp id, an instance's synthetic node, or the
+	// moving node's subtree). Instances become a synthetic node so the nesting-
+	// validity check can resolve their definition's interactivity.
 	const draggedDescriptor = (): string | Section | null =>
-		dragNew ? dragNew.id : dragKey !== null ? findNode(sections, dragKey) : null;
+		dragNew
+			? dragNew.kind === 'instance'
+				? ({ key: -1, type: 'instance', ref: dragNew.id, values: {}, style: {} as SectionStyle } as Section)
+				: dragNew.id
+			: dragKey !== null
+				? findNode(sections, dragKey)
+				: null;
 	// Walk the drop-zone ancestor chain under the cursor and return the INNERMOST
 	// one the dragged node may nest into. This skips zones that would be invalid
 	// (e.g. an existing Link inside a Container) and falls through to the Container
@@ -629,7 +833,16 @@
 		}
 		e.preventDefault();
 		if (dragNew) {
-			const node = dragNew.kind === 'section' ? makeSection(dragNew.id) : makeComponent(dragNew.id);
+			if (dragNew.kind === 'instance' && !instanceAllowed(dragNew.id)) {
+				onDragEnd();
+				return;
+			}
+			const node =
+				dragNew.kind === 'section'
+					? makeSection(dragNew.id)
+					: dragNew.kind === 'instance'
+						? makeInstance(dragNew.id)
+						: makeComponent(dragNew.id);
 			if (nestKey !== null) {
 				sections = insertChild(sections, nestKey, node);
 				selectedKey = node.key;
@@ -751,6 +964,20 @@
 	//  • data-pk wraps  → click-to-select (display:contents, so layout is intact)
 	// Export mode (editable=false) emits clean, nested .pui with none of those.
 	function nodeBody(n: Section, editable: boolean): string {
+		if (isInstance(n)) {
+			const c = compById(n.ref);
+			if (!c) {
+				return editable
+					? `<div data-pk="${n.key}" class="pf-missing">⚠ missing component</div>`
+					: `<!-- missing component ${n.ref} -->`;
+			}
+			// export: reference the component module by its tag. preview: inline the
+			// def (rendered non-editable — an instance is atomic on the page; you edit
+			// it by opening the definition), wrapped so a click selects the instance.
+			if (!editable) return `<${identByComp[n.ref!]} />`;
+			const inner = c.def.map((d) => nodeBody(d, false)).join('\n');
+			return `<div data-pk="${n.key}" data-instance="${n.ref}" style="display:contents">${inner}</div>`;
+		}
 		if (!isComp(n)) return markupOf(defOf(n), n.values, editable);
 		const open = componentOpen(n.comp!, n.props ?? {});
 		let tag: string;
@@ -772,18 +999,34 @@
 		// adding a layout box.
 		return editable ? `<div data-pk="${n.key}" style="display:contents">${tag}</div>` : tag;
 	}
-	function nodeImports(n: Section): string[] {
+	function nodeImports(n: Section, forExport = false): string[] {
+		if (isInstance(n)) {
+			// export references the module (import added at page/module level); preview
+			// inlines the def, so it needs the def's own component imports.
+			if (forExport) return [];
+			const c = compById(n.ref);
+			return c ? c.def.flatMap((d) => nodeImports(d, false)) : [];
+		}
 		if (!isComp(n)) return defOf(n).imports;
 		const ids = [n.comp!];
-		if (n.children) for (const c of n.children) ids.push(...nodeImports(c));
+		if (n.children) for (const c of n.children) ids.push(...nodeImports(c, forExport));
 		return ids;
 	}
-	// Preview source: imports for the whole subtree + nodeBody (with markers).
+	// Preview source: imports for the whole subtree (instances inlined) + nodeBody.
 	const srcOf = (s: Section) => {
 		const imps = [...new Set(nodeImports(s))].map(importLine).join('\n');
 		return `<script lang="pts">\n${imps}\n<\/script>\n\n${nodeBody(s, true)}\n`;
 	};
-	const sectionImports = (s: Section): string[] => [...new Set(nodeImports(s))];
+	const sectionImports = (s: Section): string[] => [...new Set(nodeImports(s, true))];
+	// component ids instanced anywhere in a node list (page or a def), at any depth.
+	function instanceRefsIn(list: Section[]): string[] {
+		const out: string[] = [];
+		for (const n of list) {
+			if (isInstance(n) && n.ref) out.push(n.ref);
+			if (n.children) out.push(...instanceRefsIn(n.children));
+		}
+		return out;
+	}
 	const sectionBody = (s: Section): string => nodeBody(s, false);
 	const secStyle = (s: Section) =>
 		`background:${s.style.bg}; padding:${s.style.padY}px 24px;` + (s.style.fg === 'light' ? ' color:#fff;' : '');
@@ -837,9 +1080,39 @@
 		return `\t<Section ${attrs}>\n${body}\n\t</Section>`;
 	};
 	derived pageSegments = sections.map((s) => ({ key: s.key, label: labelOf(s), code: segmentOf(s) }));
-	// `section` is the band wrapper component every segment uses, on top of each
-	// section's own component imports.
-	derived pageImports = [...new Set(['section', ...sections.flatMap(sectionImports)])].map(importLine).join('\n');
+	// Components reachable from this page (instanced on it, plus any they reference
+	// transitively) — each exported as its own reusable .pui module.
+	derived pageModules {
+		const want = new Set<string>();
+		const visit = (ids: string[]) => {
+			for (const id of ids) {
+				const c = compById(id);
+				if (!c || want.has(id)) continue;
+				want.add(id);
+				visit(instanceRefsIn(c.def));
+			}
+		};
+		visit(instanceRefsIn(sections));
+		return components
+			.filter((c) => want.has(c.id))
+			.map((c) => {
+				const ident = identByComp[c.id];
+				const meta = [...new Set(c.def.flatMap((d) => nodeImports(d, true)))].map(importLine);
+				const mods = [...new Set(instanceRefsIn(c.def))]
+					.filter((id) => compById(id))
+					.map((id) => `import ${identByComp[id]} from './${identByComp[id]}.pui';`);
+				const imps = [...meta, ...mods].filter(Boolean).join('\n');
+				const body = c.def.map((d) => nodeBody(d, false)).join('\n');
+				return { id: c.id, name: c.name, ident, filename: `${ident}.pui`, source: `<script lang="pts">\n${imps}\n<\/script>\n\n${body}\n` };
+			});
+	}
+	// `section` is the band wrapper every segment uses, plus each section's own
+	// component imports, plus an import for every named component instanced here.
+	derived pageImports {
+		const meta = [...new Set(['section', ...sections.flatMap(sectionImports)])].map(importLine);
+		const mods = pageModules.map((m) => `import ${m.ident} from './${m.filename}';`);
+		return [...meta, ...mods].filter(Boolean).join('\n');
+	}
 	const PAGE_STYLE = `<style>\n\t.page { display: flex; flex-direction: column; }\n</style>`;
 	// route + declared params of the active page, emitted as a header comment so
 	// the exported .pui carries its routing metadata.
@@ -885,11 +1158,20 @@
 		return { update: run };
 	}
 	function download() {
-		const blob = new Blob([codeMode ? codeDraft : pageSource], { type: 'text/plain' });
+		let text = codeMode ? codeDraft : pageSource;
+		let name = 'Page.pui';
+		// With named components, one .pui can't hold every module — bundle the page
+		// and each component module into one text file with file separators.
+		if (!codeMode && pageModules.length) {
+			const mods = pageModules.map((m) => `// ===== ${m.filename} =====\n${m.source}`).join('\n');
+			text = `// ===== Page.pui =====\n${text}\n\n${mods}`;
+			name = 'parascape-export.txt';
+		}
+		const blob = new Blob([text], { type: 'text/plain' });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
-		a.download = 'Page.pui';
+		a.download = name;
 		a.click();
 		URL.revokeObjectURL(url);
 	}
@@ -1002,6 +1284,10 @@
 		activePageId = proj.activePageId;
 		nextKey = Math.max(nextKey, proj.nextKey);
 		nextPageId = Math.max(nextPageId, ...proj.pages.map((p) => p.id)) + 1;
+		components = proj.components;
+		nextCompId = Math.max(nextCompId, proj.nextCompId);
+		editingComponentId = null;
+		pageSectionsStash = null;
 		const active = proj.pages.find((p) => p.id === proj.activePageId) ?? proj.pages[0];
 		loadPageDoc(active.doc);
 	}
@@ -1151,6 +1437,13 @@
 		</span>
 	</header>
 
+	{#if editingComponentId}
+		<div class="comp-edit-banner">
+			<span>Editing component <strong>{editingComponent?.name ?? ''}</strong> — changes update every instance.</span>
+			<button class="mini" onclick={exitComponentEdit}>Done</button>
+		</div>
+	{/if}
+
 	{#if showAuth && !guest}
 		<div class="auth-backdrop" role="presentation" onclick={() => (showAuth = false)}>
 			<form
@@ -1187,6 +1480,7 @@
 	<div class="cols" class:exporting={showExport} class:coding={codeMode}>
 		{#if !codeMode}
 		<aside class="add-panel">
+			{#if !editingComponentId}
 			<div class="pages">
 				<div class="pages-head"><span>Pages</span><button class="mini" onclick={addPage}>+ Page</button></div>
 				{#each pages as p (p.id)}
@@ -1214,6 +1508,29 @@
 					</div>
 				{/if}
 			</div>
+			{/if}
+
+			{#if components.length}
+				<div class="mycomp">
+					<div class="mycomp-head">My components</div>
+					{#each components as c (c.id)}
+						<div class="mycomp-row" class:active={c.id === editingComponentId}>
+							<button
+								class="mycomp-chip"
+								draggable={instanceAllowed(c.id) ? 'true' : 'false'}
+								disabled={!instanceAllowed(c.id)}
+								ondragstart={(e) => onPaletteDragStart(e, 'instance', c.id)}
+								ondragend={onDragEnd}
+								onclick={() => addInstance(c.id)}
+								title={instanceAllowed(c.id) ? 'Click to append an instance, or drag onto the canvas' : "Can't place a component inside itself"}
+							>◈ {c.name}</button>
+							<button class="mycomp-edit" title="Edit component internals" onclick={() => enterComponentEdit(c.id)}>Edit</button>
+							<button class="mycomp-del" title="Delete component" aria-label="Delete component {c.name}" onclick={() => deleteComponent(c.id)}>✕</button>
+						</div>
+					{/each}
+				</div>
+			{/if}
+
 			{#if !codeOverride}
 				<div class="layers">
 					<div class="layers-head">Layers</div>
@@ -1402,9 +1719,50 @@
 						{/each}
 						<div class="hl" use:hl={exportFoot}></div>
 					</div>
+					{#if pageModules.length}
+						<h3 class="export-mods-head">Component modules</h3>
+						<p class="muted">Each named component exports as its own reusable <code>.pui</code>; the page imports them. Download bundles everything.</p>
+						{#each pageModules as m (m.id)}
+							<div class="seg">
+								<span class="seg-label">{m.filename}</span>
+								<div class="hl" use:hl={m.source}></div>
+							</div>
+						{/each}
+					{/if}
 				{/if}
-			{:else if selected && isComp(selected)}
+			{:else if selected && isInstance(selected)}
 				<div class="insp-head"><h2>{labelOf(selected)}</h2><button class="mini danger" onclick={() => removeSection(selected.key)}>Delete</button></div>
+				<p class="muted">Instance of a named component — edit it to update every instance.</p>
+				<button class="primary" onclick={() => selected.ref && enterComponentEdit(selected.ref)}>Edit component</button>
+
+				<h3>Section style</h3>
+				<label class="field"><span>Background</span>
+					<span class="bg-row">
+						<input type="color" value={selected.style.bg === 'transparent' ? '#ffffff' : selected.style.bg} oninput={(e) => setStyle(selected.key, { bg: (e.target as HTMLInputElement).value })} />
+						<button class="mini" onclick={() => setStyle(selected.key, { bg: 'transparent' })}>None</button>
+					</span>
+				</label>
+				<label class="field"><span>Text</span>
+					<select value={selected.style.fg} onchange={(e) => setStyle(selected.key, { fg: (e.target as HTMLSelectElement).value as 'inherit' | 'light' })}>
+						<option value="inherit">Dark (default)</option>
+						<option value="light">Light (for dark bg)</option>
+					</select>
+				</label>
+				<label class="field"><span>Align</span>
+					<select value={selected.style.align} onchange={(e) => setStyle(selected.key, { align: (e.target as HTMLSelectElement).value as 'left' | 'center' | 'right' })}>
+						<option value="left">Left</option>
+						<option value="center">Center</option>
+						<option value="right">Right</option>
+					</select>
+				</label>
+				<label class="field"><span>Padding</span>
+					<input type="number" value={selected.style.padY} oninput={(e) => setStyle(selected.key, { padY: Number((e.target as HTMLInputElement).value) })} />
+				</label>
+				<label class="field"><span>Width</span>
+					<input type="number" placeholder="0 = full" value={selected.style.width} oninput={(e) => setStyle(selected.key, { width: Number((e.target as HTMLInputElement).value) })} />
+				</label>
+			{:else if selected && isComp(selected)}
+				<div class="insp-head"><h2>{labelOf(selected)}</h2><span class="insp-actions"><button class="mini" title="Turn this into a reusable component" onclick={createComponentFromSelection}>Make component</button><button class="mini danger" onclick={() => removeSection(selected.key)}>Delete</button></span></div>
 				<p class="muted">{identOf(selected.comp)} — raw Parascape component</p>
 
 				{#if takesContent(selected.comp)}
@@ -1478,7 +1836,7 @@
 					<input type="number" placeholder="0 = full" value={selected.style.width} oninput={(e) => setStyle(selected.key, { width: Number((e.target as HTMLInputElement).value) })} />
 				</label>
 			{:else if selected}
-				<div class="insp-head"><h2>{defOf(selected).name}</h2><button class="mini danger" onclick={() => removeSection(selected.key)}>Delete</button></div>
+				<div class="insp-head"><h2>{defOf(selected).name}</h2><span class="insp-actions"><button class="mini" title="Turn this into a reusable component" onclick={createComponentFromSelection}>Make component</button><button class="mini danger" onclick={() => removeSection(selected.key)}>Delete</button></span></div>
 
 				<h3>Content</h3>
 				{#each defOf(selected).fields as f (f.key)}
@@ -1666,6 +2024,20 @@
 	.layers { margin-bottom: 14px; max-height: 38vh; overflow: auto; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
 	.layers-head { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); margin: 0 0 6px; }
 	.layers-empty { font-size: 12px; color: var(--fg-subtle); }
+	/* named components / symbols (LYK-949) */
+	.comp-edit-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 14px; background: var(--bg-accent-subtle); color: var(--fg-strong); border-bottom: 1px solid var(--accent); font-size: 13px; }
+	.mycomp { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+	.mycomp-head { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); margin: 0 0 6px; }
+	.mycomp-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+	.mycomp-row.active .mycomp-chip { border-color: var(--accent); color: var(--accent); }
+	.mycomp-chip { flex: 1; text-align: left; background: var(--bg-num-pill); color: var(--fg-strong); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 5px 8px; cursor: grab; font: inherit; }
+	.mycomp-chip:hover:not(:disabled) { background: var(--bg-hover); }
+	.mycomp-chip:disabled { opacity: 0.45; cursor: not-allowed; }
+	.mycomp-edit, .mycomp-del { background: var(--bg-num-pill); color: var(--fg-muted); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 5px 7px; cursor: pointer; font: inherit; font-size: 11px; }
+	.mycomp-edit:hover { background: var(--bg-hover); color: var(--fg-strong); }
+	.mycomp-del:hover { background: var(--bad); color: #fff; border-color: var(--bad); }
+	.insp-actions { display: flex; gap: 6px; }
+	.export-mods-head { margin-top: 16px; }
 	.layer-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 8px; border-radius: var(--radius-sm); cursor: pointer; }
 	.layer-row:hover { background: var(--bg-hover); }
 	.layer-row.sel { background: var(--bg-accent-subtle); color: var(--accent); }
