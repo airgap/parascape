@@ -60,10 +60,13 @@ controller as Lyku/ParaBun):
   parabun, and webkit2gtk-4.1): `jenkins/build-linux.sh` → `.deb`/`.rpm`/`.AppImage`.
 - **macOS** — rsync the tree to the `mac-mini` SSH alias and run
   `jenkins/build-macos.sh` there; it installs parabun, builds `--bundles app`,
-  and makes the `.dmg` by hand (Tauri's DMG bundler needs a GUI/AppleScript and
-  fails over headless SSH). The `.dmg` is rsynced back.
+  makes the `.dmg` by hand (Tauri's DMG bundler needs a GUI/AppleScript and
+  fails over headless SSH), and ditto-zips the `.app`. Both are rsynced back.
+- **Publish** (`PUBLISH_RELEASE`, on by default) — each build stage stashes its
+  artifacts; the publish stage `gh release create/upload`s them to
+  **airgap/parascape** under the tag `parascape-<short-sha>` (re-runs of a commit
+  clobber assets rather than making duplicate tags). Auth is the `github-pat`
+  credential; `gh` reads it from `GH_TOKEN`.
 
-It is **build-only**: both branches `archiveArtifacts` the installers and that's
-it — no R2 upload, no GitHub release, no registry push. Parascape is not public,
-so CI just proves the bundles build on both platforms; releasing waits on
-approval.
+Every build also `archiveArtifacts` the installers as Jenkins artifacts. Set
+`PUBLISH_RELEASE=false` for a build-only run.
