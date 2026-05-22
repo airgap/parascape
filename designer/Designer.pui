@@ -44,6 +44,9 @@
 	signal selectedKey: number | null = null;
 	signal device = 'desktop';
 	signal showExport = false;
+	// drag-to-reorder state. dropIndex is the 0..sections.length insert position.
+	signal dragKey: number | null = null;
+	signal dropIndex: number | null = null;
 
 	const defOf = (s: Section) => SECTION_BY_ID[s.type];
 	derived selected = sections.find((s) => s.key === selectedKey) ?? null;
@@ -81,6 +84,43 @@
 		[next[i], next[j]] = [next[j], next[i]];
 		sections = next;
 	}
+	// drag-to-reorder: HTML5 DnD. dragover computes an insert position from the
+	// cursor's Y vs each section's midpoint; drop moves the dragged section.
+	function onDragStart(e: DragEvent, key: number) {
+		dragKey = key;
+		selectedKey = key;
+		if (e.dataTransfer) {
+			e.dataTransfer.effectAllowed = 'move';
+			e.dataTransfer.setData('text/plain', String(key));
+		}
+	}
+	function onDragOver(e: DragEvent, i: number) {
+		if (dragKey === null) return;
+		e.preventDefault();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+		const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		dropIndex = e.clientY < r.top + r.height / 2 ? i : i + 1;
+	}
+	function onDrop(e: DragEvent) {
+		if (dragKey === null || dropIndex === null) return;
+		e.preventDefault();
+		const from = sections.findIndex((s) => s.key === dragKey);
+		if (from >= 0) {
+			let to = dropIndex;
+			const arr = sections.slice();
+			const [moved] = arr.splice(from, 1);
+			if (from < to) to--; // removal shifts everything after `from` left by 1
+			arr.splice(to, 0, moved);
+			sections = arr;
+		}
+		dragKey = null;
+		dropIndex = null;
+	}
+	function onDragEnd() {
+		dragKey = null;
+		dropIndex = null;
+	}
+
 	function setValue(key: number, field: string, value: string) {
 		sections = sections.map((s) => (s.key === key ? { ...s, values: { ...s.values, [field]: value } } : s));
 	}
@@ -185,27 +225,35 @@
 				{#if !sections.length}
 					<p class="empty">Add sections from the left to build your page.</p>
 				{/if}
-				{#each sections as s (s.key)}
+				{#each sections as s, i (s.key)}
+					{#if dropIndex === i}<div class="drop-line"></div>{/if}
 					<section
 						class="sec"
 						class:sel={s.key === selectedKey}
+						class:dragging={s.key === dragKey}
 						style={secStyle(s)}
+						draggable="true"
+						ondragstart={(e) => onDragStart(e, s.key)}
+						ondragover={(e) => onDragOver(e, i)}
+						ondrop={onDrop}
+						ondragend={onDragEnd}
 						onclick={() => { selectedKey = s.key; showExport = false; }}
 					>
 						<div class={s.style.fg === 'light' ? 'inner awsui-dark-mode' : 'inner'} style={innerStyle(s)}>
 							<div use:renderSection={srcOf(s)}></div>
 						</div>
+						<span class="sec-badge">⠿ {defOf(s).name}</span>
 						{#if s.key === selectedKey}
-							<span class="sec-badge">{defOf(s).name}</span>
 							<span class="sec-tools">
-								<button title="Move up" onclick={(e) => { e.stopPropagation(); move(s.key, -1); }}>↑</button>
-								<button title="Move down" onclick={(e) => { e.stopPropagation(); move(s.key, 1); }}>↓</button>
-								<button title="Duplicate" onclick={(e) => { e.stopPropagation(); duplicate(s.key); }}>⧉</button>
-								<button title="Delete" onclick={(e) => { e.stopPropagation(); removeSection(s.key); }}>✕</button>
+								<button title="Move up" draggable="false" onclick={(e) => { e.stopPropagation(); move(s.key, -1); }}>↑</button>
+								<button title="Move down" draggable="false" onclick={(e) => { e.stopPropagation(); move(s.key, 1); }}>↓</button>
+								<button title="Duplicate" draggable="false" onclick={(e) => { e.stopPropagation(); duplicate(s.key); }}>⧉</button>
+								<button title="Delete" draggable="false" onclick={(e) => { e.stopPropagation(); removeSection(s.key); }}>✕</button>
 							</span>
 						{/if}
 					</section>
 				{/each}
+				{#if dropIndex === sections.length && sections.length}<div class="drop-line"></div>{/if}
 			</div>
 		</main>
 
@@ -300,11 +348,17 @@
 	.frame.device-mobile { max-width: 375px; }
 	.empty { color: #94a3b8; text-align: center; padding: 80px 20px; }
 
-	.sec { position: relative; cursor: pointer; outline: 2px solid transparent; outline-offset: -2px; }
+	.sec { position: relative; cursor: grab; outline: 2px solid transparent; outline-offset: -2px; }
+	.sec:active { cursor: grabbing; }
 	.sec:hover { outline-color: #b9d4f5; }
 	.sec.sel { outline-color: #006ce0; }
-	.inner { } /* style applied inline */
-	.sec-badge { position: absolute; top: 0; left: 0; background: #006ce0; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 0 0 6px 0; }
+	.sec.dragging { opacity: 0.4; }
+	/* content is a preview — clicks/drags go to the section, not the components */
+	.inner { pointer-events: none; }
+	/* the blue insert indicator shown between sections while dragging */
+	.drop-line { height: 3px; background: #006ce0; border-radius: 2px; }
+	.sec-badge { position: absolute; top: 0; left: 0; background: #006ce0; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 0 0 6px 0; opacity: 0; transition: opacity 0.1s ease; pointer-events: none; }
+	.sec:hover .sec-badge, .sec.sel .sec-badge { opacity: 1; }
 	.sec-tools { position: absolute; top: 4px; right: 4px; display: flex; gap: 2px; }
 	.sec-tools button { background: #006ce0; color: #fff; border: 0; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px; line-height: 1; }
 	.sec-tools button:hover { background: #0058b8; }
