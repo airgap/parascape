@@ -31,6 +31,21 @@ parabun x tauri build --bundles app
 APP_BUNDLE=$(ls -d src-tauri/target/release/bundle/macos/*.app 2>/dev/null | head -1)
 [ -n "$APP_BUNDLE" ] || { echo "ERROR: .app bundle not found under src-tauri/target/release/bundle/macos/" >&2; exit 1; }
 
+echo "=== Ad-hoc code-signing the .app (deep) ==="
+# Without a signing identity Tauri leaves the bundle's OUTER signature unsealed
+# (Sealed Resources=none) — only the inner Mach-O binaries carry the linker's
+# ad-hoc signature, and the injected parabun sidecar isn't sealed in at all. A
+# quarantined bundle with that broken seal makes Gatekeeper report the app as
+# "damaged" on Apple Silicon. A deep ad-hoc re-sign seals every nested binary
+# (incl. the sidecar) + resources so the signature is valid.
+#   NOTE: ad-hoc != notarized. A browser-downloaded copy is still quarantined,
+#   so first launch needs `xattr -dr com.apple.quarantine` or right-click →
+#   Open / "Open Anyway". The clickable-on-download fix is Developer ID signing
+#   + notarization (paid Apple account), which we don't have yet.
+codesign --force --deep --sign - "$APP_BUNDLE"
+codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE" \
+    || { echo "ERROR: codesign verification failed — refusing to ship a broken bundle" >&2; exit 1; }
+
 ARCH=$(uname -m); [ "$ARCH" = "arm64" ] && ARCH="aarch64"
 DMG_DIR="src-tauri/target/release/bundle/dmg"
 DMG_NAME="Parascape_0.1.0_${ARCH}.dmg"

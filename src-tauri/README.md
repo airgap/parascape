@@ -60,8 +60,15 @@ controller as Lyku/ParaBun):
   parabun, and webkit2gtk-4.1): `jenkins/build-linux.sh` → `.deb`/`.rpm`/`.AppImage`.
 - **macOS** — rsync the tree to the `mac-mini` SSH alias and run
   `jenkins/build-macos.sh` there; it installs parabun, builds `--bundles app`,
+  **deep ad-hoc-signs** the bundle (`codesign --force --deep --sign -`, so the
+  sidecar + resources are sealed and Gatekeeper doesn't call it "damaged"),
   makes the `.dmg` by hand (Tauri's DMG bundler needs a GUI/AppleScript and
   fails over headless SSH), and ditto-zips the `.app`. Both are rsynced back.
+
+  > **Gatekeeper:** the build is ad-hoc-signed, **not notarized** (no Apple
+  > Developer ID yet). A browser-downloaded copy is quarantined, so first launch
+  > needs `xattr -dr com.apple.quarantine /path/to/Parascape.app` (or right-click
+  > → Open). Clickable-on-download requires Developer ID signing + notarization.
 - **Publish** (`PUBLISH_RELEASE`, on by default) — each build stage stashes its
   artifacts; the publish stage `gh release create/upload`s them to
   **airgap/parascape** under the tag `parascape-<short-sha>` (re-runs of a commit
