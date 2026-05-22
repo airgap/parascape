@@ -18,6 +18,8 @@
 	import { highlight, highlightSync, ready as shikiReady } from '../demos/pui-shiki';
 	import { SECTIONS, SECTION_BY_ID, sectionSource, markupOf, importLine, esc } from './sections';
 	import type { SectionStyle } from './sections';
+	import { TEMPLATES } from './templates';
+	import type { Template } from './templates';
 	import {
 		allComponents,
 		displayName,
@@ -722,6 +724,38 @@
 		fresize = null;
 		window.removeEventListener('pointermove', onFResize);
 		window.removeEventListener('pointerup', endFResize);
+	}
+
+	// --- templates / starter library (LYK-937) ---
+	// A template's section specs → real Section nodes with fresh keys.
+	function templateSections(t: Template): Section[] {
+		const fallback = { bg: 'transparent', fg: 'inherit', padY: 40, align: 'center', width: 1040 } as SectionStyle;
+		return t.sections.map((spec) => ({
+			key: nextKey++,
+			type: spec.type,
+			values: { ...(SECTION_BY_ID[spec.type]?.defaults ?? {}), ...(spec.values ?? {}) },
+			style: { ...(SECTION_BY_ID[spec.type]?.style ?? fallback), ...(spec.style ?? {}) },
+		}));
+	}
+	// Insert a template's section group into the current page.
+	function insertTemplate(t: Template) {
+		const group = templateSections(t);
+		if (!group.length) return;
+		sections = [...sections, ...group];
+		selectedKey = group[0].key;
+		showExport = false;
+	}
+	// Create a new page from a template.
+	function newPageFromTemplate(t: Template) {
+		if (editingComponentId) exitComponentEdit();
+		const n = pages.length + 1;
+		pages = pages.map((p) => (p.id === activePageId ? { ...p, doc: activeDoc() } : p));
+		const id = nextPageId++;
+		const route = t.id === 'blank' ? `/page-${n}` : `/${t.id}-${n}`;
+		const page: Page = { id, name: t.name, route, params: '', doc: { sections: templateSections(t), codeOverride: null } };
+		pages = [...pages, page];
+		activePageId = id;
+		loadPageDoc(page.doc);
 	}
 
 	// --- keyboard shortcuts + clipboard (LYK-928) ---
@@ -1941,8 +1975,20 @@
 			<div class="add-tabs">
 				<button class:on={addTab === 'sections'} onclick={() => (addTab = 'sections')}>Sections</button>
 				<button class:on={addTab === 'components'} onclick={() => (addTab = 'components')}>Components</button>
+				<button class:on={addTab === 'templates'} onclick={() => (addTab = 'templates')}>Templates</button>
 			</div>
-			{#if addTab === 'sections'}
+			{#if addTab === 'templates'}
+				{#each TEMPLATES as t (t.id)}
+					<div class="tpl-card">
+						<div class="tpl-name">{t.name}</div>
+						<div class="tpl-blurb">{t.blurb}</div>
+						<div class="tpl-actions">
+							{#if t.sections.length}<button class="mini" onclick={() => insertTemplate(t)}>Insert</button>{/if}
+							{#if !editingComponentId}<button class="mini" onclick={() => newPageFromTemplate(t)}>New page</button>{/if}
+						</div>
+					</div>
+				{/each}
+			{:else if addTab === 'sections'}
 				<button class="add-item add-free" onclick={addFreeSection} title="A freeform canvas — drop components in and place them anywhere (drag to move, corner to resize)">
 					<span class="add-name">+ Free canvas</span>
 					<span class="add-blurb">Freeform absolute placement — drag &amp; resize</span>
@@ -2506,6 +2552,11 @@
 	.media-empty { font-size: 12px; }
 	.pub-link { font-size: 12px; color: var(--accent); text-decoration: none; padding: 5px 8px; }
 	.pub-link:hover { text-decoration: underline; }
+	/* templates (LYK-937) */
+	.tpl-card { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; margin-bottom: 8px; background: var(--bg-num-pill); }
+	.tpl-name { font-weight: 600; color: var(--fg-strong); font-size: 13px; }
+	.tpl-blurb { font-size: 11px; color: var(--fg-muted); margin: 2px 0 6px; }
+	.tpl-actions { display: flex; gap: 6px; }
 	/* free canvas (LYK-936) */
 	.free-frame { position: relative; min-height: 320px; width: 100%; border: 1px dashed var(--border); border-radius: var(--radius-md); background-image: radial-gradient(var(--border) 1px, transparent 1px); background-size: 16px 16px; }
 	.free-frame.nest-over { border-color: var(--accent); background-color: var(--bg-accent-subtle); }
