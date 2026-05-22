@@ -1,0 +1,144 @@
+<!--
+  Parascape home — the flagship live demo. Cloudscape's <Table> API ported to
+  .pui, with filter / sort / multi-select driven by Para signals (not React
+  hooks): `filteringText`, `sortingColumn`, `selectedItems` are signals, and
+  the visible rows are a `derived` (filter -> sort) of the source list. This
+  file is itself .pui, so the "ported to .pui" claim holds end to end.
+-->
+<script lang="pts">
+	import Table from './lib/components/Table.pui';
+	import Header from './lib/components/Header.pui';
+	import TextFilter from './lib/components/TextFilter.pui';
+
+	type Instance = {
+		id: string;
+		name: string;
+		type: string;
+		state: 'Running' | 'Stopped' | 'Pending';
+		az: string;
+		vcpus: number;
+	};
+
+	const items: Instance[] = [
+		{ id: 'i-0a1', name: 'web-1', type: 't3.medium', state: 'Running', az: 'us-east-1a', vcpus: 2 },
+		{ id: 'i-0b2', name: 'web-2', type: 't3.medium', state: 'Running', az: 'us-east-1b', vcpus: 2 },
+		{ id: 'i-0c3', name: 'worker-1', type: 'c6i.xlarge', state: 'Stopped', az: 'us-east-1a', vcpus: 4 },
+		{ id: 'i-0d4', name: 'db-primary', type: 'r6g.large', state: 'Running', az: 'us-east-1c', vcpus: 2 },
+		{ id: 'i-0e5', name: 'batch-gpu', type: 'g5.xlarge', state: 'Pending', az: 'us-east-1b', vcpus: 4 },
+		{ id: 'i-0f6', name: 'cache-1', type: 'r6g.large', state: 'Running', az: 'us-east-1a', vcpus: 2 },
+	];
+
+	const columnDefinitions = [
+		{ id: 'name', header: 'Name', cell: (i: Instance) => i.name, sortingField: 'name' },
+		{ id: 'id', header: 'Instance ID', cell: (i: Instance) => i.id },
+		{ id: 'type', header: 'Type', cell: (i: Instance) => i.type, sortingField: 'type' },
+		{ id: 'state', header: 'State', cell: (i: Instance) => i.state, sortingField: 'state' },
+		{ id: 'az', header: 'Availability zone', cell: (i: Instance) => i.az, sortingField: 'az' },
+		{ id: 'vcpus', header: 'vCPUs', cell: (i: Instance) => String(i.vcpus), sortingField: 'vcpus' },
+	];
+
+	signal filteringText = '';
+	signal sortingColumn: any = undefined;
+	signal sortingDescending = false;
+	signal selectedItems: Instance[] = [];
+
+	// Filtered rows — substring match across every displayed field.
+	derived filtered {
+		const q = filteringText.trim().toLowerCase();
+		if (!q) return items;
+		return items.filter((i) =>
+			[i.name, i.id, i.type, i.state, i.az, String(i.vcpus)].some((v) => v.toLowerCase().includes(q)),
+		);
+	}
+
+	// Visible rows — filtered, then sorted by the active column. The Table is
+	// controlled: it reports header clicks via onSortingChange and we re-order.
+	derived processed {
+		const field = sortingColumn?.sortingField;
+		if (!field) return filtered;
+		const sorted = filtered.slice().sort((a: any, b: any) => {
+			const av = a[field];
+			const bv = b[field];
+			const c = av < bv ? -1 : av > bv ? 1 : 0;
+			return sortingDescending ? -c : c;
+		});
+		return sorted;
+	}
+</script>
+
+<main>
+	<nav class="site-nav">
+		<a href="/" aria-current="page">Home</a>
+		<a href="/demos/">Demos</a>
+		<a href="/components/">Components</a>
+		<a href="/builder/">Builder</a>
+	</nav>
+
+	<header>
+		<h1>Parascape</h1>
+		<p>
+			Cloudscape's <code>&lt;Table&gt;</code> API, ported to <code>.pui</code> — filter / sort /
+			multi-select are Para signals, not React hooks.
+			<strong>{selectedItems.length}</strong> selected{#if processed.length !== items.length}, <strong
+				>{processed.length}</strong
+			> of {items.length} shown{/if}.
+		</p>
+	</header>
+
+	<Table
+		items={processed}
+		{columnDefinitions}
+		selectionType="multi"
+		trackBy={(i: Instance) => i.id}
+		{sortingColumn}
+		{sortingDescending}
+		onSortingChange={(e) => {
+			sortingColumn = e.sortingColumn;
+			sortingDescending = e.isDescending;
+		}}
+		bind:selectedItems
+	>
+		{#snippet header()}<Header>Instances</Header>{/snippet}
+		{#snippet filter()}<TextFilter bind:filteringText filteringPlaceholder="Find instances" />{/snippet}
+	</Table>
+</main>
+
+<style>
+	main {
+		max-width: 1100px;
+		margin: 0 auto;
+		padding: var(--space-xxl) var(--space-l);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-l);
+	}
+	.site-nav {
+		display: flex;
+		gap: var(--space-l);
+		font-size: 14px;
+	}
+	.site-nav a {
+		color: var(--color-text-link-default);
+		text-decoration: none;
+	}
+	.site-nav a[aria-current='page'] {
+		color: var(--color-text-body-default);
+		font-weight: 700;
+	}
+	.site-nav a:hover {
+		text-decoration: underline;
+	}
+	header h1 {
+		margin: 0 0 var(--space-xxs);
+		font-size: 28px;
+	}
+	header p {
+		margin: 0;
+		color: var(--color-text-body-secondary);
+	}
+	code {
+		background: var(--color-background-cell-shaded);
+		padding: 1px 5px;
+		border-radius: 4px;
+	}
+</style>

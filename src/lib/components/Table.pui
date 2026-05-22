@@ -46,6 +46,7 @@
 		sortingColumn = undefined,
 		sortingDescending = false,
 		sortingDisabled = false,
+		onSortingChange = undefined,
 		selectedItems = $bindable([]),
 		class: extraClass = undefined,
 		...rest
@@ -62,6 +63,7 @@
 		sortingColumn?: any;
 		sortingDescending?: boolean;
 		sortingDisabled?: boolean;
+		onSortingChange?: (e: { sortingColumn: any; isDescending: boolean }) => void;
 		selectedItems?: any[];
 		class?: string;
 		[k: string]: unknown;
@@ -96,6 +98,15 @@
 		if (sorted) return sortingDescending ? 'descending' : 'ascending';
 		if (sortable && !sortingDisabled) return 'sortable';
 		return undefined;
+	}
+	// Controlled sorting (Cloudscape: onSortingChange + sortingColumn/Descending).
+	// Clicking a sortable header toggles direction on the active column or sorts
+	// ascending on a new one; the parent owns the state and re-orders `items`.
+	function clickHeader(col: any) {
+		if (sortingDisabled || !onSortingChange) return;
+		if (!col.sortingComparator && !col.sortingField) return;
+		const active = !!sortingColumn && isSorted(col, sortingColumn);
+		onSortingChange({ sortingColumn: col, isDescending: active ? !sortingDescending : false });
 	}
 
 	derived selectedKeys {
@@ -193,6 +204,8 @@
 								st === 'ascending' && HC['header-cell-ascending'],
 								st === 'descending' && HC['header-cell-descending'],
 							)}
+								aria-sort={st === 'ascending' ? 'ascending' : st === 'descending' ? 'descending' : undefined}
+								onclick={() => clickHeader(col)}
 						><div class={HC['header-cell-content']}><div
 									class={cx(HC['header-cell-text'], TANA['header-cell-text'])}
 								>{col.header}</div>{#if st}<span class={HC['sorting-icon']}><Icon
