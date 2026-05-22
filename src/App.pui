@@ -104,40 +104,53 @@
 </main>
 
 <style>
+	/* global-styles doesn't set a base body font, so the page chrome would fall
+	   back to the browser serif. Match Cloudscape's font stack. */
+	:global(body) {
+		margin: 0;
+		font-family: 'Open Sans', 'Helvetica Neue', Roboto, Arial, sans-serif;
+		background: #fff;
+	}
+	/* Page chrome uses concrete Cloudscape light values (the awsui design-token
+	   CSS vars are hashed at build time, so the friendly --space-l / --color-*
+	   names don't exist at runtime). The ported components style themselves
+	   from the real tokens loaded in main.ts. */
 	main {
 		max-width: 1100px;
 		margin: 0 auto;
-		padding: var(--space-xxl) var(--space-l);
+		padding: 40px 20px;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-l);
+		gap: 20px;
+		color: #16191f;
 	}
 	.site-nav {
 		display: flex;
-		gap: var(--space-l);
+		gap: 20px;
 		font-size: 14px;
 	}
 	.site-nav a {
-		color: var(--color-text-link-default);
+		color: #006ce0;
 		text-decoration: none;
 	}
 	.site-nav a[aria-current='page'] {
-		color: var(--color-text-body-default);
+		color: #16191f;
 		font-weight: 700;
 	}
 	.site-nav a:hover {
 		text-decoration: underline;
 	}
 	header h1 {
-		margin: 0 0 var(--space-xxs);
+		margin: 0 0 4px;
 		font-size: 28px;
+		font-weight: 700;
 	}
 	header p {
 		margin: 0;
-		color: var(--color-text-body-secondary);
+		color: #5f6b7a;
 	}
 	code {
-		background: var(--color-background-cell-shaded);
+		background: #f4f4f4;
 		padding: 1px 5px;
 		border-radius: 4px;
 	}
