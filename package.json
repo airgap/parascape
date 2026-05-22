@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "For-funzies .pui (Svelte 5) port of a Cloudscape slice. Not affiliated with AWS. 1:1 API on the reactively-interesting components; Para signals over React hooks.",
+  "description": "A 1:1 port of the Cloudscape Design System to .pui (Svelte 5), with Para signals in place of React hooks. Includes a component catalog, a side-by-side demo viewer, a component composer, and a site designer.",
   "scripts": {
     "dev": "vite",
     "demos": "vite --open=/demos/",
