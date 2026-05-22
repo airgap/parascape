@@ -349,6 +349,10 @@
 	signal aiPrompt = '';
 	signal aiBusy = false;
 	signal aiError: string | null = null;
+	// command palette (LYK-942)
+	signal showPalette = false;
+	signal paletteQuery = '';
+	signal paletteIndex = 0;
 	// media library (LYK-935): uploaded images, stored server-side in SQLite.
 	signal assets: AssetMeta[] = [];
 	signal assetErr: string | null = null;
@@ -758,6 +762,58 @@
 		loadPageDoc(page.doc);
 	}
 
+	// --- command palette (LYK-942) ---
+	type PaletteItem = { key: string; label: string; group: string; run: () => void };
+	function openPalette() {
+		showPalette = true;
+		paletteQuery = '';
+		paletteIndex = 0;
+	}
+	// One flat, fuzzy-searchable list of everything you can do: actions, plus
+	// add-section / insert-template / add-component commands.
+	derived paletteItems {
+		const q = paletteQuery.trim().toLowerCase();
+		const all: PaletteItem[] = [];
+		const actions: { label: string; run: () => void }[] = [
+			{ label: 'Undo', run: undo },
+			{ label: 'Redo', run: redo },
+			{ label: 'Toggle Code Mode', run: toggleCode },
+			{ label: 'Accessibility check', run: toggleA11y },
+			{ label: 'Export .pui', run: () => { showExport = true; showA11y = false; selectedKey = null; } },
+			{ label: 'New page', run: addPage },
+			{ label: 'Clear page', run: clearAll },
+		];
+		for (const a of actions) all.push({ key: 'a:' + a.label, label: a.label, group: 'Action', run: a.run });
+		all.push({ key: 's:free', label: 'Add Free canvas', group: 'Section', run: addFreeSection });
+		for (const def of SECTIONS) all.push({ key: 's:' + def.id, label: 'Add section: ' + def.name, group: 'Section', run: () => addSection(def.id) });
+		for (const t of TEMPLATES) all.push({ key: 't:' + t.id, label: 'Template: ' + t.name, group: 'Template', run: () => insertTemplate(t) });
+		for (const c of allComponents) all.push({ key: 'c:' + c.id, label: 'Add component: ' + c.name, group: 'Component', run: () => addComponent(c.id) });
+		const out = q ? all.filter((i) => i.label.toLowerCase().includes(q)) : all.slice(0, 30);
+		return out.slice(0, 80);
+	}
+	function runPalette(i: PaletteItem) {
+		showPalette = false;
+		paletteQuery = '';
+		i.run();
+	}
+	function paletteKey(e: KeyboardEvent) {
+		const items = paletteItems;
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			paletteIndex = Math.min(paletteIndex + 1, items.length - 1);
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			paletteIndex = Math.max(paletteIndex - 1, 0);
+		} else if (e.key === 'Enter') {
+			e.preventDefault();
+			const it = items[paletteIndex];
+			if (it) runPalette(it);
+		} else if (e.key === 'Escape') {
+			e.preventDefault();
+			showPalette = false;
+		}
+	}
+
 	// --- keyboard shortcuts + clipboard (LYK-928) ---
 	let clipboard: Section | null = null;
 	const isEditableTarget = (t: EventTarget | null) => {
@@ -765,9 +821,15 @@
 		return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
 	};
 	function onGlobalKey(e: KeyboardEvent) {
+		const mod = e.metaKey || e.ctrlKey;
+		// command palette (LYK-942) — opens even when focus is in an input
+		if (mod && (e.key === 'k' || e.key === 'K')) {
+			e.preventDefault();
+			openPalette();
+			return;
+		}
 		// let inputs / the code editor / inline-edit handle their own keys
 		if (isEditableTarget(e.target)) return;
-		const mod = e.metaKey || e.ctrlKey;
 		if (mod && (e.key === 'z' || e.key === 'Z')) {
 			e.preventDefault();
 			e.shiftKey ? redo() : undo();
@@ -1874,6 +1936,34 @@
 		</div>
 	{/if}
 
+	{#if showPalette}
+		<div class="cmdk-backdrop" role="presentation" onclick={() => (showPalette = false)}>
+			<div class="cmdk" role="dialog" aria-modal="true" aria-label="Command palette" onclick={(e) => e.stopPropagation()}>
+				<input
+					class="cmdk-input"
+					placeholder="Search actions, sections, components, templates…"
+					autofocus
+					value={paletteQuery}
+					oninput={(e) => { paletteQuery = (e.target as HTMLInputElement).value; paletteIndex = 0; }}
+					onkeydown={paletteKey}
+				/>
+				<div class="cmdk-list">
+					{#if !paletteItems.length}
+						<div class="cmdk-empty">No matches</div>
+					{:else}
+						{#each paletteItems as it, i (it.key)}
+							<button class="cmdk-item" class:on={i === paletteIndex} onmousemove={() => (paletteIndex = i)} onclick={() => runPalette(it)}>
+								<span class="cmdk-label">{it.label}</span>
+								<span class="cmdk-grp">{it.group}</span>
+							</button>
+						{/each}
+					{/if}
+				</div>
+				<div class="cmdk-foot">↑↓ navigate · ↵ run · esc close — also: ⌘Z undo · ⌘D duplicate · Del remove · double-click to edit text</div>
+			</div>
+		</div>
+	{/if}
+
 	<div class="cols" class:exporting={showExport} class:coding={codeMode}>
 		{#if !codeMode}
 		<aside class="add-panel">
@@ -2048,7 +2138,7 @@
 			>
 				{#if !sections.length}
 					<p class="empty" class:drop-here={dragNew !== null}>
-						{dragNew ? 'Drop here to add it' : 'Add sections from the left — click to append, or drag them onto the canvas.'}
+						{dragNew ? 'Drop here to add it' : 'Add sections from the left, drag them onto the canvas, or press ⌘K to search everything.'}
 					</p>
 				{/if}
 				{#each sections as s, i (s.key)}
@@ -2420,6 +2510,17 @@
 	.auth-modal .primary { width: 100%; margin-top: 4px; }
 	.auth-err { color: var(--bad); font-size: 12px; margin: 0 0 10px; }
 	.auth-switch { font-size: 12px; color: var(--fg-muted); margin: 12px 0 0; text-align: center; }
+	/* command palette (LYK-942) */
+	.cmdk-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(15, 27, 45, 0.45); display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; }
+	.cmdk { width: 560px; max-width: calc(100vw - 32px); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden; display: flex; flex-direction: column; max-height: 62vh; }
+	.cmdk-input { border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--fg-strong); font: inherit; font-size: 15px; padding: 14px 16px; outline: none; }
+	.cmdk-list { overflow-y: auto; }
+	.cmdk-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left; background: none; border: 0; padding: 9px 16px; cursor: pointer; font: inherit; color: var(--fg-body); }
+	.cmdk-item.on { background: var(--bg-accent-subtle); }
+	.cmdk-label { color: var(--fg-strong); }
+	.cmdk-grp { font-size: 11px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+	.cmdk-empty { padding: 16px; color: var(--fg-muted); font-size: 13px; }
+	.cmdk-foot { border-top: 1px solid var(--border); padding: 8px 16px; font-size: 11px; color: var(--fg-muted); }
 	.linkish { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
 
 	/* gap shows the divider colour between the three panels */
