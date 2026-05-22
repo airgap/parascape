@@ -68,7 +68,7 @@
 	const S = styles as Record<string, string>;
 	const snip = (v: unknown) => typeof v === 'function';
 
-	const firstEnabled = $derived(tabs.find((t) => !t.disabled)?.id ?? tabs[0]?.id);
+	derived firstEnabled = tabs.find((t) => !t.disabled)?.id ?? tabs[0]?.id;
 	// Effective selection: the bindable prop when set, else the first
 	// enabled tab (Cloudscape's uncontrolled default).
 	derived effectiveTabId = activeTabId ?? firstEnabled;

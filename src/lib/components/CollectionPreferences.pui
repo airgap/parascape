@@ -114,11 +114,11 @@
 		custom: p.custom,
 	});
 
-	let modalVisible = $state(false);
+	signal modalVisible = false;
 	// temporaryPreferences is a snapshot taken on modal OPEN (verbatim —
 	// Cloudscape copies preferences into it in the trigger onClick, not
 	// reactively), so it starts empty and openModal() fills it.
-	let temp = $state<Pref>({});
+	signal temp: Pref = {};
 
 	function openModal() {
 		temp = copyPreferences(preferences || {});

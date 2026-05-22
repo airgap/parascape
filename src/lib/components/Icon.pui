@@ -69,19 +69,19 @@
 		return 'normal';
 	}
 
-	let el: HTMLSpanElement | undefined = $state();
-	let parentHeight = $state<number | null>(null);
-	let parentFontSize = $state<number | null>(null);
+	signal el: HTMLSpanElement | undefined = undefined;
+	signal parentHeight: number | null = null;
+	signal parentFontSize: number | null = null;
 	derived contextualSize = size === 'inherit';
 
 	// icon/internal.js useLayoutEffect — measure THIS span's own
 	// computed lineHeight/fontSize (it inherits the text context).
-	$effect(() => {
+	effect {
 		if (!contextualSize || !el) return;
 		const csComputed = getComputedStyle(el);
 		parentHeight = parseInt(csComputed.lineHeight, 10);
 		parentFontSize = parseInt(csComputed.fontSize, 10);
-	});
+	};
 
 	derived iconSize = contextualSize ? iconSizeMap(parentHeight, parentFontSize) : size;
 	derived inlineHeight =

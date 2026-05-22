@@ -65,11 +65,11 @@
 		const d = v ? new Date(v + (v.length === 10 ? 'T00:00:00' : '')) : new Date();
 		return isNaN(d.getTime()) ? new Date() : d;
 	}
-	const selected = $derived(value ? parse(value) : null);
-	let pageBase = $state(parse(value));
-	$effect(() => {
+	derived selected = value ? parse(value) : null;
+	signal pageBase = parse(value);
+	effect {
 		pageBase = new Date(parse(value).getFullYear(), parse(value).getMonth(), 1);
-	});
+	};
 	const sameDay = (a: Date, b: Date | null) =>
 		!!b &&
 		a.getFullYear() === b.getFullYear() &&

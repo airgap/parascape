@@ -145,9 +145,9 @@
 		return perRow;
 	}
 
-	let rootEl: HTMLElement | undefined = $state();
-	let measuredWidth = $state(0);
-	$effect(() => {
+	signal rootEl: HTMLElement | undefined = undefined;
+	signal measuredWidth = 0;
+	effect {
 		if (!rootEl) return;
 		const m = () => {
 			if (rootEl) measuredWidth = rootEl.getBoundingClientRect().width;
@@ -161,7 +161,7 @@
 				: undefined;
 		ro?.observe(rootEl);
 		return () => ro?.disconnect();
-	});
+	};
 	derived columns = getCardsPerRow(measuredWidth, cardsPerRow);
 
 	// CardsList: selectable=false (no selectionType) ⇒ listRole/listItemRole undefined

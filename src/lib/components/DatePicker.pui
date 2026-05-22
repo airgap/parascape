@@ -91,9 +91,9 @@
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
-	const openAriaLabel = $derived(typeof openCalendarAriaLabel === 'function'
+	derived openAriaLabel = typeof openCalendarAriaLabel === 'function'
 		? openCalendarAriaLabel(value || null)
-		: undefined);
+		: undefined;
 </script>
 
 <div class={cx(extraClass, S.root)} {...rest}>

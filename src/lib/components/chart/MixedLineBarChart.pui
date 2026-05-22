@@ -95,8 +95,8 @@
 	derived reserveLegendSpace = !showChart && !hideLegend;
 	derived reserveFilterSpace = !showChart && !isNoMatch && !hideFilter;
 
-	const xtf = $derived(xTickFormatter ?? i18nStrings?.xTickFormatter);
-	const ytf = $derived(yTickFormatter ?? i18nStrings?.yTickFormatter);
+	derived xtf = xTickFormatter ?? i18nStrings?.xTickFormatter;
+	derived ytf = yTickFormatter ?? i18nStrings?.yTickFormatter;
 </script>
 
 <ChartWrapper

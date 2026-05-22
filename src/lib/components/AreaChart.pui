@@ -67,9 +67,9 @@
 	} = $props();
 
 	derived visibleSeries = externalSeries;
-	const getInternalSeries = $derived(createSeriesDecorator(externalSeries));
+	derived getInternalSeries = createSeriesDecorator(externalSeries);
 
-	let width = $state(0);
+	signal width = 0;
 	const setWidth = (w: number) => (width = w);
 
 	derived computed = computeChartProps({
@@ -98,8 +98,8 @@
 	derived reserveLegendSpace = !showChart && !hideLegend;
 	derived reserveFilterSpace = !showChart && !isNoMatch && !hideFilter;
 
-	const xtf = $derived(xTickFormatter ?? i18nStrings?.xTickFormatter);
-	const ytf = $derived(yTickFormatter ?? i18nStrings?.yTickFormatter);
+	derived xtf = xTickFormatter ?? i18nStrings?.xTickFormatter;
+	derived ytf = yTickFormatter ?? i18nStrings?.yTickFormatter;
 	derived legendItems = visibleSeries.map((s: any) => {
 		const dec = getInternalSeries(s);
 		return { series: { ...s, title: dec.title }, color: dec.color, _mk: dec.markerType };

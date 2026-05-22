@@ -68,11 +68,11 @@
 		4: { default: 12, xxs: 6, xs: 3 },
 	};
 
-	let rootEl: HTMLDivElement | undefined = $state();
-	let bp = $state('default');
-	$effect(() => {
+	signal rootEl: HTMLDivElement | undefined = undefined;
+	signal bp = 'default';
+	effect {
 		if (rootEl) bp = getMatchingBreakpoint(rootEl.getBoundingClientRect().width, COLUMN_TRIGGERS);
-	});
+	};
 
 	derived isTextGrid = variant === 'text-grid';
 	derived hHorizontal = !isTextGrid && (borders === 'horizontal' || borders === 'all');

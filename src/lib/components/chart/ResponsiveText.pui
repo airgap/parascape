@@ -21,7 +21,7 @@
 		maxWidth?: number;
 	} = $props();
 
-	let textRef: SVGTextElement | undefined = $state();
+	signal textRef: SVGTextElement | undefined = undefined;
 	const isRtl = false;
 
 	function getTextWidth(node: any) {
@@ -33,7 +33,7 @@
 		if (isRtl) return text.slice(text.length - maxLength) + '…';
 		return text.slice(0, maxLength) + '…';
 	}
-	$effect(() => {
+	effect {
 		const node = textRef;
 		const text = children ?? '';
 		if (!node) return;
@@ -43,7 +43,7 @@
 			if (getTextWidth(node) <= maxWidth) return;
 			visibleLength--;
 		}
-	});
+	};
 </script>
 
 <text bind:this={textRef} {x} {y} style="text-anchor:end" class={className}

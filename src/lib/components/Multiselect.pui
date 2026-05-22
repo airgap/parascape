@@ -86,14 +86,12 @@
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
 	const BT = bt as Record<string, string>;
-	const hasSelection = $derived(selectedOptions && selectedOptions.length > 0);
-	const triggerText = $derived(
-		hasSelection
+	derived hasSelection = selectedOptions && selectedOptions.length > 0;
+	derived triggerText = hasSelection
 			? (inlineTokens
 					? selectedOptions.map(o => o.label ?? o.value).join(', ')
 					: `${selectedOptions.length} selected`)
-			: (placeholder ?? ''),
-	);
+			: (placeholder ?? ''),;
 </script>
 
 <div class={cx(extraClass, S.root)} {...rest}>

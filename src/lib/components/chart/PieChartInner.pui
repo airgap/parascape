@@ -45,9 +45,9 @@
 	// height is the dimensions-derived pixel size (from PieChart, =
 	// index.js's 2*(outerRadius+padding+paddingLabels)). width is the
 	// measured container width; both feed translate(w/2 h/2).
-	let containerEl: HTMLElement | undefined = $state();
-	let width = $state(0);
-	$effect(() => {
+	signal containerEl: HTMLElement | undefined = undefined;
+	signal width = 0;
+	effect {
 		if (!containerEl) return;
 		const m = () => {
 			if (containerEl) width = containerEl.getBoundingClientRect().width;
@@ -57,7 +57,7 @@
 			typeof ResizeObserver !== 'undefined' ? new ResizeObserver(m) : undefined;
 		ro?.observe(containerEl);
 		return () => ro?.disconnect();
-	});
+	};
 </script>
 
 <div class={S['chart-container']} bind:this={containerEl}>

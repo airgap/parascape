@@ -85,11 +85,11 @@
 		return 'default';
 	}
 
-	let rootEl: HTMLDivElement | undefined = $state();
-	let bp = $state('default');
-	$effect(() => {
+	signal rootEl: HTMLDivElement | undefined = undefined;
+	signal bp = 'default';
+	effect {
 		if (rootEl) bp = getMatchingBreakpoint(rootEl.getBoundingClientRect().width);
-	});
+	};
 
 	derived columnCount = getColumnCount(items.length);
 </script>

@@ -39,8 +39,8 @@
 	const S = styles as Record<string, string>;
 	const isRTL = false;
 
-	let virtualText: SVGTextElement | undefined = $state();
-	let cache = $state<Record<string, number>>({});
+	signal virtualText: SVGTextElement | undefined = undefined;
+	signal cache: Record<string, number> = {};
 
 	const getLabelSpace = (label: string) => {
 		if (cache[label] !== undefined && cache[label] !== 0) return cache[label];
@@ -49,7 +49,7 @@
 
 	derived formattedTicks = formatTicks({ ticks, scale, getLabelSpace, tickFormatter });
 
-	$effect(() => {
+	effect {
 		const node = virtualText;
 		if (!node || !node.getComputedTextLength) return;
 		const next: Record<string, number> = { ...cache };
@@ -69,7 +69,7 @@
 		}
 		node.textContent = '';
 		if (changed) cache = next;
-	});
+	};
 
 	derived blockHeight = (() => {
 		if (height !== undefined) return height;

@@ -41,8 +41,8 @@
 	const S = styles as Record<string, string>;
 	const isRtl = false;
 
-	let virtualText: SVGTextElement | undefined = $state();
-	let cache = $state<Record<string, { width: number; height: number }>>({});
+	signal virtualText: SVGTextElement | undefined = undefined;
+	signal cache: Record<string, { width: number; height: number }> = {};
 
 	derived yOffset =
 		axis === 'x' && scale.isCategorical()
@@ -53,7 +53,7 @@
 
 	derived formattedTicks = formatTicks({ ticks, scale, getLabelSpace, tickFormatter });
 
-	$effect(() => {
+	effect {
 		const node = virtualText;
 		if (!node || !(node as any).getBBox) return;
 		const next = { ...cache };
@@ -71,7 +71,7 @@
 		}
 		node.textContent = '';
 		if (changed) cache = next;
-	});
+	};
 
 	derived from = 0 - OFFSET_PX - yOffset;
 	derived until = plotHeight + OFFSET_PX - yOffset;

@@ -80,7 +80,7 @@
 	const TI = titem as Record<string, string>;
 	const E = etb as Record<string, string>;
 
-	let expSet = $state(new Set(expandedItems));
+	signal expSet = new Set(expandedItems);
 	function toggle(id: string) {
 		const isExp = expSet.has(id);
 		const next = new Set(expSet);

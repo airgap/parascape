@@ -71,9 +71,7 @@
 	const T = testClasses as Record<string, string>;
 	const snip = (v: unknown) => typeof v === 'function';
 	const has = (v: unknown) => v !== null && v !== undefined;
-	const actualPanelSize = $derived(
-		Math.max(minPanelSize, Math.min(panelSize ?? defaultPanelSize ?? DEFAULT_PANEL_SIZE, maxPanelSize ?? Number.MAX_SAFE_INTEGER)),
-	);
+	derived actualPanelSize = Math.max(minPanelSize, Math.min(panelSize ?? defaultPanelSize ?? DEFAULT_PANEL_SIZE, maxPanelSize ?? Number.MAX_SAFE_INTEGER)),;
 </script>
 
 {#snippet wrappedMain()}

@@ -53,10 +53,10 @@
 		minHeight?: number;
 	} = $props();
 
-	let containerEl: HTMLElement | undefined = $state();
-	let containerWidth = $state(DEFAULT_CHART_WIDTH);
-	let inlineStartLabelsWidth = $state(0);
-	$effect(() => {
+	signal containerEl: HTMLElement | undefined = undefined;
+	signal containerWidth = DEFAULT_CHART_WIDTH;
+	signal inlineStartLabelsWidth = 0;
+	effect {
 		if (!containerEl) return;
 		const m = () => {
 			if (containerEl) containerWidth = containerEl.getBoundingClientRect().width;
@@ -68,15 +68,15 @@
 				: undefined;
 		ro?.observe(containerEl);
 		return () => ro?.disconnect();
-	});
+	};
 
 	derived plotWidth = Math.max(
 		0,
 		containerWidth - inlineStartLabelsWidth - INLINE_START_LABELS_MARGIN,
 	);
-	$effect(() => {
+	effect {
 		autoWidth(plotWidth);
-	});
+	};
 
 	derived blockEndHeight = (() => {
 		const ft = formatTicks({

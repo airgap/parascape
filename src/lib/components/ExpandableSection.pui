@@ -136,7 +136,7 @@
 		);
 	}
 
-	let uncontrolled = $state(defaultExpanded);
+	signal uncontrolled = defaultExpanded;
 	derived expanded = controlledExpanded ?? uncontrolled;
 
 	function toggle() {

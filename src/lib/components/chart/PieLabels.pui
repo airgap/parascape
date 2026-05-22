@@ -42,8 +42,8 @@
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
 
-	let bounds = $state({ left: 0, right: 0 });
-	$effect(() => {
+	signal bounds = { left: 0, right: 0 };
+	effect {
 		if (!containerEl) return;
 		const m = () => {
 			if (containerEl) {
@@ -56,7 +56,7 @@
 			typeof ResizeObserver !== 'undefined' ? new ResizeObserver(m) : undefined;
 		ro?.observe(containerEl);
 		return () => ro?.disconnect();
-	});
+	};
 	derived shouldOptimizeLabels =
 		bounds.right - bounds.left - (dimensions.outerRadius + dimensions.innerLabelPadding) * 2 <
 		300;
@@ -110,15 +110,15 @@
 		});
 	})();
 
-	let rootRef: SVGGElement | undefined = $state();
-	$effect(() => {
+	signal rootRef: SVGGElement | undefined = undefined;
+	effect {
 		if (!rootRef) return;
 		markers;
 		const nodes = rootRef.querySelectorAll(`.${S['label-text']}`);
 		const r = dimensions.outerRadius + dimensions.innerLabelPadding;
 		balanceLabelNodes(nodes, markers, false, r, S['label-line']);
 		balanceLabelNodes(nodes, markers, true, r, S['label-line']);
-	});
+	};
 </script>
 
 <g class={S.markers} aria-hidden="true" bind:this={rootRef}

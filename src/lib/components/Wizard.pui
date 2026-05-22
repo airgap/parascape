@@ -129,21 +129,21 @@
 
 	const STATUS = { Active: 'active', Visited: 'visited', Unvisited: 'unvisited', Next: 'next' };
 
-	let uncontrolled = $state(0);
+	signal uncontrolled = 0;
 	derived activeStepIndex = controlledActiveStepIndex ?? uncontrolled;
 	derived actualActiveStepIndex = activeStepIndex
 		? Math.min(activeStepIndex, steps.length - 1)
 		: 0;
-	let farthestStepIndex = $state(0);
-	$effect(() => {
+	signal farthestStepIndex = 0;
+	effect {
 		farthestStepIndex = Math.max(farthestStepIndex, actualActiveStepIndex);
-	});
+	};
 	derived isLastStep = actualActiveStepIndex >= steps.length - 1;
 
 	// useContainerBreakpoints(['xs']) — xs = 688px; smallContainer when below
-	let rootEl: HTMLElement | undefined = $state();
-	let measuredWidth = $state(0);
-	$effect(() => {
+	signal rootEl: HTMLElement | undefined = undefined;
+	signal measuredWidth = 0;
+	effect {
 		if (!rootEl) return;
 		const m = () => {
 			if (rootEl) measuredWidth = rootEl.getBoundingClientRect().width;
@@ -157,9 +157,9 @@
 				: undefined;
 		ro?.observe(rootEl);
 		return () => ro?.disconnect();
-	});
+	};
 	derived smallContainer = measuredWidth > 0 && measuredWidth < 688;
-	let isStepNavExpanded = $state(false);
+	signal isStepNavExpanded = false;
 
 	// wizard-step-list.js — transcribed verbatim
 	function canSkip(fromIndex: number, toIndex: number) {

@@ -121,12 +121,12 @@
 		};
 	}
 
-	let currentStepIndex = $state(0);
-	$effect(() => {
+	signal currentStepIndex = 0;
+	effect {
 		// reset to first step when a tutorial is (re)started — verbatim
 		currentTutorial;
 		currentStepIndex = 0;
-	});
+	};
 
 	derived info = getStepInfo(annotations, currentStepIndex);
 	derived totalStepCount = annotations

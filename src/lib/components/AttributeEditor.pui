@@ -165,9 +165,9 @@
 		return `repeat(${total}, 1fr) ${rb}`;
 	}
 
-	let rootEl: HTMLElement | undefined = $state();
-	let bp = $state('default');
-	$effect(() => {
+	signal rootEl: HTMLElement | undefined = undefined;
+	signal bp = 'default';
+	effect {
 		if (!rootEl) return;
 		const m = () => {
 			if (rootEl) bp = matchBp(rootEl.getBoundingClientRect().width);
@@ -176,7 +176,7 @@
 		const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(m) : undefined;
 		ro?.observe(rootEl);
 		return () => ro?.disconnect();
-	});
+	};
 	derived layout = pickLayout(gridDefaults[definition.length] ?? gridDefaults[1], bp);
 	derived onSameLine = isOnSameLine(layout);
 	derived rbCols = removeBtnCols(

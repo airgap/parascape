@@ -88,7 +88,7 @@
 	const FF = ffStyles as Record<string, string>;
 	const snip = (v: unknown) => typeof v === 'function';
 	const has = (v: unknown) => v !== null && v !== undefined;
-	const uploadText = $derived(i18nStrings?.uploadButtonText?.(multiple) ?? (multiple ? 'Choose files' : 'Choose file'));
+	derived uploadText = i18nStrings?.uploadButtonText?.(multiple) ?? (multiple ? 'Choose files' : 'Choose file');
 </script>
 
 <div class={cx(extraClass, S.root)} {...rest}>

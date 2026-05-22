@@ -121,7 +121,7 @@
 	const T = testClasses as Record<string, string>;
 	const snip = (v: unknown) => typeof v === 'function';
 	const has = (v: unknown) => v !== null && v !== undefined;
-	const mainContent = $derived(content ?? children);
+	derived mainContent = content ?? children;
 
 	// Content gutter (--space-layout-content-horizontal, 24px) is applied
 	// per side only where an OPEN drawer abuts the content. A collapsed
@@ -129,8 +129,8 @@
 	// that side gets no extra gutter — matching Cloudscape's content-gap
 	// behaviour (otherwise the content sits doubly inset next to a rail).
 	const GUTTER = 'var(--space-layout-content-horizontal-buc0zz, 24px)';
-	const padStart = $derived(!navigationHide && navigationOpen ? GUTTER : '0px');
-	const padEnd = $derived(!toolsHide && toolsOpen ? GUTTER : '0px');
+	derived padStart = !navigationHide && navigationOpen ? GUTTER : '0px';
+	derived padEnd = !toolsHide && toolsOpen ? GUTTER : '0px';
 
 	// Drawer slide animation. The aside's flex-basis transitions between
 	// the open width and the 60px rail; the panel content is kept in a
@@ -143,22 +143,22 @@
 	// token + circular shape on the nav/tools toggles.
 	const TRIGGER_STYLE =
 		'background: var(--color-background-layout-toggle-default-2hgjdu, #424650); color: var(--color-text-layout-toggle-2zb9pi, #fbfbfb); border: 0; border-radius: 50%; inline-size: 36px; block-size: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; transition: background 0.1s ease;';
-	let navShown = $state(navigationOpen);
-	let toolsShown = $state(toolsOpen);
+	signal navShown = navigationOpen;
+	signal toolsShown = toolsOpen;
 	let navHideTimer: ReturnType<typeof setTimeout> | undefined;
 	let toolsHideTimer: ReturnType<typeof setTimeout> | undefined;
-	$effect(() => {
+	effect {
 		const open = navigationOpen;
 		clearTimeout(navHideTimer);
 		if (open) navShown = true;
 		else navHideTimer = setTimeout(() => (navShown = false), DRAWER_MS);
-	});
-	$effect(() => {
+	};
+	effect {
 		const open = toolsOpen;
 		clearTimeout(toolsHideTimer);
 		if (open) toolsShown = true;
 		else toolsHideTimer = setTimeout(() => (toolsShown = false), DRAWER_MS);
-	});
+	};
 	onDestroy(() => {
 		clearTimeout(navHideTimer);
 		clearTimeout(toolsHideTimer);

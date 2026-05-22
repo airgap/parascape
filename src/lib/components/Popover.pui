@@ -77,7 +77,7 @@
 	const isRefresh = true; // Cloudscape 3.x
 	const snip = (v: unknown) => typeof v === 'function';
 	const has = (v: unknown) => v !== null && v !== undefined;
-	let visible = $state(open);
+	signal visible = open;
 	derived hasHeader = has(header);
 </script>
 

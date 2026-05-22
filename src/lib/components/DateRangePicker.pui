@@ -90,7 +90,7 @@
 		}
 		return { first: range.startDate ?? '', second: range.endDate ?? '' };
 	};
-	const parts = $derived(formatPart(value));
+	derived parts = formatPart(value);
 </script>
 
 <div class={cx(extraClass, S.root, T.root)} {...rest}>

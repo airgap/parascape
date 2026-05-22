@@ -83,10 +83,10 @@
 		[k: string]: unknown;
 	} = $props();
 
-	let containerEl: HTMLElement | undefined = $state();
-	let containerWidth = $state(fallbackContainerWidth);
-	let inlineStartLabelsWidth = $state(0);
-	$effect(() => {
+	signal containerEl: HTMLElement | undefined = undefined;
+	signal containerWidth = fallbackContainerWidth;
+	signal inlineStartLabelsWidth = 0;
+	effect {
 		if (!containerEl) return;
 		const m = () => {
 			if (containerEl) containerWidth = containerEl.getBoundingClientRect().width;
@@ -98,7 +98,7 @@
 				: undefined;
 		ro?.observe(containerEl);
 		return () => ro?.disconnect();
-	});
+	};
 
 	derived maxInlineStartLabelsWidth = Math.round(containerWidth / 2);
 	derived plotWidth = containerWidth

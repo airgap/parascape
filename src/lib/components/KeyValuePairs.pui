@@ -64,9 +64,9 @@
 	}
 
 	derived cols = Math.min(columns, MAX);
-	let rootEl: HTMLElement | undefined = $state();
-	let cw = $state(0);
-	$effect(() => {
+	signal rootEl: HTMLElement | undefined = undefined;
+	signal cw = 0;
+	effect {
 		if (!rootEl) return;
 		const measure = () => {
 			if (rootEl) cw = rootEl.getBoundingClientRect().width;
@@ -76,7 +76,7 @@
 			typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : undefined;
 		ro?.observe(rootEl);
 		return () => ro?.disconnect();
-	});
+	};
 	derived columnCount = cssColumnCount(cols, minColumnWidth, cw || 9999);
 	const idOf = (p: Pair, i: number) => p.id || `kv-pair-${i}`;
 </script>

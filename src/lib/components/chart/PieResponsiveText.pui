@@ -24,8 +24,8 @@
 		containerBoundaries?: { left: number; right: number };
 	} = $props();
 
-	let actualRef: SVGTextElement | undefined = $state();
-	let virtualRef: SVGTextElement | undefined = $state();
+	signal actualRef: SVGTextElement | undefined = undefined;
+	signal virtualRef: SVGTextElement | undefined = undefined;
 	const isRtl = false;
 	derived anchor = (rightSide ? !isRtl : isRtl) ? 'start' : 'end';
 
@@ -41,7 +41,7 @@
 		if (text.length === maxLength) return text;
 		return text.slice(0, maxLength) + '…';
 	}
-	$effect(() => {
+	effect {
 		const a = actualRef;
 		const v = virtualRef;
 		if (!a || !v) return;
@@ -58,7 +58,7 @@
 			}
 		}, 25);
 		return () => clearTimeout(id);
-	});
+	};
 </script>
 
 <text

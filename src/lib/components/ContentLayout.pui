@@ -78,17 +78,13 @@
 	const snip = (v: unknown) => typeof v === 'function';
 	const has = (v: unknown) => v !== null && v !== undefined;
 
-	const hasHeader = $derived(has(header));
-	const hasNotifs = $derived(has(notifications));
-	const hasSecondary = $derived(has(secondaryHeader));
-	const isOverlapDisabled = $derived(!has(children) || disableOverlap);
-	const isDivider = $derived(headerVariant === 'divider');
-	const contentHeaderClassName = $derived(
-		headerVariant === 'high-contrast' && isVisualRefresh ? HIGH_CONTRAST_HEADER : '',
-	);
-	const bgStyle = $derived(
-		typeof headerBackgroundStyle === 'function' ? headerBackgroundStyle('light') : headerBackgroundStyle,
-	);
+	derived hasHeader = has(header);
+	derived hasNotifs = has(notifications);
+	derived hasSecondary = has(secondaryHeader);
+	derived isOverlapDisabled = !has(children) || disableOverlap;
+	derived isDivider = headerVariant === 'divider';
+	derived contentHeaderClassName = headerVariant === 'high-contrast' && isVisualRefresh ? HIGH_CONTRAST_HEADER : '',;
+	derived bgStyle = typeof headerBackgroundStyle === 'function' ? headerBackgroundStyle('light') : headerBackgroundStyle,;
 </script>
 
 <!--

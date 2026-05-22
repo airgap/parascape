@@ -45,7 +45,7 @@
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
-	let inputEl: HTMLInputElement | undefined = $state();
+	signal inputEl: HTMLInputElement | undefined = undefined;
 
 	function onUploadInputChange(e: Event) {
 		const files = Array.from((e.currentTarget as HTMLInputElement).files ?? []);

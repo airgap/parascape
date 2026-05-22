@@ -62,7 +62,7 @@
 	const T = testClasses as Record<string, string>;
 	const snip = (v: unknown) => typeof v === 'function';
 	const has = (v: unknown) => v !== null && v !== undefined;
-	const isInline = $derived(variant === 'inline');
+	derived isInline = variant === 'inline';
 </script>
 
 <svelte:element

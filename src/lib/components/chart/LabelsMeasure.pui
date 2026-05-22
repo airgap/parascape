@@ -26,9 +26,9 @@
 	} = $props();
 
 	const S = styles as Record<string, string>;
-	let el: HTMLElement | undefined = $state();
+	signal el: HTMLElement | undefined = undefined;
 
-	$effect(() => {
+	effect {
 		if (!el) return;
 		const report = () => autoWidth(el ? el.clientWidth : 0);
 		report();
@@ -38,7 +38,7 @@
 				: undefined;
 		ro?.observe(el);
 		return () => ro?.disconnect();
-	});
+	};
 
 	const labelLines = (value: any): string[] | null => {
 		const scaledValue = scale.d3Scale(value);
