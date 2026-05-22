@@ -55,6 +55,10 @@
 		// per-node style overrides (LYK-933): CSS prop → value, applied to the
 		// node's wrapper in preview + export (e.g. padding, color, border).
 		css?: Record<string, string>;
+		// responsive overrides (LYK-932): partial css applied at ≤768px (tablet)
+		// and ≤480px (mobile), cascading over `css`. Exported as media queries.
+		cssMd?: Record<string, string>;
+		cssSm?: Record<string, string>;
 	};
 	const isComp = (s: Section) => s.type === 'component';
 	const isContainer = (s: Section) => isComp(s) && takesContent(s.comp!);
@@ -108,6 +112,8 @@
 			style: { ...n.style },
 			props: n.props ? { ...n.props } : undefined,
 			css: n.css ? { ...n.css } : undefined,
+			cssMd: n.cssMd ? { ...n.cssMd } : undefined,
+			cssSm: n.cssSm ? { ...n.cssSm } : undefined,
 		};
 		if (n.children) c.children = n.children.map(reclone);
 		return c;
@@ -1078,19 +1084,36 @@
 		'var(--bad)',
 	];
 	const THEME_SPACE_TOKENS = ['4px', '8px', '12px', '16px', '24px', '32px', '48px'];
-	function cssOf(n: Section): string {
-		const c = n.css;
-		if (!c) return '';
-		return CSS_PROPS.filter((k) => c[k] != null && c[k] !== '')
+	// responsive cascade (LYK-932): the device selector edits one breakpoint;
+	// narrower breakpoints override wider ones. Preview merges the active cascade
+	// inline; export keeps base inline and emits the overrides as media queries.
+	const BP_TABLET = 768;
+	const BP_MOBILE = 480;
+	const cssMapName = (): 'css' | 'cssMd' | 'cssSm' => (device === 'tablet' ? 'cssMd' : device === 'mobile' ? 'cssSm' : 'css');
+	const cssMap = (n: Section, name: 'css' | 'cssMd' | 'cssSm'): Record<string, string> => (n as unknown as Record<string, Record<string, string>>)[name] ?? {};
+	const mergedCss = (n: Section): Record<string, string> => ({
+		...cssMap(n, 'css'),
+		...(device === 'tablet' || device === 'mobile' ? cssMap(n, 'cssMd') : {}),
+		...(device === 'mobile' ? cssMap(n, 'cssSm') : {}),
+	});
+	const styleStr = (c: Record<string, string>): string =>
+		CSS_PROPS.filter((k) => c[k] != null && c[k] !== '')
 			.map((k) => `${k}:${c[k]};`)
 			.join('');
+	function cssOf(n: Section, editable: boolean): string {
+		return styleStr(editable ? mergedCss(n) : cssMap(n, 'css'));
 	}
+	const hasResponsive = (n: Section): boolean =>
+		Object.keys(cssMap(n, 'cssMd')).length > 0 || Object.keys(cssMap(n, 'cssSm')).length > 0;
+	// the value shown in the style controls for the breakpoint being edited
+	const styVal = (n: Section, prop: string): string => cssMap(n, cssMapName())[prop] ?? '';
 	function setCss(key: number, prop: string, value: string) {
+		const mk = cssMapName();
 		sections = mapTree(sections, key, (s) => {
-			const css = { ...(s.css ?? {}) };
-			if (value === '') delete css[prop];
-			else css[prop] = value;
-			return { ...s, css };
+			const m = { ...cssMap(s, mk) };
+			if (value === '') delete m[prop];
+			else m[prop] = value;
+			return { ...s, [mk]: m };
 		});
 	}
 
@@ -1107,11 +1130,12 @@
 			// it by opening the definition), wrapped so a click selects the instance.
 			if (!editable) {
 				const t = `<${identByComp[n.ref!]} />`;
-				const sty = cssOf(n);
-				return sty ? `<div style="${sty}">${t}</div>` : t;
+				const sty = cssOf(n, false);
+				const cls = hasResponsive(n) ? ` class="pn-${n.key}"` : '';
+				return sty || cls ? `<div${cls} style="${sty}">${t}</div>` : t;
 			}
 			const inner = c.def.map((d) => nodeBody(d, false)).join('\n');
-			return `<div data-pk="${n.key}" data-instance="${n.ref}" style="${cssOf(n) || 'display:contents'}">${inner}</div>`;
+			return `<div data-pk="${n.key}" data-instance="${n.ref}" style="${cssOf(n, true) || 'display:contents'}">${inner}</div>`;
 		}
 		// free canvas → a relative box with absolutely-positioned children
 		if (isFree(n)) {
@@ -1127,8 +1151,9 @@
 		}
 		if (!isComp(n)) {
 			const html = markupOf(defOf(n), n.values, editable);
-			const sty = cssOf(n);
-			return sty ? `<div style="${sty}">${html}</div>` : html;
+			const sty = cssOf(n, editable);
+			const cls = !editable && hasResponsive(n) ? ` class="pn-${n.key}"` : '';
+			return sty || cls ? `<div${cls} style="${sty}">${html}</div>` : html;
 		}
 		const open = componentOpen(n.comp!, n.props ?? {});
 		let tag: string;
@@ -1148,9 +1173,10 @@
 		}
 		// The wrapper carries the node key for click-to-select; with no per-node
 		// css it's display:contents (no layout box), otherwise it carries the css.
-		const sty = cssOf(n);
+		const sty = cssOf(n, editable);
 		if (editable) return `<div data-pk="${n.key}" style="${sty || 'display:contents'}">${tag}</div>`;
-		return sty ? `<div style="${sty}">${tag}</div>` : tag;
+		const cls = hasResponsive(n) ? ` class="pn-${n.key}"` : '';
+		return sty || cls ? `<div${cls} style="${sty}">${tag}</div>` : tag;
 	}
 	function nodeImports(n: Section, forExport = false): string[] {
 		if (isInstance(n)) {
@@ -1267,7 +1293,6 @@
 		const mods = pageModules.map((m) => `import ${m.ident} from './${m.filename}';`);
 		return [...meta, ...mods].filter(Boolean).join('\n');
 	}
-	const PAGE_STYLE = `<style>\n\t.page { display: flex; flex-direction: column; }\n</style>`;
 	// route + declared params of the active page, emitted as a header comment so
 	// the exported .pui carries its routing metadata.
 	derived routeComment {
@@ -1277,7 +1302,23 @@
 		return `<!-- route: ${p.route}${params ? `  params: ${params}` : ''} -->\n`;
 	}
 	derived exportHead = sections.length ? `${routeComment}<script lang="pts">\n${pageImports}\n<\/script>\n\n<div class="page">` : '';
-	derived exportFoot = `</div>\n\n${PAGE_STYLE}\n`;
+	// Media-query rules from per-node responsive overrides (LYK-932): each node
+	// with cssMd/cssSm exports a `.pn-<key>` class targeted at ≤768 / ≤480.
+	derived responsiveCss {
+		const rules: string[] = [];
+		const walk = (list: Section[]) => {
+			for (const n of list) {
+				const md = cssMap(n, 'cssMd');
+				const sm = cssMap(n, 'cssSm');
+				if (Object.keys(md).length) rules.push(`\t@media (max-width: ${BP_TABLET}px) { .pn-${n.key} { ${styleStr(md)} } }`);
+				if (Object.keys(sm).length) rules.push(`\t@media (max-width: ${BP_MOBILE}px) { .pn-${n.key} { ${styleStr(sm)} } }`);
+				if (n.children) walk(n.children);
+			}
+		};
+		walk(sections);
+		return rules.join('\n');
+	}
+	derived exportFoot = `</div>\n\n<style>\n\t.page { display: flex; flex-direction: column; }${responsiveCss ? '\n' + responsiveCss : ''}\n</style>\n`;
 	derived pageSource {
 		// Code Mode override is the canonical source when present.
 		if (codeOverride !== null) return codeOverride;
@@ -1596,10 +1637,13 @@
 <!-- Per-node "Element style" controls (LYK-933) — shown for every node type -->
 {#snippet styleGroup(node)}
 	<details class="style-group">
-		<summary>Element style</summary>
+		<summary>Element style{device !== 'desktop' ? ` · ${device} only` : ''}</summary>
+		{#if device !== 'desktop'}
+			<p class="bp-note">Editing the <strong>{device}</strong> breakpoint — overrides inherit from desktop.</p>
+		{/if}
 		<label class="field"><span>Text colour</span>
 			<span class="bg-row">
-				<input value={node.css?.['color'] ?? ''} placeholder="color or var(--…)" oninput={(e) => setCss(node.key, 'color', (e.target as HTMLInputElement).value)} />
+				<input value={styVal(node, 'color')} placeholder="color or var(--…)" oninput={(e) => setCss(node.key, 'color', (e.target as HTMLInputElement).value)} />
 				<select onchange={(e) => { setCss(node.key, 'color', (e.target as HTMLSelectElement).value); (e.target as HTMLSelectElement).selectedIndex = 0; }}>
 					<option value="">token…</option>
 					{#each THEME_COLOR_TOKENS as t (t)}<option value={t}>{t}</option>{/each}
@@ -1608,7 +1652,7 @@
 		</label>
 		<label class="field"><span>Background</span>
 			<span class="bg-row">
-				<input value={node.css?.['background'] ?? ''} placeholder="color or var(--…)" oninput={(e) => setCss(node.key, 'background', (e.target as HTMLInputElement).value)} />
+				<input value={styVal(node, 'background')} placeholder="color or var(--…)" oninput={(e) => setCss(node.key, 'background', (e.target as HTMLInputElement).value)} />
 				<select onchange={(e) => { setCss(node.key, 'background', (e.target as HTMLSelectElement).value); (e.target as HTMLSelectElement).selectedIndex = 0; }}>
 					<option value="">token…</option>
 					{#each THEME_COLOR_TOKENS as t (t)}<option value={t}>{t}</option>{/each}
@@ -1617,7 +1661,7 @@
 		</label>
 		<label class="field"><span>Padding</span>
 			<span class="bg-row">
-				<input value={node.css?.['padding'] ?? ''} placeholder="e.g. 16px or 8px 16px" oninput={(e) => setCss(node.key, 'padding', (e.target as HTMLInputElement).value)} />
+				<input value={styVal(node, 'padding')} placeholder="e.g. 16px or 8px 16px" oninput={(e) => setCss(node.key, 'padding', (e.target as HTMLInputElement).value)} />
 				<select onchange={(e) => { setCss(node.key, 'padding', (e.target as HTMLSelectElement).value); (e.target as HTMLSelectElement).selectedIndex = 0; }}>
 					<option value="">scale…</option>
 					{#each THEME_SPACE_TOKENS as t (t)}<option value={t}>{t}</option>{/each}
@@ -1625,13 +1669,13 @@
 			</span>
 		</label>
 		<label class="field"><span>Margin</span>
-			<input value={node.css?.['margin'] ?? ''} placeholder="e.g. 0 0 16px" oninput={(e) => setCss(node.key, 'margin', (e.target as HTMLInputElement).value)} />
+			<input value={styVal(node, 'margin')} placeholder="e.g. 0 0 16px" oninput={(e) => setCss(node.key, 'margin', (e.target as HTMLInputElement).value)} />
 		</label>
 		<label class="field"><span>Font size</span>
-			<input value={node.css?.['font-size'] ?? ''} placeholder="e.g. 18px" oninput={(e) => setCss(node.key, 'font-size', (e.target as HTMLInputElement).value)} />
+			<input value={styVal(node, 'font-size')} placeholder="e.g. 18px" oninput={(e) => setCss(node.key, 'font-size', (e.target as HTMLInputElement).value)} />
 		</label>
 		<label class="field"><span>Font weight</span>
-			<select value={node.css?.['font-weight'] ?? ''} onchange={(e) => setCss(node.key, 'font-weight', (e.target as HTMLSelectElement).value)}>
+			<select value={styVal(node, 'font-weight')} onchange={(e) => setCss(node.key, 'font-weight', (e.target as HTMLSelectElement).value)}>
 				<option value="">(default)</option>
 				<option value="400">Regular</option>
 				<option value="500">Medium</option>
@@ -1640,7 +1684,7 @@
 			</select>
 		</label>
 		<label class="field"><span>Text align</span>
-			<select value={node.css?.['text-align'] ?? ''} onchange={(e) => setCss(node.key, 'text-align', (e.target as HTMLSelectElement).value)}>
+			<select value={styVal(node, 'text-align')} onchange={(e) => setCss(node.key, 'text-align', (e.target as HTMLSelectElement).value)}>
 				<option value="">(default)</option>
 				<option value="left">Left</option>
 				<option value="center">Center</option>
@@ -1648,13 +1692,13 @@
 			</select>
 		</label>
 		<label class="field"><span>Border</span>
-			<input value={node.css?.['border'] ?? ''} placeholder="e.g. 1px solid var(--border)" oninput={(e) => setCss(node.key, 'border', (e.target as HTMLInputElement).value)} />
+			<input value={styVal(node, 'border')} placeholder="e.g. 1px solid var(--border)" oninput={(e) => setCss(node.key, 'border', (e.target as HTMLInputElement).value)} />
 		</label>
 		<label class="field"><span>Radius</span>
-			<input value={node.css?.['border-radius'] ?? ''} placeholder="e.g. 8px" oninput={(e) => setCss(node.key, 'border-radius', (e.target as HTMLInputElement).value)} />
+			<input value={styVal(node, 'border-radius')} placeholder="e.g. 8px" oninput={(e) => setCss(node.key, 'border-radius', (e.target as HTMLInputElement).value)} />
 		</label>
 		<label class="field"><span>Shadow</span>
-			<input value={node.css?.['box-shadow'] ?? ''} placeholder="e.g. 0 2px 8px rgba(0,0,0,.12)" oninput={(e) => setCss(node.key, 'box-shadow', (e.target as HTMLInputElement).value)} />
+			<input value={styVal(node, 'box-shadow')} placeholder="e.g. 0 2px 8px rgba(0,0,0,.12)" oninput={(e) => setCss(node.key, 'box-shadow', (e.target as HTMLInputElement).value)} />
 		</label>
 	</details>
 {/snippet}
@@ -2377,6 +2421,7 @@
 	.style-group .bg-row { display: flex; gap: 6px; align-items: center; }
 	.style-group .bg-row input { flex: 1; min-width: 0; }
 	.style-group .bg-row select { flex: 0 0 auto; max-width: 92px; }
+	.bp-note { font-size: 11px; color: var(--accent); margin: 0 0 8px; }
 	.layer-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 8px; border-radius: var(--radius-sm); cursor: pointer; }
 	.layer-row:hover { background: var(--bg-hover); }
 	.layer-row.sel { background: var(--bg-accent-subtle); color: var(--accent); }
