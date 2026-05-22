@@ -11,6 +11,7 @@
 		{ id: 'demos', label: 'Demos', href: '/demos/' },
 		{ id: 'components', label: 'Components', href: '/components/' },
 		{ id: 'builder', label: 'Builder', href: '/builder/' },
+		{ id: 'designer', label: 'Designer', href: '/designer/' },
 	];
 </script>
 

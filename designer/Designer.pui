@@ -1,0 +1,324 @@
+<!--
+  Parascape site Designer — a Wix/Squarespace-style page builder. You stack
+  content sections (hero, text, feature columns, stats, CTA, footer); each
+  section's content is a real Parascape component composition, compiled live
+  via the demos' live-compiler. Per-section style (background, padding,
+  alignment, content width, light/dark) is plain CSS owned here; dark sections
+  render their Parascape content in awsui-dark-mode so the text stays legible.
+  Reorder / duplicate / delete sections, preview at desktop/tablet/mobile
+  widths, autosave to localStorage, and export the whole page to .pui.
+-->
+<script lang="pts">
+	import SiteNav from '../src/lib/SiteNav.pui';
+	import { compileParascape, mountSvelte } from '../demos/live-compile';
+	import { SECTIONS, SECTION_BY_ID, sectionSource, importLine, esc } from './sections';
+	import type { SectionStyle } from './sections';
+
+	type Section = { key: number; type: string; values: Record<string, string>; style: SectionStyle };
+
+	const KEY = 'parascape-designer-v1';
+	type Saved = { sections: Section[]; nextKey: number };
+	function loadInitial(): Saved {
+		try {
+			const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(KEY) : null;
+			if (raw) {
+				const s = JSON.parse(raw) as Saved;
+				if (Array.isArray(s.sections)) return s;
+			}
+		} catch {}
+		// Sensible starter page on first visit.
+		return {
+			sections: ['hero', 'features', 'stats', 'cta', 'footer'].map((type, i) => ({
+				key: i + 1,
+				type,
+				values: { ...SECTION_BY_ID[type].defaults },
+				style: { ...SECTION_BY_ID[type].style },
+			})),
+			nextKey: 6,
+		};
+	}
+	const init = loadInitial();
+	signal sections: Section[] = init.sections;
+	let nextKey = init.nextKey;
+
+	signal selectedKey: number | null = null;
+	signal device = 'desktop';
+	signal showExport = false;
+
+	const defOf = (s: Section) => SECTION_BY_ID[s.type];
+	derived selected = sections.find((s) => s.key === selectedKey) ?? null;
+
+	effect {
+		try {
+			localStorage.setItem(KEY, JSON.stringify({ sections, nextKey } as Saved));
+		} catch {}
+	}
+
+	function addSection(type: string) {
+		const def = SECTION_BY_ID[type];
+		const s: Section = { key: nextKey++, type, values: { ...def.defaults }, style: { ...def.style } };
+		sections = [...sections, s];
+		selectedKey = s.key;
+		showExport = false;
+	}
+	function removeSection(key: number) {
+		sections = sections.filter((s) => s.key !== key);
+		if (selectedKey === key) selectedKey = null;
+	}
+	function duplicate(key: number) {
+		const i = sections.findIndex((s) => s.key === key);
+		if (i < 0) return;
+		const src = sections[i];
+		const copy: Section = { ...src, key: nextKey++, values: { ...src.values }, style: { ...src.style } };
+		sections = [...sections.slice(0, i + 1), copy, ...sections.slice(i + 1)];
+		selectedKey = copy.key;
+	}
+	function move(key: number, dir: -1 | 1) {
+		const i = sections.findIndex((s) => s.key === key);
+		const j = i + dir;
+		if (i < 0 || j < 0 || j >= sections.length) return;
+		const next = sections.slice();
+		[next[i], next[j]] = [next[j], next[i]];
+		sections = next;
+	}
+	function setValue(key: number, field: string, value: string) {
+		sections = sections.map((s) => (s.key === key ? { ...s, values: { ...s.values, [field]: value } } : s));
+	}
+	function setStyle(key: number, patch: Partial<SectionStyle>) {
+		sections = sections.map((s) => (s.key === key ? { ...s, style: { ...s.style, ...patch } } : s));
+	}
+	function clearAll() {
+		if (confirm('Clear the whole page?')) {
+			sections = [];
+			selectedKey = null;
+		}
+	}
+
+	const srcOf = (s: Section) => sectionSource(defOf(s), s.values);
+	const secStyle = (s: Section) =>
+		`background:${s.style.bg}; padding:${s.style.padY}px 24px;` + (s.style.fg === 'light' ? ' color:#fff;' : '');
+	const innerStyle = (s: Section) =>
+		`max-width:${s.style.width ? s.style.width + 'px' : 'none'}; margin:0 auto; text-align:${s.style.align};`;
+
+	// Live render: compile each section's content and mount it. Recompiles only
+	// when the source string changes (content edits) — style edits are inline.
+	function renderSection(el: HTMLElement, src: string) {
+		let teardown: (() => void) | null = null;
+		let last: string | null = null;
+		function run(s: string) {
+			if (s === last) return;
+			last = s;
+			teardown?.();
+			teardown = null;
+			el.innerHTML = '';
+			try {
+				const C = compileParascape(s);
+				teardown = mountSvelte(C as never, el);
+			} catch (e: unknown) {
+				const d = document.createElement('div');
+				d.className = 'sec-err';
+				d.textContent = (e as { message?: string })?.message ?? String(e);
+				el.appendChild(d);
+			}
+		}
+		run(src);
+		return { update: (s: string) => run(s), destroy: () => teardown?.() };
+	}
+
+	// --- combine the whole page into one downloadable .pui file ---
+	derived pageSource {
+		if (!sections.length) return '';
+		const imps = [...new Set(sections.flatMap((s) => defOf(s).imports))].map(importLine).join('\n');
+		const body = sections
+			.map((s) => {
+				const d = defOf(s);
+				const cls = s.style.fg === 'light' ? 'section awsui-dark-mode' : 'section';
+				const inner = `<div class="section-inner" style="${innerStyle(s)}">\n${d
+					.markup({ ...d.defaults, ...s.values })
+					.split('\n')
+					.map((l) => '\t\t\t' + l)
+					.join('\n')}\n\t\t</div>`;
+				return `\t<section class="${cls}" style="${secStyle(s)}">\n\t\t${inner}\n\t</section>`;
+			})
+			.join('\n');
+		return `<script lang="pts">\n${imps}\n<\/script>\n\n<div class="page">\n${body}\n</div>\n\n<style>\n\t.page { display: flex; flex-direction: column; }\n\t.section-inner :global(*) { box-sizing: border-box; }\n</style>\n`;
+	}
+	function download() {
+		const blob = new Blob([pageSource], { type: 'text/plain' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = 'Page.pui';
+		a.click();
+		URL.revokeObjectURL(url);
+	}
+</script>
+
+<div class="designer">
+	<SiteNav active="designer" />
+	<header class="dtoolbar">
+		<strong>Site Designer</strong>
+		<span class="muted">{sections.length} section{sections.length === 1 ? '' : 's'}</span>
+		<span class="spacer"></span>
+		<div class="devices">
+			<button class:on={device === 'desktop'} onclick={() => (device = 'desktop')}>Desktop</button>
+			<button class:on={device === 'tablet'} onclick={() => (device = 'tablet')}>Tablet</button>
+			<button class:on={device === 'mobile'} onclick={() => (device = 'mobile')}>Mobile</button>
+		</div>
+		<button onclick={() => { showExport = !showExport; selectedKey = null; }} class:on={showExport}>Export</button>
+		<button onclick={clearAll}>Clear</button>
+	</header>
+
+	<div class="cols">
+		<aside class="add-panel">
+			<h2>Add section</h2>
+			{#each SECTIONS as def (def.id)}
+				<button class="add-item" onclick={() => addSection(def.id)} title={def.blurb}>
+					<span class="add-name">+ {def.name}</span>
+					<span class="add-blurb">{def.blurb}</span>
+				</button>
+			{/each}
+		</aside>
+
+		<main class="canvas">
+			<div class="frame device-{device}">
+				{#if !sections.length}
+					<p class="empty">Add sections from the left to build your page.</p>
+				{/if}
+				{#each sections as s (s.key)}
+					<section
+						class="sec"
+						class:sel={s.key === selectedKey}
+						style={secStyle(s)}
+						onclick={() => { selectedKey = s.key; showExport = false; }}
+					>
+						<div class={s.style.fg === 'light' ? 'inner awsui-dark-mode' : 'inner'} style={innerStyle(s)}>
+							<div use:renderSection={srcOf(s)}></div>
+						</div>
+						{#if s.key === selectedKey}
+							<span class="sec-badge">{defOf(s).name}</span>
+							<span class="sec-tools">
+								<button title="Move up" onclick={(e) => { e.stopPropagation(); move(s.key, -1); }}>↑</button>
+								<button title="Move down" onclick={(e) => { e.stopPropagation(); move(s.key, 1); }}>↓</button>
+								<button title="Duplicate" onclick={(e) => { e.stopPropagation(); duplicate(s.key); }}>⧉</button>
+								<button title="Delete" onclick={(e) => { e.stopPropagation(); removeSection(s.key); }}>✕</button>
+							</span>
+						{/if}
+					</section>
+				{/each}
+			</div>
+		</main>
+
+		<aside class="inspector">
+			{#if showExport}
+				<h2>Export</h2>
+				{#if !pageSource}
+					<p class="muted">Add sections to generate .pui.</p>
+				{:else}
+					<button class="primary" onclick={download}>Download Page.pui</button>
+					<pre class="code">{pageSource}</pre>
+				{/if}
+			{:else if selected}
+				<div class="insp-head"><h2>{defOf(selected).name}</h2><button class="mini danger" onclick={() => removeSection(selected.key)}>Delete</button></div>
+
+				<h3>Content</h3>
+				{#each defOf(selected).fields as f (f.key)}
+					<label class="field">
+						<span>{f.label}</span>
+						{#if f.multiline}
+							<textarea
+								value={selected.values[f.key] ?? defOf(selected).defaults[f.key] ?? ''}
+								oninput={(e) => setValue(selected.key, f.key, (e.target as HTMLTextAreaElement).value)}
+							></textarea>
+						{:else}
+							<input
+								value={selected.values[f.key] ?? defOf(selected).defaults[f.key] ?? ''}
+								oninput={(e) => setValue(selected.key, f.key, (e.target as HTMLInputElement).value)}
+							/>
+						{/if}
+					</label>
+				{/each}
+
+				<h3>Section style</h3>
+				<label class="field"><span>Background</span>
+					<span class="bg-row">
+						<input type="color" value={selected.style.bg === 'transparent' ? '#ffffff' : selected.style.bg} oninput={(e) => setStyle(selected.key, { bg: (e.target as HTMLInputElement).value })} />
+						<button class="mini" onclick={() => setStyle(selected.key, { bg: 'transparent' })}>None</button>
+					</span>
+				</label>
+				<label class="field"><span>Text</span>
+					<select value={selected.style.fg} onchange={(e) => setStyle(selected.key, { fg: (e.target as HTMLSelectElement).value as 'inherit' | 'light' })}>
+						<option value="inherit">Dark (default)</option>
+						<option value="light">Light (for dark bg)</option>
+					</select>
+				</label>
+				<label class="field"><span>Align</span>
+					<select value={selected.style.align} onchange={(e) => setStyle(selected.key, { align: (e.target as HTMLSelectElement).value as 'left' | 'center' | 'right' })}>
+						<option value="left">Left</option>
+						<option value="center">Center</option>
+						<option value="right">Right</option>
+					</select>
+				</label>
+				<label class="field"><span>Padding</span>
+					<input type="number" value={selected.style.padY} oninput={(e) => setStyle(selected.key, { padY: Number((e.target as HTMLInputElement).value) })} />
+				</label>
+				<label class="field"><span>Width</span>
+					<input type="number" placeholder="0 = full" value={selected.style.width} oninput={(e) => setStyle(selected.key, { width: Number((e.target as HTMLInputElement).value) })} />
+				</label>
+			{:else}
+				<p class="muted">Select a section to edit its content and style, or add one from the left.</p>
+			{/if}
+		</aside>
+	</div>
+</div>
+
+<style>
+	:global(body) { margin: 0; }
+	.designer { display: flex; flex-direction: column; height: 100vh; font: 13px/1.5 'Open Sans', system-ui, sans-serif; color: #16191f; }
+	.dtoolbar { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: #161d26; color: #fff; flex: 0 0 auto; }
+	.dtoolbar strong { font-size: 14px; }
+	.dtoolbar .muted { color: #8aa0bd; font-size: 12px; }
+	.dtoolbar .spacer { flex: 1; }
+	.dtoolbar button { background: #283447; color: #cfe0f5; border: 1px solid #3a4863; border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; }
+	.dtoolbar button:hover { background: #313f57; }
+	.dtoolbar button.on { background: #006ce0; border-color: #006ce0; color: #fff; }
+	.devices { display: flex; gap: 4px; }
+
+	.cols { flex: 1; display: grid; grid-template-columns: 220px 1fr 300px; min-height: 0; background: #e5e7eb; gap: 1px; }
+	.add-panel, .inspector { background: #fff; overflow: auto; padding: 12px; }
+	.add-panel h2, .inspector h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #5f6b7a; margin: 0 0 10px; }
+	.inspector h3 { font-size: 12px; margin: 18px 0 8px; color: #5f6b7a; }
+	.add-item { display: block; width: 100%; text-align: left; padding: 8px 10px; margin-bottom: 6px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; cursor: pointer; font: inherit; }
+	.add-item:hover { background: #f0f4ff; border-color: #006ce0; }
+	.add-name { display: block; font-weight: 600; }
+	.add-blurb { display: block; color: #5f6b7a; font-size: 11px; }
+
+	.canvas { overflow: auto; background: #eceef0; padding: 24px; }
+	.frame { background: #fff; margin: 0 auto; box-shadow: 0 1px 6px rgba(0,0,0,0.12); border-radius: 6px; overflow: hidden; transition: max-width 0.15s ease; }
+	.frame.device-desktop { max-width: 100%; }
+	.frame.device-tablet { max-width: 768px; }
+	.frame.device-mobile { max-width: 375px; }
+	.empty { color: #94a3b8; text-align: center; padding: 80px 20px; }
+
+	.sec { position: relative; cursor: pointer; outline: 2px solid transparent; outline-offset: -2px; }
+	.sec:hover { outline-color: #b9d4f5; }
+	.sec.sel { outline-color: #006ce0; }
+	.inner { } /* style applied inline */
+	.sec-badge { position: absolute; top: 0; left: 0; background: #006ce0; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 0 0 6px 0; }
+	.sec-tools { position: absolute; top: 4px; right: 4px; display: flex; gap: 2px; }
+	.sec-tools button { background: #006ce0; color: #fff; border: 0; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px; line-height: 1; }
+	.sec-tools button:hover { background: #0058b8; }
+	:global(.sec-err) { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; padding: 6px 10px; font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; }
+
+	.insp-head { display: flex; align-items: center; justify-content: space-between; }
+	.field { display: block; margin-bottom: 10px; }
+	.field > span { display: block; color: #5f6b7a; font-size: 12px; margin-bottom: 3px; }
+	.field input[type=text], .field input:not([type]), .field input[type=number], .field select, .field textarea { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #c6c6cd; border-radius: 6px; font: inherit; }
+	.field textarea { min-height: 64px; resize: vertical; }
+	.bg-row { display: flex; gap: 6px; align-items: center; }
+	.bg-row input[type=color] { width: 44px; height: 30px; padding: 0; border: 1px solid #c6c6cd; border-radius: 6px; }
+	.mini { border: 1px solid #c6c6cd; background: #fff; border-radius: 6px; padding: 4px 8px; cursor: pointer; font: 12px inherit; }
+	.danger { color: #d91515; border-color: #d91515; }
+	.primary { width: 100%; padding: 8px; border: 0; border-radius: 6px; background: #006ce0; color: #fff; cursor: pointer; font: inherit; font-weight: 600; margin-bottom: 10px; }
+	.code { background: #0f141a; color: #e6edf3; padding: 12px; border-radius: 8px; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; overflow: auto; max-height: 420px; }
+</style>
