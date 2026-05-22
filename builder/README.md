@@ -29,7 +29,7 @@ Run the server with **ParaBun** (it needs the `parabun:llm` builtin — not
 node/bun):
 
 ```sh
-parabun builder/llm-server.ts
+bun run builder:ai            # = parabun builder/llm-server.ts
 # or pick a model / port:
 PARASCAPE_MODEL=/path/to/model.gguf PORT=8787 parabun builder/llm-server.ts
 ```

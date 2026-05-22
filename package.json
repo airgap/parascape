@@ -25,7 +25,8 @@
     "visual:pie": "bun tests/visual/pie-shoot.mjs",
     "vendor:gen": "bun tests/visual/gen-tokens.mjs",
     "vendor:verify": "bun tests/visual/gen-tokens.mjs --check",
-    "conformance:score": "node tests/conformance/scoreboard.mjs"
+    "conformance:score": "node tests/conformance/scoreboard.mjs",
+    "builder:ai": "parabun builder/llm-server.ts"
   },
   "devDependencies": {
     "@cloudscape-design/components": "3.0.1297",
