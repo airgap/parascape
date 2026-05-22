@@ -290,12 +290,25 @@
 		}
 		return starterProject();
 	}
+	// Corrupt saved state (LYK-941): if the persisted JSON can't be parsed/loaded,
+	// keep the raw string so we can offer recovery (download/reset) instead of
+	// silently discarding the user's work. Set during loadProject() (pre-signals),
+	// surfaced via the `recoverRaw` signal below.
+	let corruptRaw: string | null = null;
 	function loadProject(): Project {
+		let raw: string | null = null;
 		try {
-			const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(KEY) : null;
-			if (raw) return toProject(JSON.parse(raw));
-		} catch {}
-		return starterProject();
+			raw = typeof localStorage !== 'undefined' ? localStorage.getItem(KEY) : null;
+		} catch {
+			return starterProject();
+		}
+		if (!raw) return starterProject();
+		try {
+			return toProject(JSON.parse(raw));
+		} catch {
+			corruptRaw = raw; // unparseable → recover, don't silently reset
+			return starterProject();
+		}
 	}
 	const init = loadProject();
 	let nextKey = init.nextKey;
@@ -353,6 +366,8 @@
 	signal showPalette = false;
 	signal paletteQuery = '';
 	signal paletteIndex = 0;
+	// corrupt-state recovery (LYK-941): the raw saved string when it failed to load
+	signal recoverRaw: string | null = corruptRaw;
 	// media library (LYK-935): uploaded images, stored server-side in SQLite.
 	signal assets: AssetMeta[] = [];
 	signal assetErr: string | null = null;
@@ -395,7 +410,7 @@
 
 	const defOf = (s: Section) => SECTION_BY_ID[s.type];
 	const labelOf = (s: Section) =>
-		isInstance(s) ? compById(s.ref)?.name ?? 'Component' : isFree(s) ? 'Free canvas' : isComp(s) ? displayName(s.comp!) : defOf(s).name;
+		isInstance(s) ? compById(s.ref)?.name ?? 'Component' : isFree(s) ? 'Free canvas' : isComp(s) ? displayName(s.comp!) : defOf(s)?.name ?? s.type;
 	// true when this section, or any node nested inside it, is the selection.
 	const inSel = (s: Section) => selectedKey !== null && !!findNode([s], selectedKey);
 	derived selected = selectedKey === null ? null : findNode(sections, selectedKey);
@@ -813,6 +828,19 @@
 			showPalette = false;
 		}
 	}
+
+	// --- corrupt-state recovery (LYK-941) ---
+	function downloadRecover() {
+		if (!recoverRaw) return;
+		const blob = new Blob([recoverRaw], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = 'parascape-recovery.json';
+		a.click();
+		URL.revokeObjectURL(url);
+	}
+	const dismissRecover = () => (recoverRaw = null);
 
 	// --- keyboard shortcuts + clipboard (LYK-928) ---
 	let clipboard: Section | null = null;
@@ -1252,7 +1280,11 @@
 			return `<div class="free-canvas" style="position:relative; min-height:${minH}px;">\n${kids}\n</div>`;
 		}
 		if (!isComp(n)) {
-			const html = markupOf(defOf(n), n.values, editable);
+			const def = defOf(n);
+			// Unknown block type (e.g. from corrupt/old state): render a contained
+			// placeholder instead of throwing and blanking the whole canvas.
+			if (!def) return editable ? `<div class="sec-err">Unknown block: ${esc(n.type)}</div>` : `<!-- unknown block: ${n.type} -->`;
+			const html = markupOf(def, n.values, editable);
 			const sty = cssOf(n, editable);
 			const cls = !editable && hasResponsive(n) ? ` class="pn-${n.key}"` : '';
 			return sty || cls ? `<div${cls} style="${sty}">${html}</div>` : html;
@@ -1289,7 +1321,7 @@
 			return c ? c.def.flatMap((d) => nodeImports(d, false)) : [];
 		}
 		if (isFree(n)) return (n.children ?? []).flatMap((c) => nodeImports(c, forExport));
-		if (!isComp(n)) return defOf(n).imports;
+		if (!isComp(n)) return defOf(n)?.imports ?? [];
 		const ids = [n.comp!];
 		if (n.children) for (const c of n.children) ids.push(...nodeImports(c, forExport));
 		return ids;
@@ -1960,6 +1992,17 @@
 					{/if}
 				</div>
 				<div class="cmdk-foot">↑↓ navigate · ↵ run · esc close — also: ⌘Z undo · ⌘D duplicate · Del remove · double-click to edit text</div>
+			</div>
+		</div>
+	{/if}
+
+	{#if recoverRaw}
+		<div class="auth-backdrop" role="presentation">
+			<div class="auth-modal" role="dialog" aria-modal="true" aria-label="Recover project">
+				<h2>Couldn't load your saved project</h2>
+				<p class="muted">The saved data looks corrupted, so we started you on a fresh page. Download a backup of the raw data first if you want to recover it by hand.</p>
+				<button class="primary" onclick={downloadRecover}>Download backup</button>
+				<p class="auth-switch"><button type="button" class="linkish" onclick={dismissRecover}>Start fresh</button></p>
 			</div>
 		</div>
 	{/if}
