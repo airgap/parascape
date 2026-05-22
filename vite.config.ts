@@ -52,6 +52,7 @@ export default defineConfig({
         components: resolve(__dirname, "components/index.html"),
         builder: resolve(__dirname, "builder/index.html"),
         designer: resolve(__dirname, "designer/index.html"),
+        preview: resolve(__dirname, "preview/index.html"),
         box: resolve(__dirname, "tests/visual/box-fixture/box.html"),
         wide: resolve(__dirname, "tests/visual/wide-fixture/wide.html"),
         cp: resolve(__dirname, "tests/visual/cp-fixture/cp.html"),

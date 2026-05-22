@@ -156,6 +156,20 @@ export const SECTIONS: SectionDef[] = [
 </Columns>`,
   },
   {
+    id: "image",
+    name: "Image",
+    blurb: "An uploaded image from your media library.",
+    imports: [],
+    fields: [
+      { key: "src", label: "Image URL" },
+      { key: "alt", label: "Alt text (required for accessibility)" },
+    ],
+    defaults: { src: "", alt: "" },
+    style: sty({ padY: 32 }),
+    markup: f =>
+      `<img src="${esc(f.src).replace(/"/g, "&quot;")}" alt="${esc(f.alt).replace(/"/g, "&quot;")}" style="max-width:100%;height:auto;display:block;margin:0 auto;border-radius:8px" />`,
+  },
+  {
     id: "cta",
     name: "Call to action",
     blurb: "A centered heading with a button.",

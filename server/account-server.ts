@@ -43,6 +43,25 @@ db.run(`CREATE TABLE IF NOT EXISTS projects (
   doc TEXT NOT NULL,
   updated_at INTEGER NOT NULL
 )`);
+// Uploaded assets (images), stored as BLOBs in SQLite (LYK-935). The binary is
+// served at GET /api/assets/:id (public so <img src> works without a token).
+db.run(`CREATE TABLE IF NOT EXISTS assets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  mime TEXT NOT NULL,
+  size INTEGER NOT NULL,
+  data BLOB NOT NULL,
+  created_at INTEGER NOT NULL
+)`);
+// Published page snapshots (LYK-934): a slug → project doc, served read-only by
+// the dev preview server at /preview/:slug.
+db.run(`CREATE TABLE IF NOT EXISTS published (
+  slug TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  doc TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+)`);
 if (GUEST)
   db.run("INSERT OR IGNORE INTO users (id, username, password_hash, created_at) VALUES (1, 'guest', '', ?)", [
     Date.now(),
@@ -138,6 +157,24 @@ const server = Bun.serve({
     if (path === "/register" && method === "POST") return register((await readBody()) as never);
     if (path === "/login" && method === "POST") return login((await readBody()) as never);
     if (path === "/health" && method === "GET") return json({ ok: true, guest: GUEST });
+    // public: serve an uploaded asset's binary so <img src="/api/assets/:id"> works
+    const apub = path.match(/^\/assets\/(\d+)$/);
+    if (apub && method === "GET") {
+      const row = db.query("SELECT mime, data FROM assets WHERE id = ?").get(Number(apub[1])) as
+        | { mime: string; data: Uint8Array }
+        | undefined;
+      if (!row) return err(404, "No such asset");
+      return new Response(row.data, { headers: { "content-type": row.mime, "cache-control": "public, max-age=3600" } });
+    }
+    // public: a published page snapshot, read by the dev preview server (LYK-934)
+    const pubm = path.match(/^\/published\/([a-z0-9-]+)$/);
+    if (pubm && method === "GET") {
+      const row = db.query("SELECT doc, updated_at FROM published WHERE slug = ?").get(pubm[1]) as
+        | { doc: string; updated_at: number }
+        | undefined;
+      if (!row) return err(404, "No such published page");
+      return json({ slug: pubm[1], doc: JSON.parse(row.doc), updated_at: row.updated_at });
+    }
 
     // ── authed ──
     const user = userFor(req);
@@ -195,6 +232,55 @@ const server = Bun.serve({
         db.run("DELETE FROM projects WHERE id = ?", [id]);
         return json({ ok: true });
       }
+    }
+
+    // ── assets (LYK-935) ──
+    if (path === "/assets" && method === "GET") {
+      const rows = db
+        .query("SELECT id, name, mime, size, created_at FROM assets WHERE user_id = ? ORDER BY created_at DESC")
+        .all(user.id);
+      return json({ assets: rows });
+    }
+    if (path === "/assets" && method === "POST") {
+      const body = await readBody();
+      const name = String(body.name ?? "image");
+      const mime = String(body.mime ?? "application/octet-stream");
+      const dataB64 = String(body.data ?? "");
+      if (!dataB64) return err(400, "Missing data");
+      const buf = Buffer.from(dataB64, "base64");
+      const info = db.run(
+        "INSERT INTO assets (user_id, name, mime, size, data, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        [user.id, name, mime, buf.length, buf, now()],
+      );
+      return json({ id: Number(info.lastInsertRowid), name, mime, size: buf.length });
+    }
+    const adel = path.match(/^\/assets\/(\d+)$/);
+    if (adel && method === "DELETE") {
+      const id = Number(adel[1]);
+      const owned = db.query("SELECT id FROM assets WHERE id = ? AND user_id = ?").get(id, user.id);
+      if (!owned) return err(404, "No such asset");
+      db.run("DELETE FROM assets WHERE id = ?", [id]);
+      return json({ ok: true });
+    }
+
+    // ── publish (LYK-934) ──
+    if (path === "/publish" && method === "POST") {
+      const body = await readBody();
+      const slug = String(body.slug ?? "")
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      if (!slug) return err(400, "Missing slug");
+      const doc = JSON.stringify(body.doc ?? {});
+      const existing = db.query("SELECT user_id FROM published WHERE slug = ?").get(slug) as
+        | { user_id: number }
+        | undefined;
+      if (existing && existing.user_id !== user.id) return err(409, "That preview name is taken");
+      db.run(
+        "INSERT INTO published (slug, user_id, doc, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(slug) DO UPDATE SET doc = excluded.doc, updated_at = excluded.updated_at",
+        [slug, user.id, doc, now()],
+      );
+      return json({ slug, url: `/preview/${slug}` });
     }
 
     return err(404, "Not found");

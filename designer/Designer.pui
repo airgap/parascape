@@ -12,7 +12,7 @@
 	import { untrack } from 'svelte';
 	import axe from 'axe-core';
 	import * as account from '../src/lib/account';
-	import type { Account } from '../src/lib/account';
+	import type { Account, AssetMeta } from '../src/lib/account';
 	import SiteNav from '../src/lib/SiteNav.pui';
 	import { compileParascape, mountSvelte } from '../demos/live-compile';
 	import { highlight, highlightSync, ready as shikiReady } from '../demos/pui-shiki';
@@ -347,6 +347,12 @@
 	signal aiPrompt = '';
 	signal aiBusy = false;
 	signal aiError: string | null = null;
+	// media library (LYK-935): uploaded images, stored server-side in SQLite.
+	signal assets: AssetMeta[] = [];
+	signal assetErr: string | null = null;
+	// publish / dev preview (LYK-934)
+	signal publishBusy = false;
+	signal publishUrl: string | null = null;
 	// drag state. dropIndex is the 0..sections.length insert position. A drag is
 	// either a reorder of an existing section (dragKey) or a new item being drawn
 	// in from the palette (dragNew); both compute dropIndex the same way.
@@ -1457,6 +1463,61 @@
 		}
 	}
 
+	// --- media library (LYK-935) ---
+	async function loadAssets() {
+		try {
+			assets = await account.listAssets();
+		} catch {
+			assets = [];
+		}
+	}
+	async function onAssetFiles(files: FileList | null) {
+		if (!files?.length) return;
+		assetErr = null;
+		try {
+			for (const f of Array.from(files)) if (f.type.startsWith('image/')) await account.uploadAsset(f);
+			await loadAssets();
+		} catch (e: unknown) {
+			assetErr = (e as { message?: string })?.message ?? 'Upload failed';
+		}
+	}
+	async function removeAsset(id: number) {
+		try {
+			await account.deleteAsset(id);
+			await loadAssets();
+		} catch {}
+	}
+	// Insert an Image section pointing at the uploaded asset's stable URL (alt
+	// pre-filled from the file name for a11y; editable in the inspector).
+	function insertImage(a: AssetMeta) {
+		insertSection(
+			{ key: nextKey++, type: 'image', values: { src: account.assetUrl(a.id), alt: a.name }, style: { ...SECTION_BY_ID['image'].style } },
+			sections.length,
+		);
+	}
+
+	// --- publish / dev preview (LYK-934) ---
+	async function publishPage() {
+		if (publishBusy) return;
+		publishBusy = true;
+		publishUrl = null;
+		try {
+			const slug =
+				(activePage?.name || 'page')
+					.toLowerCase()
+					.replace(/[^a-z0-9-]+/g, '-')
+					.replace(/^-+|-+$/g, '') || 'page';
+			// Publish the current page's exported .pui; image assets resolve via the
+			// dev server's /api/assets URLs, so the preview is self-contained.
+			const r = await account.publish(slug, { name: activePage?.name ?? 'Page', source: pageSource });
+			publishUrl = `/preview/?slug=${encodeURIComponent(r.slug)}`;
+		} catch (e: unknown) {
+			alert((e as { message?: string })?.message ?? 'Publish failed — needs the account server (sign in or guest mode).');
+		} finally {
+			publishBusy = false;
+		}
+	}
+
 	// --- Accessibility check (LYK-931) ---
 	// Runs real axe-core over the live preview (a real browser, so layout-dependent
 	// rules like colour-contrast are accurate) and lists violations worst-first.
@@ -1531,6 +1592,7 @@
 			projectId = await account.createProject('My site', currentProject());
 		}
 		saveState = 'saved';
+		loadAssets();
 	}
 	// On mount, probe the session: in guest mode the server returns the guest user
 	// with no token (→ silent persistence, account UI hidden); with a real token it
@@ -1721,6 +1783,8 @@
 		{#if !codeMode}<button onclick={toggleA11y} class:on={showA11y}>A11y</button>{/if}
 		<button onclick={toggleCode} class:on={codeMode}>Code</button>
 		{#if !codeOverride}<button onclick={() => { showExport = !showExport; selectedKey = null; }} class:on={showExport}>Export</button>{/if}
+		{#if acct || guest}<button onclick={publishPage} disabled={publishBusy} title="Publish this page to the dev preview server">{publishBusy ? 'Publishing…' : 'Publish'}</button>{/if}
+		{#if publishUrl}<a class="pub-link" href={publishUrl} target="_blank" rel="noreferrer">Preview ↗</a>{/if}
 		<button onclick={clearAll}>Clear</button>
 		<span class="acct">
 			{#if guest}
@@ -1839,6 +1903,28 @@
 							<button class="mycomp-del" title="Delete component" aria-label="Delete component {c.name}" onclick={() => deleteComponent(c.id)}>✕</button>
 						</div>
 					{/each}
+				</div>
+			{/if}
+
+			{#if acct || guest}
+				<div class="media">
+					<div class="media-head">
+						<span>Media</span>
+						<label class="mini media-up">+ Upload<input type="file" accept="image/*" multiple hidden onchange={(e) => onAssetFiles((e.target as HTMLInputElement).files)} /></label>
+					</div>
+					{#if assetErr}<p class="ai-err">{assetErr}</p>{/if}
+					{#if assets.length}
+						<div class="media-grid">
+							{#each assets as a (a.id)}
+								<div class="media-item" title={a.name}>
+									<button class="media-thumb" onclick={() => insertImage(a)} style="background-image:url({account.assetUrl(a.id)})" aria-label="Insert {a.name}"></button>
+									<button class="media-del" title="Delete asset" aria-label="Delete {a.name}" onclick={() => removeAsset(a.id)}>✕</button>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="muted media-empty">Upload images to place them on the page.</p>
+					{/if}
 				</div>
 			{/if}
 
@@ -2407,6 +2493,19 @@
 	.ai-prompt { width: 100%; box-sizing: border-box; min-height: 52px; resize: vertical; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--fg-body); font: inherit; }
 	.ai-go { width: 100%; margin-top: 6px; }
 	.ai-err { color: var(--bad); font-size: 11px; margin: 6px 0 0; }
+	/* media library (LYK-935) + publish (LYK-934) */
+	.media { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+	.media-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); margin-bottom: 6px; }
+	.media-up { cursor: pointer; }
+	.media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+	.media-item { position: relative; }
+	.media-thumb { width: 100%; aspect-ratio: 1; border: 1px solid var(--border); border-radius: var(--radius-sm); background-size: cover; background-position: center; background-color: var(--bg-sunken); cursor: pointer; padding: 0; }
+	.media-thumb:hover { border-color: var(--accent); }
+	.media-del { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; background: var(--bad); color: #fff; border: 2px solid var(--bg-elev); cursor: pointer; font-size: 10px; line-height: 1; padding: 0; opacity: 0; }
+	.media-item:hover .media-del { opacity: 1; }
+	.media-empty { font-size: 12px; }
+	.pub-link { font-size: 12px; color: var(--accent); text-decoration: none; padding: 5px 8px; }
+	.pub-link:hover { text-decoration: underline; }
 	/* free canvas (LYK-936) */
 	.free-frame { position: relative; min-height: 320px; width: 100%; border: 1px dashed var(--border); border-radius: var(--radius-md); background-image: radial-gradient(var(--border) 1px, transparent 1px); background-size: 16px 16px; }
 	.free-frame.nest-over { border-color: var(--accent); background-color: var(--bg-accent-subtle); }

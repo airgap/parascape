@@ -78,3 +78,34 @@ export async function createProject(name: string, doc: unknown): Promise<number>
 export async function saveProject(id: number, doc: unknown): Promise<void> {
   await api(`/projects/${id}`, { method: "PUT", body: { doc } });
 }
+
+// --- assets (LYK-935) ---
+export type AssetMeta = { id: number; name: string; mime: string; size: number; created_at: number };
+// stable URL for an asset's binary (served publicly so <img src> works)
+export const assetUrl = (id: number): string => `/api/assets/${id}`;
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(new Error("read failed"));
+    r.onload = () => resolve(String(r.result).split(",")[1] ?? ""); // strip the data: prefix
+    r.readAsDataURL(file);
+  });
+export async function uploadAsset(file: File): Promise<AssetMeta> {
+  const data = await fileToBase64(file);
+  return api<AssetMeta>("/assets", {
+    method: "POST",
+    body: { name: file.name, mime: file.type || "application/octet-stream", data },
+  });
+}
+export async function listAssets(): Promise<AssetMeta[]> {
+  const r = await api<{ assets: AssetMeta[] }>("/assets");
+  return r.assets;
+}
+export async function deleteAsset(id: number): Promise<void> {
+  await api(`/assets/${id}`, { method: "DELETE" });
+}
+
+// --- publish / dev preview (LYK-934) ---
+export async function publish(slug: string, doc: unknown): Promise<{ slug: string; url: string }> {
+  return api("/publish", { method: "POST", body: { slug, doc } });
+}
