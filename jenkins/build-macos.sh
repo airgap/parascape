@@ -49,3 +49,12 @@ fi
 
 echo "=== DMG ==="
 ls -lh "$DMG_DIR/$DMG_NAME"
+
+echo "=== Zipping the .app bundle ==="
+# Also ship the raw .app (zipped). `ditto -c -k --keepParent` is the macOS
+# way to archive a bundle — it preserves the framework symlinks, permissions,
+# and extended attributes that a plain `zip` would mangle.
+APP_ZIP="$(dirname "$APP_BUNDLE")/Parascape_0.1.0_${ARCH}.app.zip"
+ditto -c -k --keepParent "$APP_BUNDLE" "$APP_ZIP"
+echo "=== .app.zip ==="
+ls -lh "$APP_ZIP"

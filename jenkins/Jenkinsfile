@@ -105,10 +105,13 @@ pipeline {
                             ssh mac-mini "cd ${REMOTE_WS} && chmod +x jenkins/build-macos.sh && ./jenkins/build-macos.sh"
                         '''
                         sh '''
-                            mkdir -p src-tauri/target/release/bundle/dmg
+                            mkdir -p src-tauri/target/release/bundle/dmg src-tauri/target/release/bundle/macos
                             rsync -az \
                                 mac-mini:${REMOTE_WS}/src-tauri/target/release/bundle/dmg/*.dmg \
                                 src-tauri/target/release/bundle/dmg/ || true
+                            rsync -az \
+                                mac-mini:${REMOTE_WS}/src-tauri/target/release/bundle/macos/*.app.zip \
+                                src-tauri/target/release/bundle/macos/ || true
                         '''
                         // Best-effort cleanup of the remote workspace. macOS
                         // sometimes returns "Directory not empty" while the FS
@@ -120,7 +123,7 @@ pipeline {
                     }
                     post {
                         success {
-                            archiveArtifacts artifacts: 'src-tauri/target/release/bundle/dmg/*.dmg', allowEmptyArchive: true
+                            archiveArtifacts artifacts: 'src-tauri/target/release/bundle/dmg/*.dmg,src-tauri/target/release/bundle/macos/*.app.zip', allowEmptyArchive: true
                         }
                     }
                 }
