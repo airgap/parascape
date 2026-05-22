@@ -100,38 +100,40 @@
 </main>
 
 <style>
-	/* global-styles doesn't set a base body font, so the page chrome would fall
-	   back to the browser serif. Match Cloudscape's font stack. */
-	:global(body) {
-		margin: 0;
-		font-family: 'Open Sans', 'Helvetica Neue', Roboto, Arial, sans-serif;
-		background: #fff;
-	}
-	/* Page chrome uses concrete Cloudscape light values (the awsui design-token
-	   CSS vars are hashed at build time, so the friendly --space-l / --color-*
-	   names don't exist at runtime). The ported components style themselves
-	   from the real tokens loaded in main.ts. */
+	/* Page chrome reads the shared theme tokens (src/lib/theme.css) so the home
+	   page follows light / dark / auto with the rest of the site. The ported
+	   <Table> styles itself from the real (hashed) awsui tokens loaded in
+	   main.ts; both share the same body font (Open Sans) from site.css. */
 	main {
 		max-width: 1100px;
 		margin: 0 auto;
-		padding: 40px 20px;
+		padding: 48px 20px;
 		display: flex;
 		flex-direction: column;
 		gap: 20px;
-		color: #16191f;
+		color: var(--fg-body);
 	}
 	header h1 {
-		margin: 0 0 4px;
-		font-size: 28px;
+		margin: 0 0 6px;
+		font-size: 30px;
 		font-weight: 700;
+		letter-spacing: -0.01em;
+		color: var(--fg-strong);
 	}
 	header p {
 		margin: 0;
-		color: #5f6b7a;
+		max-width: 70ch;
+		line-height: 1.5;
+		color: var(--fg-muted);
+	}
+	header strong {
+		color: var(--fg-strong);
 	}
 	code {
-		background: #f4f4f4;
+		background: var(--bg-num-pill);
+		color: var(--fg-body);
 		padding: 1px 5px;
-		border-radius: 4px;
+		border-radius: var(--radius-sm);
+		font-size: 0.9em;
 	}
 </style>

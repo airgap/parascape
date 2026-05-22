@@ -1,0 +1,130 @@
+// Parascape desktop build — produces the self-contained Tauri + Parabun
+// desktop app for Linux (this machine) and macOS (the mac-mini agent).
+//
+// Deliberately BUILD-ONLY: it archives the installers as Jenkins artifacts and
+// does NOT publish anywhere (no R2 upload, no GitHub release, no registry).
+// Parascape is not public — releasing it is gated on the user's boss's
+// approval, so CI just proves the desktop bundles build on both platforms.
+//
+// Mirrors /raid/lyku/jenkins/Jenkinsfile.desktop's parallel-per-platform shape
+// and /raid/parabun/jenkins/Jenkinsfile's native-controller + mac-mini
+// SSH-alias approach:
+//   - Linux: native on the `linux` agent (this machine already has Rust,
+//            parabun, and webkit2gtk-4.1). jenkins/build-linux.sh →
+//            .deb/.rpm/.AppImage.
+//   - macOS: rsync source to the `mac-mini` SSH alias (defined in the Jenkins
+//            controller's ~/.ssh/config), run jenkins/build-macos.sh there,
+//            rsync the .dmg back. The headless-DMG workaround mirrors lyku's.
+
+pipeline {
+    agent none
+
+    environment {
+        CI = 'true'
+    }
+
+    triggers {
+        pollSCM('H/5 * * * *')
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 60, unit: 'MINUTES')
+    }
+
+    parameters {
+        booleanParam(name: 'BUILD_LINUX', defaultValue: true,
+                     description: 'Build the Linux desktop bundles (.deb/.rpm/.AppImage) on this machine')
+        booleanParam(name: 'BUILD_MACOS', defaultValue: true,
+                     description: 'Build the macOS desktop bundle (.dmg) on the mac-mini agent')
+    }
+
+    stages {
+        stage('Build Desktop') {
+            parallel {
+                stage('Linux') {
+                    when {
+                        beforeAgent true
+                        expression { params.BUILD_LINUX }
+                    }
+                    // Native build on this machine. The Rust target dir is
+                    // large, so park the workspace on /raid (its own partition)
+                    // rather than the controller's / partition.
+                    agent {
+                        node {
+                            label 'linux'
+                            customWorkspace '/raid/jenkins-workspaces/parascape'
+                        }
+                    }
+                    steps {
+                        checkout scm
+                        sh '''
+                            chmod +x jenkins/build-linux.sh
+                            ./jenkins/build-linux.sh
+                        '''
+                    }
+                    post {
+                        success {
+                            archiveArtifacts artifacts: 'src-tauri/target/release/bundle/deb/*.deb,src-tauri/target/release/bundle/rpm/*.rpm,src-tauri/target/release/bundle/appimage/*.AppImage', allowEmptyArchive: true
+                        }
+                    }
+                }
+
+                stage('macOS') {
+                    when {
+                        beforeAgent true
+                        expression { params.BUILD_MACOS }
+                    }
+                    // Runs natively on the Jenkins controller (built-in node);
+                    // the `mac-mini` alias resolves from the controller's
+                    // ~/.ssh/config, same as the parabun pipeline.
+                    agent { label 'built-in' }
+                    environment {
+                        // Stable remote workspace under the mac user's $HOME so
+                        // the Rust target/ incremental cache survives across
+                        // runs (rsync --exclude protects it from --delete).
+                        REMOTE_WS = 'jenkins/workspace/parascape'
+                    }
+                    steps {
+                        checkout scm
+                        sh '''
+                            rsync -az --delete \
+                                --exclude='.git' \
+                                --exclude='node_modules' \
+                                --exclude='/dist' \
+                                --exclude='/src-tauri/target' \
+                                --exclude='/src-tauri/binaries' \
+                                --exclude='*.sqlite*' \
+                                --exclude='.claude' \
+                                ./ mac-mini:${REMOTE_WS}/
+                        '''
+                        sh '''
+                            ssh mac-mini "cd ${REMOTE_WS} && chmod +x jenkins/build-macos.sh && ./jenkins/build-macos.sh"
+                        '''
+                        sh '''
+                            mkdir -p src-tauri/target/release/bundle/dmg
+                            rsync -az \
+                                mac-mini:${REMOTE_WS}/src-tauri/target/release/bundle/dmg/*.dmg \
+                                src-tauri/target/release/bundle/dmg/ || true
+                        '''
+                        // Best-effort cleanup of the remote workspace. macOS
+                        // sometimes returns "Directory not empty" while the FS
+                        // is still flushing; we've already pulled the DMG, so a
+                        // leftover tree just costs disk — never fail over it.
+                        sh '''
+                            ssh mac-mini "rm -rf ${REMOTE_WS} 2>/dev/null || (sleep 2 && rm -rf ${REMOTE_WS} 2>/dev/null) || echo 'warning: could not fully remove ${REMOTE_WS}'"
+                        '''
+                    }
+                    post {
+                        success {
+                            archiveArtifacts artifacts: 'src-tauri/target/release/bundle/dmg/*.dmg', allowEmptyArchive: true
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -8,3 +8,11 @@ dist
 tests/visual/__screenshots__/
 tests/visual/cloudscape-ref/dist*/
 tests/conformance/.cache/
+
+# local account/persistence db (LYK-930)
+parascape.sqlite
+parascape.sqlite-*
+src-tauri/target
+src-tauri/binaries
+src-tauri/gen
+/dist

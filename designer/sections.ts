@@ -23,7 +23,9 @@ export type SectionDef = {
   fields: Field[];
   defaults: Record<string, string>;
   style: SectionStyle;
-  markup: (f: Record<string, string>) => string;
+  // `fld(key)` yields the field's rendered text — escaped plain text for export,
+  // or a `<span data-pf>` marker for the in-place editor (see markupOf).
+  markup: (f: Record<string, string>, fld: (key: string) => string) => string;
 };
 
 const pascal = (id: string) =>
@@ -69,10 +71,10 @@ export const SECTIONS: SectionDef[] = [
       cta: "Get started",
     },
     style: sty({ padY: 96, bg: "#0f1b2d", fg: "light" }),
-    markup: f => `<SpaceBetween size="l">
-	<Header variant="h1">${esc(f.title)}</Header>
-	<Box variant="p" fontSize="heading-s">${esc(f.subtitle)}</Box>
-	<div><Button variant="primary">${esc(f.cta)}</Button></div>
+    markup: (f, fld) => `<SpaceBetween size="l">
+	<Header variant="h1">${fld("title")}</Header>
+	<Box variant="p" fontSize="heading-s">${fld("subtitle")}</Box>
+	<Box><Button variant="primary">${fld("cta")}</Button></Box>
 </SpaceBetween>`,
   },
   {
@@ -89,16 +91,16 @@ export const SECTIONS: SectionDef[] = [
       body: "Replace this with your own copy. The heading and text are rendered by the ported Header and Box components.",
     },
     style: sty({ align: "left", width: 760 }),
-    markup: f => `<SpaceBetween size="s">
-	<Header variant="h2">${esc(f.heading)}</Header>
-	<Box variant="p" color="text-body-secondary">${esc(f.body)}</Box>
+    markup: (f, fld) => `<SpaceBetween size="s">
+	<Header variant="h2">${fld("heading")}</Header>
+	<Box variant="p" color="text-body-secondary">${fld("body")}</Box>
 </SpaceBetween>`,
   },
   {
     id: "features",
     name: "Feature columns",
     blurb: "Three side-by-side features in a column layout.",
-    imports: ["space-between", "header", "box"],
+    imports: ["columns", "space-between", "header", "box"],
     fields: [
       { key: "t1", label: "Feature 1 title" },
       { key: "b1", label: "Feature 1 text", multiline: true },
@@ -116,17 +118,17 @@ export const SECTIONS: SectionDef[] = [
       b3: "Drop components onto a page and wire them up visually.",
     },
     style: sty({ width: 1040 }),
-    markup: f => `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px;text-align:left">
-	<SpaceBetween size="xs"><Header variant="h3">${esc(f.t1)}</Header><Box variant="p" color="text-body-secondary">${esc(f.b1)}</Box></SpaceBetween>
-	<SpaceBetween size="xs"><Header variant="h3">${esc(f.t2)}</Header><Box variant="p" color="text-body-secondary">${esc(f.b2)}</Box></SpaceBetween>
-	<SpaceBetween size="xs"><Header variant="h3">${esc(f.t3)}</Header><Box variant="p" color="text-body-secondary">${esc(f.b3)}</Box></SpaceBetween>
-</div>`,
+    markup: (f, fld) => `<Columns cols={3} gap="32px" align="left">
+	<SpaceBetween size="xs"><Header variant="h3">${fld("t1")}</Header><Box variant="p" color="text-body-secondary">${fld("b1")}</Box></SpaceBetween>
+	<SpaceBetween size="xs"><Header variant="h3">${fld("t2")}</Header><Box variant="p" color="text-body-secondary">${fld("b2")}</Box></SpaceBetween>
+	<SpaceBetween size="xs"><Header variant="h3">${fld("t3")}</Header><Box variant="p" color="text-body-secondary">${fld("b3")}</Box></SpaceBetween>
+</Columns>`,
   },
   {
     id: "stats",
     name: "Stats band",
     blurb: "Three big numbers with labels.",
-    imports: ["box"],
+    imports: ["columns", "box"],
     fields: [
       { key: "v1", label: "Stat 1 value" },
       { key: "l1", label: "Stat 1 label" },
@@ -143,27 +145,30 @@ export const SECTIONS: SectionDef[] = [
       v3: "0",
       l3: "React hooks",
     },
-    style: sty({ bg: "#f2f3f3" }),
-    markup: f => `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px">
-	<Box textAlign="center"><Box variant="h1" fontSize="display-l" fontWeight="bold">${esc(f.v1)}</Box><Box variant="p" color="text-body-secondary">${esc(f.l1)}</Box></Box>
-	<Box textAlign="center"><Box variant="h1" fontSize="display-l" fontWeight="bold">${esc(f.v2)}</Box><Box variant="p" color="text-body-secondary">${esc(f.l2)}</Box></Box>
-	<Box textAlign="center"><Box variant="h1" fontSize="display-l" fontWeight="bold">${esc(f.v3)}</Box><Box variant="p" color="text-body-secondary">${esc(f.l3)}</Box></Box>
-</div>`,
+    // Transparent so the big numbers sit on the page background and keep correct
+    // contrast in both light and dark themes. (A fixed light band would show
+    // light theme-coloured text on a light surface in dark mode.)
+    style: sty({}),
+    markup: (f, fld) => `<Columns cols={3} gap="24px">
+	<Box textAlign="center"><Box variant="h1" fontSize="display-l" fontWeight="bold">${fld("v1")}</Box><Box variant="p" color="text-body-secondary">${fld("l1")}</Box></Box>
+	<Box textAlign="center"><Box variant="h1" fontSize="display-l" fontWeight="bold">${fld("v2")}</Box><Box variant="p" color="text-body-secondary">${fld("l2")}</Box></Box>
+	<Box textAlign="center"><Box variant="h1" fontSize="display-l" fontWeight="bold">${fld("v3")}</Box><Box variant="p" color="text-body-secondary">${fld("l3")}</Box></Box>
+</Columns>`,
   },
   {
     id: "cta",
     name: "Call to action",
     blurb: "A centered heading with a button.",
-    imports: ["space-between", "header", "button"],
+    imports: ["space-between", "header", "button", "box"],
     fields: [
       { key: "title", label: "Heading" },
       { key: "cta", label: "Button label" },
     ],
     defaults: { title: "Ready to try it?", cta: "Open the Builder" },
     style: sty({ padY: 72, bg: "#006ce0", fg: "light" }),
-    markup: f => `<SpaceBetween size="m">
-	<Header variant="h2">${esc(f.title)}</Header>
-	<div><Button variant="primary">${esc(f.cta)}</Button></div>
+    markup: (f, fld) => `<SpaceBetween size="m">
+	<Header variant="h2">${fld("title")}</Header>
+	<Box><Button variant="primary">${fld("cta")}</Button></Box>
 </SpaceBetween>`,
   },
   {
@@ -173,10 +178,10 @@ export const SECTIONS: SectionDef[] = [
     imports: ["box"],
     fields: [{ key: "text", label: "Footer text" }],
     defaults: {
-      text: "© 2026 Parascape — the Cloudscape Design System, ported to .pui.",
+      text: "Parascape — the Cloudscape Design System, ported to .pui.",
     },
     style: sty({ padY: 28, bg: "#0f1b2d", fg: "light" }),
-    markup: f => `<Box fontSize="body-s">${esc(f.text)}</Box>`,
+    markup: (f, fld) => `<Box fontSize="body-s">${fld("text")}</Box>`,
   },
 ];
 
@@ -186,9 +191,20 @@ export function importLine(id: string): string {
   return `\timport ${pascal(id)} from '@parascape-design/components/${id}';`;
 }
 
-// A single section's content as a compilable .pui module (for live preview).
-export function sectionSource(def: SectionDef, values: Record<string, string>): string {
-  const imports = def.imports.map(importLine).join("\n");
+// Render a section's markup. `editable` wraps each field value in a
+// `<span class="pf" data-pf="key">` marker so the Designer can map a
+// double-clicked text node back to the field it came from; export leaves
+// the markup as plain escaped text.
+export function markupOf(def: SectionDef, values: Record<string, string>, editable = false): string {
   const v = { ...def.defaults, ...values };
-  return `<script lang="pts">\n${imports}\n<\/script>\n\n${def.markup(v)}\n`;
+  const fld = editable
+    ? (k: string) => `<span class="pf" data-pf="${k}">${esc(v[k] ?? "")}</span>`
+    : (k: string) => esc(v[k] ?? "");
+  return def.markup(v, fld);
+}
+
+// A single section's content as a compilable .pui module (for live preview).
+export function sectionSource(def: SectionDef, values: Record<string, string>, editable = false): string {
+  const imports = def.imports.map(importLine).join("\n");
+  return `<script lang="pts">\n${imports}\n<\/script>\n\n${markupOf(def, values, editable)}\n`;
 }

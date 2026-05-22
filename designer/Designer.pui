@@ -9,70 +9,535 @@
   widths, autosave to localStorage, and export the whole page to .pui.
 -->
 <script lang="pts">
+	import { untrack } from 'svelte';
+	import axe from 'axe-core';
+	import * as account from '../src/lib/account';
+	import type { Account } from '../src/lib/account';
 	import SiteNav from '../src/lib/SiteNav.pui';
 	import { compileParascape, mountSvelte } from '../demos/live-compile';
-	import { SECTIONS, SECTION_BY_ID, sectionSource, importLine, esc } from './sections';
+	import { highlight, highlightSync, ready as shikiReady } from '../demos/pui-shiki';
+	import { SECTIONS, SECTION_BY_ID, sectionSource, markupOf, importLine, esc } from './sections';
 	import type { SectionStyle } from './sections';
+	import {
+		allComponents,
+		displayName,
+		takesContent,
+		editableProps,
+		isUnion,
+		unionOptions,
+		seed,
+		componentOpen,
+		identOf,
+	} from './component-meta';
 
-	type Section = { key: number; type: string; values: Record<string, string>; style: SectionStyle };
+	// A node is either a preset section (type ∈ section ids, content in `values`)
+	// or a raw Parascape component (type === 'component', with comp/props/content).
+	// Container components (takesContent) can hold child component nodes, so the
+	// page is a tree, not a flat list — `sections` is the top-level (the stack).
+	type Section = {
+		key: number;
+		type: string;
+		values: Record<string, string>;
+		style: SectionStyle;
+		comp?: string;
+		props?: Record<string, string | number | boolean>;
+		content?: string;
+		children?: Section[];
+	};
+	const isComp = (s: Section) => s.type === 'component';
+	const isContainer = (s: Section) => isComp(s) && takesContent(s.comp!);
+
+	// --- tree helpers (operate on the nested node tree by key) ---
+	function findNode(list: Section[], key: number): Section | null {
+		for (const n of list) {
+			if (n.key === key) return n;
+			if (n.children) {
+				const c = findNode(n.children, key);
+				if (c) return c;
+			}
+		}
+		return null;
+	}
+	function mapTree(list: Section[], key: number, fn: (n: Section) => Section): Section[] {
+		return list.map((n) => {
+			if (n.key === key) return fn(n);
+			if (n.children) return { ...n, children: mapTree(n.children, key, fn) };
+			return n;
+		});
+	}
+	function removeTree(list: Section[], key: number): Section[] {
+		return list
+			.filter((n) => n.key !== key)
+			.map((n) => (n.children ? { ...n, children: removeTree(n.children, key) } : n));
+	}
+	function insertChild(list: Section[], parentKey: number, node: Section): Section[] {
+		return list.map((n) => {
+			if (n.key === parentKey) return { ...n, children: [...(n.children ?? []), node] };
+			if (n.children) return { ...n, children: insertChild(n.children, parentKey, node) };
+			return n;
+		});
+	}
+	// Is `key` inside the subtree rooted at `ancestorKey`? (prevents dropping a
+	// container into itself / its own descendant when moving.)
+	function isDescendant(ancestorKey: number, key: number): boolean {
+		const a = findNode(sections, ancestorKey);
+		return !!(a?.children && findNode(a.children, key));
+	}
+	// Deep copy with fresh keys (for duplicate).
+	function reclone(n: Section): Section {
+		const c: Section = {
+			...n,
+			key: nextKey++,
+			values: { ...n.values },
+			style: { ...n.style },
+			props: n.props ? { ...n.props } : undefined,
+		};
+		if (n.children) c.children = n.children.map(reclone);
+		return c;
+	}
+
+	// --- nesting validity ---
+	// Components that render an interactive element (an <a> or <button>). HTML
+	// forbids nesting interactive content inside interactive content (e.g. <a> in
+	// <a>), and the browser silently reparents it — so the inner node "vanishes".
+	// We block such drops and lift any already-saved offenders back to top level.
+	const INTERACTIVE = new Set(['link', 'button']);
+	const isInteractive = (id?: string) => !!id && INTERACTIVE.has(id);
+	function subtreeHasInteractive(n: Section): boolean {
+		if (isComp(n) && isInteractive(n.comp)) return true;
+		return !!n.children?.some(subtreeHasInteractive);
+	}
+	// path from a top-level node down to (and including) the node with `key`.
+	function findPath(list: Section[], key: number, acc: Section[] = []): Section[] | null {
+		for (const n of list) {
+			const next = [...acc, n];
+			if (n.key === key) return next;
+			if (n.children) {
+				const p = findPath(n.children, key, next);
+				if (p) return p;
+			}
+		}
+		return null;
+	}
+	// May a node (new comp id, or an existing subtree) be nested into `parentKey`?
+	// Interactive children are rejected when any ancestor (incl. the target) is
+	// interactive.
+	function nestAllowed(parentKey: number, child: string | Section): boolean {
+		const childInteractive = typeof child === 'string' ? isInteractive(child) : subtreeHasInteractive(child);
+		if (!childInteractive) return true;
+		const path = findPath(sections, parentKey) ?? [];
+		return !path.some((n) => isComp(n) && isInteractive(n.comp));
+	}
 
 	const KEY = 'parascape-designer-v1';
-	type Saved = { sections: Section[]; nextKey: number };
-	function loadInitial(): Saved {
-		try {
-			const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(KEY) : null;
-			if (raw) {
-				const s = JSON.parse(raw) as Saved;
-				if (Array.isArray(s.sections)) return s;
+	// A page is a routable document; a project is the page set (LYK-929). The whole
+	// project is what persists (localStorage + the server project blob). `nextKey`
+	// is a project-global node-key counter so keys stay unique across pages.
+	type Doc = { sections: Section[]; codeOverride: string | null };
+	type Page = { id: number; name: string; route: string; params: string; doc: Doc };
+	type Project = { pages: Page[]; activePageId: number; nextKey: number };
+	type Saved = { sections: Section[]; nextKey?: number; codeOverride?: string | null };
+	// Early Designer builds shipped an unprofessional footer default ("for-funzies
+	// … Not affiliated with AWS") and later a copyright line. Pages saved then keep
+	// it in localStorage and would re-render it over the clean default, so scrub it
+	// on load: any persisted field/content matching this gets reset to its section's
+	// current default (no copyright, no toy framing).
+	const STALE_COPY = /for[-\s]?funzies|not affiliated|for fun\b|©|\(c\)\s*\d|copyright|all rights reserved/i;
+	function scrub<T extends { sections: Section[] }>(saved: T): T {
+		for (const s of saved.sections ?? []) {
+			const def = SECTION_BY_ID[s.type];
+			if (s.values) {
+				for (const k of Object.keys(s.values)) {
+					if (STALE_COPY.test(s.values[k] ?? '')) s.values[k] = def?.defaults[k] ?? '';
+				}
 			}
-		} catch {}
-		// Sensible starter page on first visit.
+			if (s.content && STALE_COPY.test(s.content)) s.content = '';
+			// The old stats band shipped a fixed light bg (#f2f3f3) that showed
+			// light theme-coloured text on a light surface in dark mode. Migrate it
+			// to transparent so contrast follows the theme.
+			if (s.type === 'stats' && s.style?.bg === '#f2f3f3') s.style.bg = 'transparent';
+		}
+		return saved;
+	}
+	// Repair invalid interactive-in-interactive nesting from older saves (e.g. a
+	// Link dropped into a Link before validation existed). Such a child renders
+	// nowhere (the browser reparents <a> out of <a>), so lift it back to the top
+	// level where it's visible again.
+	function fixNesting<T extends { sections: Section[] }>(saved: T): T {
+		const lifted: Section[] = [];
+		const walk = (list: Section[], ancestorInteractive: boolean): Section[] =>
+			list.filter((n) => {
+				const selfInteractive = isComp(n) && isInteractive(n.comp);
+				if (ancestorInteractive && selfInteractive) {
+					if (n.children) n.children = walk(n.children, true);
+					lifted.push(n);
+					return false;
+				}
+				if (n.children) n.children = walk(n.children, ancestorInteractive || selfInteractive);
+				return true;
+			});
+		saved.sections = walk(saved.sections ?? [], false);
+		if (lifted.length) saved.sections.push(...lifted);
+		return saved;
+	}
+	function starterProject(): Project {
 		return {
-			sections: ['hero', 'features', 'stats', 'cta', 'footer'].map((type, i) => ({
-				key: i + 1,
-				type,
-				values: { ...SECTION_BY_ID[type].defaults },
-				style: { ...SECTION_BY_ID[type].style },
-			})),
+			pages: [
+				{
+					id: 1,
+					name: 'Home',
+					route: '/',
+					params: '',
+					doc: {
+						sections: ['hero', 'features', 'stats', 'cta', 'footer'].map((type, i) => ({
+							key: i + 1,
+							type,
+							values: { ...SECTION_BY_ID[type].defaults },
+							style: { ...SECTION_BY_ID[type].style },
+						})),
+						codeOverride: null,
+					},
+				},
+			],
+			activePageId: 1,
 			nextKey: 6,
 		};
 	}
-	const init = loadInitial();
-	signal sections: Section[] = init.sections;
+	// Normalize any persisted shape into a Project: the current `{ pages }` shape,
+	// the legacy single-doc `{ sections, nextKey, codeOverride }` (→ one "Home"
+	// page), or junk (→ starter). Each page's doc is scrubbed + nesting-repaired.
+	function toProject(o: unknown): Project {
+		const x = o as Record<string, unknown>;
+		const cleanDoc = (d: unknown): Doc =>
+			fixNesting(
+				scrub({
+					sections: Array.isArray((d as Doc)?.sections) ? (d as Doc).sections : [],
+					codeOverride: typeof (d as Doc)?.codeOverride === 'string' ? (d as Doc).codeOverride : null,
+				}),
+			);
+		if (Array.isArray(x?.pages)) {
+			const pages: Page[] = (x.pages as Page[]).map((p, i) => ({
+				id: typeof p.id === 'number' ? p.id : i + 1,
+				name: p.name ?? `Page ${i + 1}`,
+				route: p.route ?? '/',
+				params: p.params ?? '',
+				doc: cleanDoc(p.doc),
+			}));
+			if (!pages.length) return starterProject();
+			const activePageId = pages.some((p) => p.id === x.activePageId) ? (x.activePageId as number) : pages[0].id;
+			return { pages, activePageId, nextKey: typeof x.nextKey === 'number' ? x.nextKey : 1 };
+		}
+		if (Array.isArray(x?.sections)) {
+			return {
+				pages: [{ id: 1, name: 'Home', route: '/', params: '', doc: cleanDoc(x) }],
+				activePageId: 1,
+				nextKey: typeof x.nextKey === 'number' ? x.nextKey : 1,
+			};
+		}
+		return starterProject();
+	}
+	function loadProject(): Project {
+		try {
+			const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(KEY) : null;
+			if (raw) return toProject(JSON.parse(raw));
+		} catch {}
+		return starterProject();
+	}
+	const init = loadProject();
 	let nextKey = init.nextKey;
+	let nextPageId = Math.max(0, ...init.pages.map((p) => p.id)) + 1;
+	signal pages: Page[] = init.pages;
+	signal activePageId = init.activePageId;
+	const _initActive = init.pages.find((p) => p.id === init.activePageId) ?? init.pages[0];
+	signal sections: Section[] = _initActive.doc.sections;
 
 	signal selectedKey: number | null = null;
 	signal device = 'desktop';
 	signal showExport = false;
-	// drag-to-reorder state. dropIndex is the 0..sections.length insert position.
+	// Code Mode (VS.NET-style): the raw .pui is canonical. While `codeOverride`
+	// is set, the canvas renders it (the visual is a representation of the code)
+	// and it's what exports; the visual blocks are paused until "Revert to visual"
+	// clears it. `codeMode` is the editor view; `codeDraft` is the editor buffer.
+	signal codeOverride: string | null = _initActive.doc.codeOverride ?? null;
+	signal codeMode = false;
+	signal codeDraft = '';
+	signal codeErr: string | null = null;
+	// syntax-highlighted editor overlay (textarea over a Shiki <pre>)
+	signal codeScrollY = 0;
+	signal hlReady = false;
+	effect {
+		shikiReady.then(() => (hlReady = true));
+	}
+	derived codeHighlighted {
+		hlReady; // re-highlight once the highlighter finishes init
+		return highlightSync(codeDraft, 'pui');
+	}
+	derived codeLineNos = codeDraft.split('\n').map((_, i) => i + 1).join('\n');
+	// add-panel tab: 'sections' | 'components'
+	signal addTab = 'sections';
+	signal compSearch = '';
+	// drag state. dropIndex is the 0..sections.length insert position. A drag is
+	// either a reorder of an existing section (dragKey) or a new item being drawn
+	// in from the palette (dragNew); both compute dropIndex the same way.
 	signal dragKey: number | null = null;
+	signal dragNew: { kind: 'section' | 'component'; id: string } | null = null;
 	signal dropIndex: number | null = null;
+	// when hovering a container component's body, the drop nests inside it instead
+	// of inserting between top-level sections.
+	signal nestKey: number | null = null;
+	// export view: hovering a code segment highlights its section in the canvas.
+	signal hoverKey: number | null = null;
+	// in-place editing: the section whose text is currently being edited (its
+	// drag is suspended while editing so the caret/selection works).
+	signal editingKey: number | null = null;
+	// Account + server persistence (LYK-930). When signed in, the page doc is
+	// saved to the user's project in SQLite (debounced); signed out, it's the
+	// localStorage-only behaviour. `saveState` drives the toolbar indicator.
+	signal acct: Account | null = null;
+	// Guest mode (the desktop / Tauri build): server runs single-user, the account
+	// UI is hidden, and persistence happens silently as the built-in guest.
+	signal guest = false;
+	signal projectId: number | null = null;
+	signal saveState: 'offline' | 'saving' | 'saved' | 'error' = 'offline';
+	signal showAuth = false;
+	signal authMode: 'login' | 'register' = 'login';
+	signal authUser = '';
+	signal authPass = '';
+	signal authErr = '';
+	signal authBusy = false;
+	// Accessibility check (LYK-931): runs real axe-core over the rendered page.
+	signal showA11y = false;
+	signal a11yScanning = false;
+	signal a11yResults: { impact: string; id: string; help: string; helpUrl: string; count: number; target: string }[] | null = null;
 
 	const defOf = (s: Section) => SECTION_BY_ID[s.type];
-	derived selected = sections.find((s) => s.key === selectedKey) ?? null;
+	const labelOf = (s: Section) => (isComp(s) ? displayName(s.comp!) : defOf(s).name);
+	// true when this section, or any node nested inside it, is the selection.
+	const inSel = (s: Section) => selectedKey !== null && !!findNode([s], selectedKey);
+	derived selected = selectedKey === null ? null : findNode(sections, selectedKey);
+	derived activePage = pages.find((p) => p.id === activePageId) ?? pages[0];
+	derived filteredComponents {
+		const q = compSearch.trim().toLowerCase();
+		if (!q) return allComponents;
+		return allComponents.filter((c) => c.name.toLowerCase().includes(q) || c.id.includes(q));
+	}
 
+	// the active page's live doc (the editor edits sections/codeOverride directly;
+	// they're folded back into `pages` here for persistence).
+	const activeDoc = (): Doc => ({ sections: clone(sections), codeOverride });
+	function currentProject(): Project {
+		return {
+			pages: pages.map((p) => (p.id === activePageId ? { ...p, doc: activeDoc() } : p)),
+			activePageId,
+			nextKey,
+		};
+	}
 	effect {
+		// persist the whole project (all pages) to localStorage
+		const _s = sections,
+			_c = codeOverride,
+			_p = pages,
+			_a = activePageId; // track
 		try {
-			localStorage.setItem(KEY, JSON.stringify({ sections, nextKey } as Saved));
+			localStorage.setItem(KEY, JSON.stringify(currentProject()));
 		} catch {}
 	}
 
-	function addSection(type: string) {
+	// --- undo / redo (LYK-926) ---
+	// A snapshot history of the whole editable state. Every mutation reassigns the
+	// `sections`/`codeOverride` signals, so a single effect that tracks them records
+	// a new snapshot; `nextKey` + the history arrays are read under untrack() so they
+	// don't become dependencies (which would loop). JSON-dedup means an undo-restore
+	// (which re-sets the signals to a prior snapshot) doesn't get re-recorded.
+	// JSON deep-clone (structuredClone can't clone Svelte 5 reactive proxies; the
+	// node tree is fully JSON-serializable).
+	const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
+	type Snap = { sections: Section[]; nextKey: number; codeOverride: string | null };
+	signal hist: Snap[] = [];
+	signal histJson: string[] = [];
+	signal hcursor = -1;
+	derived canUndo = hcursor > 0;
+	derived canRedo = hcursor >= 0 && hcursor < hist.length - 1;
+	effect {
+		const s = sections; // track
+		const c = codeOverride; // track
+		untrack(() => {
+			const json = JSON.stringify([s, nextKey, c]);
+			if (histJson[hcursor] === json) return; // unchanged (e.g. from an undo/redo restore)
+			const snap: Snap = { sections: clone(s), nextKey, codeOverride: c };
+			let h = [...hist.slice(0, hcursor + 1), snap];
+			let hj = [...histJson.slice(0, hcursor + 1), json];
+			if (h.length > 100) {
+				h = h.slice(-100);
+				hj = hj.slice(-100);
+			}
+			hist = h;
+			histJson = hj;
+			hcursor = h.length - 1;
+		});
+	}
+	function applySnap(snap: Snap) {
+		sections = clone(snap.sections);
+		nextKey = snap.nextKey;
+		codeOverride = snap.codeOverride;
+	}
+	function undo() {
+		if (hcursor <= 0) return;
+		hcursor = hcursor - 1;
+		applySnap(hist[hcursor]);
+	}
+	function redo() {
+		if (hcursor >= hist.length - 1) return;
+		hcursor = hcursor + 1;
+		applySnap(hist[hcursor]);
+	}
+	function resetHistory() {
+		hist = [];
+		histJson = [];
+		hcursor = -1;
+	}
+
+	// --- pages / routing (LYK-929) ---
+	function loadPageDoc(doc: Doc) {
+		sections = clone(doc.sections);
+		codeOverride = doc.codeOverride;
+		nextKey = Math.max(nextKey, maxKeyOf(sections) + 1);
+		selectedKey = null;
+		showExport = false;
+		showA11y = false;
+		codeMode = false;
+		resetHistory();
+	}
+	function switchPage(id: number) {
+		if (id === activePageId) return;
+		pages = pages.map((p) => (p.id === activePageId ? { ...p, doc: activeDoc() } : p));
+		activePageId = id;
+		const np = pages.find((p) => p.id === id);
+		if (np) loadPageDoc(np.doc);
+	}
+	function addPage() {
+		const n = pages.length + 1;
+		pages = pages.map((p) => (p.id === activePageId ? { ...p, doc: activeDoc() } : p));
+		const id = nextPageId++;
+		const page: Page = { id, name: `Page ${n}`, route: `/page-${n}`, params: '', doc: { sections: [], codeOverride: null } };
+		pages = [...pages, page];
+		activePageId = id;
+		loadPageDoc(page.doc);
+	}
+	function deletePage(id: number) {
+		if (pages.length <= 1) return;
+		const remaining = pages.filter((p) => p.id !== id);
+		pages = remaining;
+		if (activePageId === id) {
+			activePageId = remaining[0].id;
+			loadPageDoc(remaining[0].doc);
+		}
+	}
+	const renamePage = (id: number, name: string) => (pages = pages.map((p) => (p.id === id ? { ...p, name } : p)));
+	const setRoute = (id: number, route: string) => (pages = pages.map((p) => (p.id === id ? { ...p, route } : p)));
+	const setParams = (id: number, params: string) => (pages = pages.map((p) => (p.id === id ? { ...p, params } : p)));
+
+	// --- keyboard shortcuts + clipboard (LYK-928) ---
+	let clipboard: Section | null = null;
+	const isEditableTarget = (t: EventTarget | null) => {
+		const el = t as HTMLElement | null;
+		return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+	};
+	function onGlobalKey(e: KeyboardEvent) {
+		// let inputs / the code editor / inline-edit handle their own keys
+		if (isEditableTarget(e.target)) return;
+		const mod = e.metaKey || e.ctrlKey;
+		if (mod && (e.key === 'z' || e.key === 'Z')) {
+			e.preventDefault();
+			e.shiftKey ? redo() : undo();
+			return;
+		}
+		if (mod && (e.key === 'y' || e.key === 'Y')) {
+			e.preventDefault();
+			redo();
+			return;
+		}
+		if (mod && (e.key === 's' || e.key === 'S')) {
+			e.preventDefault(); // already autosaves
+			return;
+		}
+		if (e.key === 'Escape') {
+			selectedKey = null;
+			return;
+		}
+		if (selectedKey === null) return;
+		if (e.key === 'Delete' || e.key === 'Backspace') {
+			e.preventDefault();
+			removeSection(selectedKey);
+			return;
+		}
+		if (mod && (e.key === 'd' || e.key === 'D')) {
+			e.preventDefault();
+			duplicate(selectedKey);
+			return;
+		}
+		if (mod && (e.key === 'c' || e.key === 'C')) {
+			const n = findNode(sections, selectedKey);
+			if (n) clipboard = clone(n);
+			return;
+		}
+		if (mod && (e.key === 'v' || e.key === 'V')) {
+			if (!clipboard) return;
+			e.preventDefault();
+			const copy = reclone(clipboard);
+			const sel = findNode(sections, selectedKey);
+			if (sel && isContainer(sel) && nestAllowed(sel.key, copy)) sections = insertChild(sections, sel.key, copy);
+			else sections = [...sections, copy];
+			selectedKey = copy.key;
+		}
+	}
+
+	// Build a section/component without placing it (used by both click-to-append
+	// and drag-from-palette-to-position).
+	function makeSection(type: string): Section {
 		const def = SECTION_BY_ID[type];
-		const s: Section = { key: nextKey++, type, values: { ...def.defaults }, style: { ...def.style } };
-		sections = [...sections, s];
+		return { key: nextKey++, type, values: { ...def.defaults }, style: { ...def.style } };
+	}
+	function makeComponent(id: string): Section {
+		const sd = seed[id] ?? {};
+		return {
+			key: nextKey++,
+			type: 'component',
+			comp: id,
+			props: { ...(sd.props ?? {}) },
+			content: sd.content ?? (takesContent(id) ? displayName(id) : ''),
+			values: {},
+			style: { bg: 'transparent', fg: 'inherit', padY: 40, align: 'center', width: 1040 },
+		};
+	}
+	function insertSection(s: Section, at: number) {
+		const i = Math.max(0, Math.min(at, sections.length));
+		sections = [...sections.slice(0, i), s, ...sections.slice(i)];
 		selectedKey = s.key;
 		showExport = false;
 	}
+	// Click a palette item → append to the end. Dragging it places it precisely.
+	function addSection(type: string) {
+		insertSection(makeSection(type), sections.length);
+	}
+	function addComponent(id: string) {
+		insertSection(makeComponent(id), sections.length);
+	}
+	function setProp(key: number, name: string, value: string | number | boolean) {
+		sections = mapTree(sections, key, (s) => ({ ...s, props: { ...(s.props ?? {}), [name]: value } }));
+	}
+	function setContent(key: number, value: string) {
+		sections = mapTree(sections, key, (s) => ({ ...s, content: value }));
+	}
 	function removeSection(key: number) {
-		sections = sections.filter((s) => s.key !== key);
+		sections = removeTree(sections, key);
 		if (selectedKey === key) selectedKey = null;
 	}
 	function duplicate(key: number) {
+		// Only top-level nodes carry the duplicate control; copy as the next sibling.
 		const i = sections.findIndex((s) => s.key === key);
 		if (i < 0) return;
-		const src = sections[i];
-		const copy: Section = { ...src, key: nextKey++, values: { ...src.values }, style: { ...src.style } };
+		const copy = reclone(sections[i]);
 		sections = [...sections.slice(0, i + 1), copy, ...sections.slice(i + 1)];
 		selectedKey = copy.key;
 	}
@@ -84,48 +549,194 @@
 		[next[i], next[j]] = [next[j], next[i]];
 		sections = next;
 	}
-	// drag-to-reorder: HTML5 DnD. dragover computes an insert position from the
-	// cursor's Y vs each section's midpoint; drop moves the dragged section.
+	// HTML5 DnD. Two drag sources, one drop target (the canvas):
+	//  • an existing section being reordered  → onDragStart sets dragKey
+	//  • a palette item being drawn in        → onPaletteDragStart sets dragNew
+	// onCanvasDragOver computes the insert position from the cursor's Y vs each
+	// section's midpoint; onCanvasDrop either moves the section or inserts a new
+	// one at dropIndex.
 	function onDragStart(e: DragEvent, key: number) {
 		dragKey = key;
+		dragNew = null;
 		selectedKey = key;
 		if (e.dataTransfer) {
 			e.dataTransfer.effectAllowed = 'move';
 			e.dataTransfer.setData('text/plain', String(key));
 		}
 	}
-	function onDragOver(e: DragEvent, i: number) {
-		if (dragKey === null) return;
-		e.preventDefault();
-		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-		const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-		dropIndex = e.clientY < r.top + r.height / 2 ? i : i + 1;
-	}
-	function onDrop(e: DragEvent) {
-		if (dragKey === null || dropIndex === null) return;
-		e.preventDefault();
-		const from = sections.findIndex((s) => s.key === dragKey);
-		if (from >= 0) {
-			let to = dropIndex;
-			const arr = sections.slice();
-			const [moved] = arr.splice(from, 1);
-			if (from < to) to--; // removal shifts everything after `from` left by 1
-			arr.splice(to, 0, moved);
-			sections = arr;
-		}
+	function onPaletteDragStart(e: DragEvent, kind: 'section' | 'component', id: string) {
+		dragNew = { kind, id };
 		dragKey = null;
-		dropIndex = null;
+		if (e.dataTransfer) {
+			e.dataTransfer.effectAllowed = 'copy';
+			e.dataTransfer.setData('text/plain', id);
+		}
+	}
+	function highlightNest(el: HTMLElement | null) {
+		for (const d of document.querySelectorAll('.pdrop.nest-over')) d.classList.remove('nest-over');
+		el?.classList.add('nest-over');
+	}
+	// what's being dragged (a palette comp id, or the moving node's subtree)
+	const draggedDescriptor = (): string | Section | null =>
+		dragNew ? dragNew.id : dragKey !== null ? findNode(sections, dragKey) : null;
+	// Walk the drop-zone ancestor chain under the cursor and return the INNERMOST
+	// one the dragged node may nest into. This skips zones that would be invalid
+	// (e.g. an existing Link inside a Container) and falls through to the Container
+	// — so "add a Link beside an existing Link in a Container" works.
+	function validDropZone(over: HTMLElement | null, child: string | Section): HTMLElement | null {
+		let node: HTMLElement | null = over;
+		while (node) {
+			const dz = node.closest?.('.pdrop[data-drop]') as HTMLElement | null;
+			if (!dz) return null;
+			const k = Number(dz.getAttribute('data-drop'));
+			const selfDrop = dragKey !== null && (k === dragKey || isDescendant(dragKey, k));
+			if (!selfDrop && nestAllowed(k, child)) return dz;
+			node = dz.parentElement; // keep searching outward
+		}
+		return null;
+	}
+	function onCanvasDragOver(e: DragEvent) {
+		if (dragKey === null && dragNew === null) return;
+		e.preventDefault();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = dragNew ? 'copy' : 'move';
+		const child = draggedDescriptor();
+		const over = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+		const drop = child !== null ? validDropZone(over, child) : null;
+		if (drop) {
+			nestKey = Number(drop.getAttribute('data-drop'));
+			dropIndex = null;
+			highlightNest(drop);
+			return;
+		}
+		// no valid container under the cursor → insert into the top-level stack
+		nestKey = null;
+		highlightNest(null);
+		const secs = Array.from((e.currentTarget as HTMLElement).querySelectorAll('.sec')) as HTMLElement[];
+		let idx = secs.length;
+		for (let i = 0; i < secs.length; i++) {
+			const r = secs[i].getBoundingClientRect();
+			if (e.clientY < r.top + r.height / 2) {
+				idx = i;
+				break;
+			}
+		}
+		dropIndex = idx;
+	}
+	function onCanvasDrop(e: DragEvent) {
+		if (nestKey === null && dropIndex === null) {
+			onDragEnd();
+			return;
+		}
+		e.preventDefault();
+		if (dragNew) {
+			const node = dragNew.kind === 'section' ? makeSection(dragNew.id) : makeComponent(dragNew.id);
+			if (nestKey !== null) {
+				sections = insertChild(sections, nestKey, node);
+				selectedKey = node.key;
+				showExport = false;
+			} else if (dropIndex !== null) {
+				insertSection(node, dropIndex);
+			}
+		} else if (dragKey !== null) {
+			const node = findNode(sections, dragKey);
+			if (node && nestKey !== null && nestKey !== dragKey && !isDescendant(dragKey, nestKey)) {
+				// move an existing node into a container
+				sections = insertChild(removeTree(sections, dragKey), nestKey, node);
+				selectedKey = node.key;
+			} else if (node && dropIndex !== null) {
+				// reorder / promote to the top-level stack at dropIndex
+				const wasTop = sections.some((s) => s.key === dragKey);
+				const oldIdx = sections.findIndex((s) => s.key === dragKey);
+				const rest = removeTree(sections, dragKey);
+				let to = dropIndex;
+				if (wasTop && oldIdx >= 0 && oldIdx < to) to--; // removal shifted the tail left
+				sections = [...rest.slice(0, to), node, ...rest.slice(to)];
+				selectedKey = node.key;
+			}
+		}
+		onDragEnd();
 	}
 	function onDragEnd() {
 		dragKey = null;
+		dragNew = null;
 		dropIndex = null;
+		nestKey = null;
+		highlightNest(null);
 	}
 
 	function setValue(key: number, field: string, value: string) {
-		sections = sections.map((s) => (s.key === key ? { ...s, values: { ...s.values, [field]: value } } : s));
+		sections = mapTree(sections, key, (s) => ({ ...s, values: { ...s.values, [field]: value } }));
+	}
+
+	// Click in the preview selects the nearest node (a nested component via its
+	// data-pk wrapper, else the top-level section). Previewed links/buttons are
+	// inert in the editor, so suppress their default action.
+	function selectFromClick(e: MouseEvent, s: Section) {
+		const t = e.target as HTMLElement | null;
+		if (t?.closest?.('a[href], button')) e.preventDefault();
+		const pk = t?.closest?.('[data-pk]') as HTMLElement | null;
+		selectedKey = pk ? Number(pk.getAttribute('data-pk')) : s.key;
+		showExport = false;
+	}
+
+	// Double-click any text in the preview to edit it in place. The preview wraps
+	// each editable value in <span class="pf" data-pf="key">, so we find the
+	// nearest marker under the cursor, make it contentEditable, and on commit
+	// write the new text back to the matching field (or component content). The
+	// resulting src change re-renders the section with the clean, marked markup.
+	function startInlineEdit(e: MouseEvent, s: Section) {
+		const el = (e.target as HTMLElement | null)?.closest?.('[data-pf]') as HTMLElement | null;
+		if (!el) return;
+		e.preventDefault();
+		const field = el.getAttribute('data-pf') ?? '';
+		// the text may belong to a nested component (data-pk wrapper); fall back to
+		// the top-level section for preset fields, which aren't wrapped.
+		const ownerEl = el.closest('[data-pk]') as HTMLElement | null;
+		const ownerKey = ownerEl ? Number(ownerEl.getAttribute('data-pk')) : s.key;
+		const original = el.textContent ?? '';
+		editingKey = s.key;
+		selectedKey = ownerKey;
+		el.contentEditable = 'true';
+		el.spellcheck = false;
+		el.style.userSelect = 'text';
+		el.focus();
+		const range = document.createRange();
+		range.selectNodeContents(el);
+		const sel = window.getSelection();
+		sel?.removeAllRanges();
+		sel?.addRange(range);
+
+		let done = false;
+		const finish = (save: boolean) => {
+			if (done) return;
+			done = true;
+			el.removeEventListener('blur', onBlur);
+			el.removeEventListener('keydown', onKey);
+			el.contentEditable = 'false';
+			const text = (el.textContent ?? '').replace(/ /g, ' ');
+			editingKey = null;
+			if (save && text !== original) {
+				if (field === 'content') setContent(ownerKey, text);
+				else setValue(ownerKey, field, text);
+			} else {
+				el.textContent = original; // discard edits / no-op
+			}
+		};
+		const onBlur = () => finish(true);
+		const onKey = (ev: KeyboardEvent) => {
+			if (ev.key === 'Enter' && !ev.shiftKey) {
+				ev.preventDefault();
+				el.blur();
+			} else if (ev.key === 'Escape') {
+				ev.preventDefault();
+				finish(false);
+			}
+		};
+		el.addEventListener('blur', onBlur);
+		el.addEventListener('keydown', onKey);
 	}
 	function setStyle(key: number, patch: Partial<SectionStyle>) {
-		sections = sections.map((s) => (s.key === key ? { ...s, style: { ...s.style, ...patch } } : s));
+		sections = mapTree(sections, key, (s) => ({ ...s, style: { ...s.style, ...patch } }));
 	}
 	function clearAll() {
 		if (confirm('Clear the whole page?')) {
@@ -134,7 +745,46 @@
 		}
 	}
 
-	const srcOf = (s: Section) => sectionSource(defOf(s), s.values);
+	// Recursively render a node's markup. In `editable` mode the preview gets:
+	//  • data-pf spans  → double-click-to-edit text
+	//  • data-drop divs → container drop zones (nesting)
+	//  • data-pk wraps  → click-to-select (display:contents, so layout is intact)
+	// Export mode (editable=false) emits clean, nested .pui with none of those.
+	function nodeBody(n: Section, editable: boolean): string {
+		if (!isComp(n)) return markupOf(defOf(n), n.values, editable);
+		const open = componentOpen(n.comp!, n.props ?? {});
+		let tag: string;
+		if (!takesContent(n.comp!)) {
+			tag = `${open} />`;
+		} else {
+			let inner: string;
+			if (n.children && n.children.length) {
+				inner = n.children.map((c) => nodeBody(c, editable)).join('\n');
+			} else if (n.content) {
+				inner = editable ? `<span class="pf" data-pf="content">${n.content}</span>` : n.content;
+			} else {
+				inner = editable ? '<span class="pdrop-empty">Drop a component here</span>' : '';
+			}
+			if (editable) inner = `<div class="pdrop" data-drop="${n.key}">${inner}</div>`;
+			tag = `${open}>${inner}</${identOf(n.comp!)}>`;
+		}
+		// display:contents wrapper carries the node key for click-to-select without
+		// adding a layout box.
+		return editable ? `<div data-pk="${n.key}" style="display:contents">${tag}</div>` : tag;
+	}
+	function nodeImports(n: Section): string[] {
+		if (!isComp(n)) return defOf(n).imports;
+		const ids = [n.comp!];
+		if (n.children) for (const c of n.children) ids.push(...nodeImports(c));
+		return ids;
+	}
+	// Preview source: imports for the whole subtree + nodeBody (with markers).
+	const srcOf = (s: Section) => {
+		const imps = [...new Set(nodeImports(s))].map(importLine).join('\n');
+		return `<script lang="pts">\n${imps}\n<\/script>\n\n${nodeBody(s, true)}\n`;
+	};
+	const sectionImports = (s: Section): string[] => [...new Set(nodeImports(s))];
+	const sectionBody = (s: Section): string => nodeBody(s, false);
 	const secStyle = (s: Section) =>
 		`background:${s.style.bg}; padding:${s.style.padY}px 24px;` + (s.style.fg === 'light' ? ' color:#fff;' : '');
 	const innerStyle = (s: Section) =>
@@ -166,25 +816,76 @@
 	}
 
 	// --- combine the whole page into one downloadable .pui file ---
-	derived pageSource {
-		if (!sections.length) return '';
-		const imps = [...new Set(sections.flatMap((s) => defOf(s).imports))].map(importLine).join('\n');
-		const body = sections
-			.map((s) => {
-				const d = defOf(s);
-				const cls = s.style.fg === 'light' ? 'section awsui-dark-mode' : 'section';
-				const inner = `<div class="section-inner" style="${innerStyle(s)}">\n${d
-					.markup({ ...d.defaults, ...s.values })
-					.split('\n')
-					.map((l) => '\t\t\t' + l)
-					.join('\n')}\n\t\t</div>`;
-				return `\t<section class="${cls}" style="${secStyle(s)}">\n\t\t${inner}\n\t</section>`;
-			})
+	// Each section is exported as a Parascape <Section> band (no raw section/div
+	// wrappers); the content is built from components too (Box/Columns/Header/…).
+	// Kept per-section so the export view can map a hovered block to its section.
+	const segmentOf = (s: Section): string => {
+		const st = s.style;
+		const attrs = [
+			`bg="${st.bg}"`,
+			`padY={${st.padY}}`,
+			st.fg === 'light' ? 'fg="light"' : '',
+			`align="${st.align}"`,
+			`width={${st.width}}`,
+		]
+			.filter(Boolean)
+			.join(' ');
+		const body = sectionBody(s)
+			.split('\n')
+			.map((l) => '\t\t' + l)
 			.join('\n');
-		return `<script lang="pts">\n${imps}\n<\/script>\n\n<div class="page">\n${body}\n</div>\n\n<style>\n\t.page { display: flex; flex-direction: column; }\n\t.section-inner :global(*) { box-sizing: border-box; }\n</style>\n`;
+		return `\t<Section ${attrs}>\n${body}\n\t</Section>`;
+	};
+	derived pageSegments = sections.map((s) => ({ key: s.key, label: labelOf(s), code: segmentOf(s) }));
+	// `section` is the band wrapper component every segment uses, on top of each
+	// section's own component imports.
+	derived pageImports = [...new Set(['section', ...sections.flatMap(sectionImports)])].map(importLine).join('\n');
+	const PAGE_STYLE = `<style>\n\t.page { display: flex; flex-direction: column; }\n</style>`;
+	// route + declared params of the active page, emitted as a header comment so
+	// the exported .pui carries its routing metadata.
+	derived routeComment {
+		const p = activePage;
+		if (!p) return '';
+		const params = p.params.trim();
+		return `<!-- route: ${p.route}${params ? `  params: ${params}` : ''} -->\n`;
+	}
+	derived exportHead = sections.length ? `${routeComment}<script lang="pts">\n${pageImports}\n<\/script>\n\n<div class="page">` : '';
+	derived exportFoot = `</div>\n\n${PAGE_STYLE}\n`;
+	derived pageSource {
+		// Code Mode override is the canonical source when present.
+		if (codeOverride !== null) return codeOverride;
+		if (!sections.length) return '';
+		const body = pageSegments.map((seg) => seg.code).join('\n');
+		return `${exportHead}\n${body}\n${exportFoot}`;
+	}
+	// The .pui the blocks would generate, ignoring any code override (used to seed
+	// the Code Mode editor from the current visual page).
+	derived blockSource {
+		if (!sections.length) return '<script lang="pts">\n<\/script>\n\n<div class="page"></div>\n';
+		const body = pageSegments.map((seg) => seg.code).join('\n');
+		return `${exportHead}\n${body}\n${exportFoot}`;
+	}
+
+	// Shiki-highlight a code string into `el` (async; re-runs on update). Tab
+	// indentation in the exported source renders at 2 spaces via CSS tab-size.
+	function hl(el: HTMLElement, code: string) {
+		let last: string | null = null;
+		function run(c: string) {
+			if (c === last) return;
+			last = c;
+			highlight(c, 'pui')
+				.then((html) => {
+					if (last === c) el.innerHTML = html;
+				})
+				.catch(() => {
+					el.textContent = c;
+				});
+		}
+		run(code);
+		return { update: run };
 	}
 	function download() {
-		const blob = new Blob([pageSource], { type: 'text/plain' });
+		const blob = new Blob([codeMode ? codeDraft : pageSource], { type: 'text/plain' });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
@@ -192,80 +893,590 @@
 		a.click();
 		URL.revokeObjectURL(url);
 	}
+
+	// --- Code Mode: edit the raw .pui; the code is canonical (an override the
+	// canvas renders and exports). Edits validate-then-apply (debounced) so a
+	// transient parse error keeps the last good render. Revert drops the override
+	// and returns to editing the visual blocks. ---
+	function toggleCode() {
+		codeMode = !codeMode;
+		if (codeMode) {
+			codeDraft = codeOverride ?? blockSource;
+			codeErr = null;
+			showExport = false;
+			selectedKey = null;
+		}
+	}
+	let codeTimer: ReturnType<typeof setTimeout> | undefined;
+	function applyCode() {
+		try {
+			compileParascape(codeDraft); // validate
+			codeErr = null;
+			codeOverride = codeDraft;
+		} catch (e: unknown) {
+			codeErr = (e as { message?: string })?.message ?? String(e);
+		}
+	}
+	function onCodeInput() {
+		clearTimeout(codeTimer);
+		codeTimer = setTimeout(applyCode, 300);
+	}
+	function codeTab(e: KeyboardEvent) {
+		if (e.key !== 'Tab') return;
+		e.preventDefault();
+		const ta = e.currentTarget as HTMLTextAreaElement;
+		const s = ta.selectionStart;
+		codeDraft = codeDraft.slice(0, s) + '\t' + codeDraft.slice(ta.selectionEnd);
+		queueMicrotask(() => (ta.selectionStart = ta.selectionEnd = s + 1));
+	}
+	// keep the highlighted <pre> and the gutter aligned with the textarea scroll
+	function codeSync(e: Event) {
+		const ta = e.currentTarget as HTMLTextAreaElement;
+		const pre = ta.previousElementSibling as HTMLElement | null;
+		if (pre) {
+			pre.scrollTop = ta.scrollTop;
+			pre.scrollLeft = ta.scrollLeft;
+		}
+		codeScrollY = ta.scrollTop;
+	}
+	function revertToVisual() {
+		codeOverride = null;
+		codeErr = null;
+		codeMode = false;
+	}
+
+	// --- Accessibility check (LYK-931) ---
+	// Runs real axe-core over the live preview (a real browser, so layout-dependent
+	// rules like colour-contrast are accurate) and lists violations worst-first.
+	const IMPACT_RANK: Record<string, number> = { critical: 0, serious: 1, moderate: 2, minor: 3 };
+	async function scanA11y() {
+		if (typeof document === 'undefined') return;
+		a11yScanning = true;
+		a11yResults = null;
+		await new Promise((r) => requestAnimationFrame(() => r(null))); // let the preview settle
+		const el = document.querySelector('.canvas .frame') as HTMLElement | null;
+		if (!el) {
+			a11yScanning = false;
+			a11yResults = [];
+			return;
+		}
+		try {
+			const res = await axe.run(el, { resultTypes: ['violations'] });
+			a11yResults = res.violations
+				.map((v) => ({
+					impact: v.impact ?? 'minor',
+					id: v.id,
+					help: v.help,
+					helpUrl: v.helpUrl,
+					count: v.nodes.length,
+					target: String(v.nodes[0]?.target?.[0] ?? ''),
+				}))
+				.sort((a, b) => (IMPACT_RANK[a.impact] ?? 9) - (IMPACT_RANK[b.impact] ?? 9));
+		} catch {
+			a11yResults = [];
+		} finally {
+			a11yScanning = false;
+		}
+	}
+	function toggleA11y() {
+		showA11y = !showA11y;
+		if (showA11y) {
+			showExport = false;
+			scanA11y();
+		}
+	}
+
+	// --- Account + server persistence (LYK-930) ---
+	const maxKeyOf = (list: Section[]): number => {
+		let m = 0;
+		for (const n of list) {
+			if (n.key > m) m = n.key;
+			if (n.children) m = Math.max(m, maxKeyOf(n.children));
+		}
+		return m;
+	};
+	// Replace the whole project (all pages) — used when loading from the server.
+	function applyProject(raw: unknown) {
+		const proj = toProject(raw);
+		pages = proj.pages;
+		activePageId = proj.activePageId;
+		nextKey = Math.max(nextKey, proj.nextKey);
+		nextPageId = Math.max(nextPageId, ...proj.pages.map((p) => p.id)) + 1;
+		const active = proj.pages.find((p) => p.id === proj.activePageId) ?? proj.pages[0];
+		loadPageDoc(active.doc);
+	}
+	async function loadFromServer() {
+		const ps = await account.listProjects();
+		if (ps.length) {
+			const p = await account.getProject(ps[0].id);
+			projectId = p.id;
+			applyProject(p.doc);
+		} else {
+			projectId = await account.createProject('My site', currentProject());
+		}
+		saveState = 'saved';
+	}
+	// On mount, probe the session: in guest mode the server returns the guest user
+	// with no token (→ silent persistence, account UI hidden); with a real token it
+	// returns that user; otherwise 401 → signed out (web build shows Sign in).
+	effect {
+		if (typeof document === 'undefined') return;
+		(async () => {
+			// Detect guest mode via the always-200 health probe first, so the web
+			// build doesn't fire a spurious 401 on /me when signed out.
+			let serverGuest = false;
+			try {
+				serverGuest = (await account.health()).guest;
+			} catch {
+				return; // no backend reachable → stay local-only
+			}
+			if (!serverGuest && !account.getToken()) return; // web, signed out → don't probe /me
+			try {
+				const s = await account.me();
+				acct = s.user;
+				guest = s.guest;
+				await loadFromServer();
+			} catch {
+				acct = null; // not signed in (no/expired token, non-guest server)
+			}
+		})();
+	}
+	// debounced server autosave (signed in only); localStorage autosave above
+	// continues regardless as the offline cache.
+	let serverSaveTimer: ReturnType<typeof setTimeout> | undefined;
+	effect {
+		const _s = sections,
+			_c = codeOverride,
+			_p = pages,
+			_a = activePageId; // track edits + page changes
+		untrack(() => {
+			if (!acct || projectId === null) return;
+			const pid = projectId;
+			saveState = 'saving';
+			clearTimeout(serverSaveTimer);
+			serverSaveTimer = setTimeout(async () => {
+				try {
+					await account.saveProject(pid, currentProject());
+					saveState = 'saved';
+				} catch {
+					saveState = 'error';
+				}
+			}, 600);
+		});
+	}
+	function openAuth(mode: 'login' | 'register') {
+		authMode = mode;
+		authErr = '';
+		showAuth = true;
+	}
+	async function submitAuth() {
+		if (authBusy) return;
+		authBusy = true;
+		authErr = '';
+		try {
+			acct =
+				authMode === 'register'
+					? await account.register(authUser.trim(), authPass)
+					: await account.login(authUser.trim(), authPass);
+			showAuth = false;
+			authPass = '';
+			await loadFromServer();
+		} catch (e: unknown) {
+			authErr = (e as { message?: string })?.message ?? 'Sign-in failed';
+		} finally {
+			authBusy = false;
+		}
+	}
+	async function doLogout() {
+		await account.logout();
+		acct = null;
+		projectId = null;
+		saveState = 'offline';
+	}
+	derived saveLabel = saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : saveState === 'error' ? 'Save failed' : '';
 </script>
+
+<svelte:window onkeydown={onGlobalKey} />
+
+<!-- Layers outline row (recursive over the node tree) -->
+{#snippet layerRow(node: Section, depth: number)}
+	<div
+		class="layer-row"
+		class:sel={node.key === selectedKey}
+		style="padding-left: {8 + depth * 14}px"
+		role="button"
+		tabindex="0"
+		onclick={() => { selectedKey = node.key; showExport = false; }}
+		onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedKey = node.key; showExport = false; } }}
+	>
+		<span class="layer-icon" aria-hidden="true">{isComp(node) ? '◇' : '▭'}</span>
+		<span class="layer-label">{labelOf(node)}</span>
+		<button class="layer-del" title="Delete" aria-label="Delete {labelOf(node)}" onclick={(e) => { e.stopPropagation(); removeSection(node.key); }}>✕</button>
+	</div>
+	{#if node.children}
+		{#each node.children as c (c.key)}{@render layerRow(c, depth + 1)}{/each}
+	{/if}
+{/snippet}
 
 <div class="designer">
 	<SiteNav active="designer" />
 	<header class="dtoolbar">
 		<strong>Site Designer</strong>
 		<span class="muted">{sections.length} section{sections.length === 1 ? '' : 's'}</span>
+		<div class="histbtns">
+			<button title="Undo (⌘Z)" aria-label="Undo" disabled={!canUndo} onclick={undo}>↶</button>
+			<button title="Redo (⌘⇧Z)" aria-label="Redo" disabled={!canRedo} onclick={redo}>↷</button>
+		</div>
 		<span class="spacer"></span>
 		<div class="devices">
 			<button class:on={device === 'desktop'} onclick={() => (device = 'desktop')}>Desktop</button>
 			<button class:on={device === 'tablet'} onclick={() => (device = 'tablet')}>Tablet</button>
 			<button class:on={device === 'mobile'} onclick={() => (device = 'mobile')}>Mobile</button>
 		</div>
-		<button onclick={() => { showExport = !showExport; selectedKey = null; }} class:on={showExport}>Export</button>
+		{#if !codeMode}<button onclick={toggleA11y} class:on={showA11y}>A11y</button>{/if}
+		<button onclick={toggleCode} class:on={codeMode}>Code</button>
+		{#if !codeOverride}<button onclick={() => { showExport = !showExport; selectedKey = null; }} class:on={showExport}>Export</button>{/if}
 		<button onclick={clearAll}>Clear</button>
+		<span class="acct">
+			{#if guest}
+				<!-- desktop / single-user build: account UI hidden, saves silently -->
+				{#if saveLabel}<span class="acct-save state-{saveState}">{saveLabel}</span>{/if}
+			{:else if acct}
+				<span class="acct-name" title="Signed in — your page is saved to your account">{acct.username}</span>
+				{#if saveLabel}<span class="acct-save state-{saveState}">{saveLabel}</span>{/if}
+				<button onclick={doLogout}>Sign out</button>
+			{:else}
+				<button onclick={() => openAuth('login')}>Sign in</button>
+			{/if}
+		</span>
 	</header>
 
-	<div class="cols">
-		<aside class="add-panel">
-			<h2>Add section</h2>
-			{#each SECTIONS as def (def.id)}
-				<button class="add-item" onclick={() => addSection(def.id)} title={def.blurb}>
-					<span class="add-name">+ {def.name}</span>
-					<span class="add-blurb">{def.blurb}</span>
+	{#if showAuth && !guest}
+		<div class="auth-backdrop" role="presentation" onclick={() => (showAuth = false)}>
+			<form
+				class="auth-modal"
+				role="dialog"
+				aria-modal="true"
+				aria-label={authMode === 'register' ? 'Create account' : 'Sign in'}
+				onclick={(e) => e.stopPropagation()}
+				onsubmit={(e) => { e.preventDefault(); submitAuth(); }}
+			>
+				<h2>{authMode === 'register' ? 'Create your account' : 'Sign in'}</h2>
+				<p class="muted">Your pages are saved to a local account (stored in SQLite on this machine).</p>
+				<label class="field"><span>Username</span>
+					<input bind:value={authUser} autocomplete="username" autofocus />
+				</label>
+				<label class="field"><span>Password</span>
+					<input type="password" bind:value={authPass} autocomplete={authMode === 'register' ? 'new-password' : 'current-password'} />
+				</label>
+				{#if authErr}<p class="auth-err">{authErr}</p>{/if}
+				<button class="primary" type="submit" disabled={authBusy}>
+					{authBusy ? 'Working…' : authMode === 'register' ? 'Create account' : 'Sign in'}
 				</button>
-			{/each}
+				<p class="auth-switch">
+					{#if authMode === 'register'}
+						Have an account? <button type="button" class="linkish" onclick={() => { authMode = 'login'; authErr = ''; }}>Sign in</button>
+					{:else}
+						New here? <button type="button" class="linkish" onclick={() => { authMode = 'register'; authErr = ''; }}>Create an account</button>
+					{/if}
+				</p>
+			</form>
+		</div>
+	{/if}
+
+	<div class="cols" class:exporting={showExport} class:coding={codeMode}>
+		{#if !codeMode}
+		<aside class="add-panel">
+			<div class="pages">
+				<div class="pages-head"><span>Pages</span><button class="mini" onclick={addPage}>+ Page</button></div>
+				{#each pages as p (p.id)}
+					<div class="page-row" class:active={p.id === activePageId}>
+						<button class="page-pick" onclick={() => switchPage(p.id)} title={p.route}>
+							<span class="page-name">{p.name}</span>
+							<span class="page-route">{p.route}</span>
+						</button>
+						{#if pages.length > 1}
+							<button class="page-del" title="Delete page" aria-label="Delete page {p.name}" onclick={() => deletePage(p.id)}>✕</button>
+						{/if}
+					</div>
+				{/each}
+				{#if activePage}
+					<div class="page-settings">
+						<label class="field"><span>Name</span>
+							<input value={activePage.name} oninput={(e) => renamePage(activePage.id, (e.target as HTMLInputElement).value)} />
+						</label>
+						<label class="field"><span>Route</span>
+							<input value={activePage.route} oninput={(e) => setRoute(activePage.id, (e.target as HTMLInputElement).value)} placeholder="/blog/[slug]" />
+						</label>
+						<label class="field"><span>Query params</span>
+							<input value={activePage.params} oninput={(e) => setParams(activePage.id, (e.target as HTMLInputElement).value)} placeholder="id, tab" />
+						</label>
+					</div>
+				{/if}
+			</div>
+			{#if !codeOverride}
+				<div class="layers">
+					<div class="layers-head">Layers</div>
+					{#if !sections.length}
+						<p class="muted layers-empty">No sections yet.</p>
+					{:else}
+						{#each sections as s (s.key)}{@render layerRow(s, 0)}{/each}
+					{/if}
+				</div>
+			{/if}
+			<div class="add-tabs">
+				<button class:on={addTab === 'sections'} onclick={() => (addTab = 'sections')}>Sections</button>
+				<button class:on={addTab === 'components'} onclick={() => (addTab = 'components')}>Components</button>
+			</div>
+			{#if addTab === 'sections'}
+				{#each SECTIONS as def (def.id)}
+					<button
+						class="add-item"
+						draggable="true"
+						ondragstart={(e) => onPaletteDragStart(e, 'section', def.id)}
+						ondragend={onDragEnd}
+						onclick={() => addSection(def.id)}
+						title="{def.blurb} — click to append, or drag onto the canvas"
+					>
+						<span class="add-name">+ {def.name}</span>
+						<span class="add-blurb">{def.blurb}</span>
+					</button>
+				{/each}
+			{:else}
+				<input
+					class="comp-search"
+					placeholder="Search {allComponents.length} components"
+					value={compSearch}
+					oninput={(e) => (compSearch = (e.target as HTMLInputElement).value)}
+				/>
+				{#each filteredComponents as c (c.id)}
+					<button
+						class="add-item compact"
+						draggable="true"
+						ondragstart={(e) => onPaletteDragStart(e, 'component', c.id)}
+						ondragend={onDragEnd}
+						onclick={() => addComponent(c.id)}
+						title="{c.blurb} — click to append, or drag onto the canvas"
+					>+ {c.name}</button>
+				{/each}
+			{/if}
 		</aside>
+		{/if}
 
 		<main class="canvas">
-			<div class="frame device-{device}">
+			{#if codeOverride !== null}
+				<!-- Code Mode override is canonical: render the whole page from the code. -->
+				{#if !codeMode}
+					<div class="code-banner">
+						This page is edited as code.
+						<button class="mini" onclick={revertToVisual}>Revert to visual</button>
+					</div>
+				{/if}
+				<div class="frame device-{device}">
+					<div use:renderSection={codeOverride}></div>
+				</div>
+			{:else}
+			<div
+				class="frame device-{device}"
+				class:drop-active={dragNew !== null || dragKey !== null}
+				ondragover={onCanvasDragOver}
+				ondrop={onCanvasDrop}
+			>
 				{#if !sections.length}
-					<p class="empty">Add sections from the left to build your page.</p>
+					<p class="empty" class:drop-here={dragNew !== null}>
+						{dragNew ? 'Drop here to add it' : 'Add sections from the left — click to append, or drag them onto the canvas.'}
+					</p>
 				{/if}
 				{#each sections as s, i (s.key)}
 					{#if dropIndex === i}<div class="drop-line"></div>{/if}
 					<section
 						class="sec"
-						class:sel={s.key === selectedKey}
+						class:sel={inSel(s)}
 						class:dragging={s.key === dragKey}
+						class:hovered={s.key === hoverKey}
+						class:editing={s.key === editingKey}
 						style={secStyle(s)}
-						draggable="true"
+						draggable={editingKey === s.key ? 'false' : 'true'}
 						ondragstart={(e) => onDragStart(e, s.key)}
-						ondragover={(e) => onDragOver(e, i)}
-						ondrop={onDrop}
 						ondragend={onDragEnd}
-						onclick={() => { selectedKey = s.key; showExport = false; }}
+						onclick={(e) => selectFromClick(e, s)}
+						ondblclick={(e) => startInlineEdit(e, s)}
 					>
 						<div class={s.style.fg === 'light' ? 'inner awsui-dark-mode' : 'inner'} style={innerStyle(s)}>
 							<div use:renderSection={srcOf(s)}></div>
 						</div>
-						<span class="sec-badge">⠿ {defOf(s).name}</span>
+						<span class="sec-badge">⠿ {labelOf(s)}</span>
 						{#if s.key === selectedKey}
 							<span class="sec-tools">
-								<button title="Move up" draggable="false" onclick={(e) => { e.stopPropagation(); move(s.key, -1); }}>↑</button>
-								<button title="Move down" draggable="false" onclick={(e) => { e.stopPropagation(); move(s.key, 1); }}>↓</button>
-								<button title="Duplicate" draggable="false" onclick={(e) => { e.stopPropagation(); duplicate(s.key); }}>⧉</button>
-								<button title="Delete" draggable="false" onclick={(e) => { e.stopPropagation(); removeSection(s.key); }}>✕</button>
+								<button title="Move up" aria-label="Move up" draggable="false" onclick={(e) => { e.stopPropagation(); move(s.key, -1); }}>↑</button>
+								<button title="Move down" aria-label="Move down" draggable="false" onclick={(e) => { e.stopPropagation(); move(s.key, 1); }}>↓</button>
+								<button title="Duplicate" aria-label="Duplicate" draggable="false" onclick={(e) => { e.stopPropagation(); duplicate(s.key); }}>⧉</button>
+								<button title="Delete" aria-label="Delete section" draggable="false" onclick={(e) => { e.stopPropagation(); removeSection(s.key); }}>✕</button>
 							</span>
 						{/if}
 					</section>
 				{/each}
 				{#if dropIndex === sections.length && sections.length}<div class="drop-line"></div>{/if}
 			</div>
+			{/if}
 		</main>
 
+		{#if codeMode}
+			<aside class="code-rail">
+				<div class="insp-head">
+					<h2>Code</h2>
+					<button class="mini" onclick={toggleCode}>Done</button>
+				</div>
+				<p class="muted">Raw <code>.pui</code> for this page — write logic, handlers, validation; it renders live and is what exports. Add a <code>&lt;script&gt;</code> with <code>signal</code>s and event handlers to make forms and clicks interactive.</p>
+				<div class="code-ed-wrap">
+					<div class="code-gutter" aria-hidden="true">
+						<div class="code-gutter-inner" style="transform: translateY({-codeScrollY}px)">{codeLineNos}</div>
+					</div>
+					<pre class="code-hl">{@html codeHighlighted}</pre>
+					<textarea
+						class="code-ta"
+						bind:value={codeDraft}
+						oninput={onCodeInput}
+						onkeydown={codeTab}
+						onscroll={codeSync}
+						spellcheck="false"
+						autocomplete="off"
+						autocapitalize="off"
+					></textarea>
+				</div>
+				{#if codeErr}<pre class="code-err">{codeErr}</pre>{/if}
+				<div class="code-actions">
+					<button class="primary" onclick={download}>Download Page.pui</button>
+					{#if codeOverride !== null}<button class="mini danger" onclick={revertToVisual}>Revert to visual</button>{/if}
+				</div>
+			</aside>
+		{:else}
 		<aside class="inspector">
-			{#if showExport}
-				<h2>Export</h2>
+			{#if showA11y}
+				<div class="insp-head">
+					<h2>Accessibility</h2>
+					<button class="mini" onclick={scanA11y} disabled={a11yScanning}>Re-scan</button>
+				</div>
+				<p class="muted">axe-core checks the rendered page (WCAG 2.x). Fix these before publishing.</p>
+				{#if a11yScanning}
+					<p class="muted">Scanning…</p>
+				{:else if a11yResults === null}
+					<p class="muted">Open to scan.</p>
+				{:else if a11yResults.length === 0}
+					<p class="a11y-clean">✓ No accessibility violations found.</p>
+				{:else}
+					<p class="a11y-count">{a11yResults.length} issue{a11yResults.length === 1 ? '' : 's'} found</p>
+					{#each a11yResults as v (v.id)}
+						<div class="a11y-item impact-{v.impact}">
+							<div class="a11y-row">
+								<span class="a11y-badge">{v.impact}</span>
+								<span class="a11y-id">{v.id}</span>
+								<span class="a11y-n">×{v.count}</span>
+							</div>
+							<div class="a11y-help">{v.help}</div>
+							{#if v.target}<code class="a11y-target">{v.target}</code>{/if}
+							<a class="a11y-learn" href={v.helpUrl} target="_blank" rel="noreferrer">How to fix ↗</a>
+						</div>
+					{/each}
+				{/if}
+			{:else if showExport}
+				<div class="insp-head"><h2>Export</h2></div>
 				{#if !pageSource}
 					<p class="muted">Add sections to generate .pui.</p>
 				{:else}
+					<p class="muted">Page.pui — hover a block to highlight its section in the canvas.</p>
 					<button class="primary" onclick={download}>Download Page.pui</button>
-					<pre class="code">{pageSource}</pre>
+					<div class="export-code">
+						<div class="hl" use:hl={exportHead}></div>
+						{#each pageSegments as seg (seg.key)}
+							<div
+								class="seg"
+								class:hovered={seg.key === hoverKey}
+								role="group"
+								onmouseenter={() => (hoverKey = seg.key)}
+								onmouseleave={() => { if (hoverKey === seg.key) hoverKey = null; }}
+							>
+								<span class="seg-label">{seg.label}</span>
+								<div class="hl" use:hl={seg.code}></div>
+							</div>
+						{/each}
+						<div class="hl" use:hl={exportFoot}></div>
+					</div>
 				{/if}
+			{:else if selected && isComp(selected)}
+				<div class="insp-head"><h2>{labelOf(selected)}</h2><button class="mini danger" onclick={() => removeSection(selected.key)}>Delete</button></div>
+				<p class="muted">{identOf(selected.comp)} — raw Parascape component</p>
+
+				{#if takesContent(selected.comp)}
+					<h3>Content</h3>
+					<label class="field">
+						<span>children</span>
+						<input value={selected.content ?? ''} oninput={(e) => setContent(selected.key, (e.target as HTMLInputElement).value)} />
+					</label>
+				{/if}
+
+				<h3>Properties</h3>
+				{#if editableProps(selected.comp).length === 0}
+					<p class="muted">No editable props.</p>
+				{/if}
+				{#each editableProps(selected.comp) as p (p.name)}
+					<label class="field">
+						<span>{p.name}</span>
+						{#if p.type.trim() === 'boolean'}
+							<input
+								type="checkbox"
+								checked={!!selected.props?.[p.name]}
+								onchange={(e) => setProp(selected.key, p.name, (e.target as HTMLInputElement).checked)}
+							/>
+						{:else if isUnion(p)}
+							<select
+								value={String(selected.props?.[p.name] ?? '')}
+								onchange={(e) => setProp(selected.key, p.name, (e.target as HTMLSelectElement).value)}
+							>
+								<option value="">(default)</option>
+								{#each unionOptions(p.type) as opt (opt)}<option value={opt}>{opt}</option>{/each}
+							</select>
+						{:else if p.type.trim() === 'number'}
+							<input
+								type="number"
+								value={String(selected.props?.[p.name] ?? '')}
+								oninput={(e) => setProp(selected.key, p.name, Number((e.target as HTMLInputElement).value))}
+							/>
+						{:else}
+							<input
+								value={String(selected.props?.[p.name] ?? '')}
+								oninput={(e) => setProp(selected.key, p.name, (e.target as HTMLInputElement).value)}
+							/>
+						{/if}
+					</label>
+				{/each}
+
+				<h3>Section style</h3>
+				<label class="field"><span>Background</span>
+					<span class="bg-row">
+						<input type="color" value={selected.style.bg === 'transparent' ? '#ffffff' : selected.style.bg} oninput={(e) => setStyle(selected.key, { bg: (e.target as HTMLInputElement).value })} />
+						<button class="mini" onclick={() => setStyle(selected.key, { bg: 'transparent' })}>None</button>
+					</span>
+				</label>
+				<label class="field"><span>Text</span>
+					<select value={selected.style.fg} onchange={(e) => setStyle(selected.key, { fg: (e.target as HTMLSelectElement).value as 'inherit' | 'light' })}>
+						<option value="inherit">Dark (default)</option>
+						<option value="light">Light (for dark bg)</option>
+					</select>
+				</label>
+				<label class="field"><span>Align</span>
+					<select value={selected.style.align} onchange={(e) => setStyle(selected.key, { align: (e.target as HTMLSelectElement).value as 'left' | 'center' | 'right' })}>
+						<option value="left">Left</option>
+						<option value="center">Center</option>
+						<option value="right">Right</option>
+					</select>
+				</label>
+				<label class="field"><span>Padding</span>
+					<input type="number" value={selected.style.padY} oninput={(e) => setStyle(selected.key, { padY: Number((e.target as HTMLInputElement).value) })} />
+				</label>
+				<label class="field"><span>Width</span>
+					<input type="number" placeholder="0 = full" value={selected.style.width} oninput={(e) => setStyle(selected.key, { width: Number((e.target as HTMLInputElement).value) })} />
+				</label>
 			{:else if selected}
 				<div class="insp-head"><h2>{defOf(selected).name}</h2><button class="mini danger" onclick={() => removeSection(selected.key)}>Delete</button></div>
 
@@ -317,62 +1528,230 @@
 				<p class="muted">Select a section to edit its content and style, or add one from the left.</p>
 			{/if}
 		</aside>
+		{/if}
 	</div>
 </div>
 
 <style>
+	/* Chrome reads the shared theme tokens (src/lib/theme.css) so the whole
+	   designer follows light / dark / auto with the rest of the site. The
+	   artboard (.frame) uses --bg-elev too, so the live-compiled preview sits
+	   in the same theme as the editor (its sections still carry their own
+	   backgrounds). */
 	:global(body) { margin: 0; }
-	.designer { display: flex; flex-direction: column; height: 100vh; font: 13px/1.5 'Open Sans', system-ui, sans-serif; color: #16191f; }
-	.dtoolbar { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: #161d26; color: #fff; flex: 0 0 auto; }
+	.designer { display: flex; flex-direction: column; height: 100vh; font: 13px/1.5 'Open Sans', system-ui, sans-serif; color: var(--fg-body); background: var(--bg-page); }
+	.dtoolbar { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: var(--bg-elev); color: var(--fg-strong); border-bottom: 1px solid var(--border); flex: 0 0 auto; }
 	.dtoolbar strong { font-size: 14px; }
-	.dtoolbar .muted { color: #8aa0bd; font-size: 12px; }
+	.dtoolbar .muted { color: var(--fg-muted); font-size: 12px; }
 	.dtoolbar .spacer { flex: 1; }
-	.dtoolbar button { background: #283447; color: #cfe0f5; border: 1px solid #3a4863; border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; }
-	.dtoolbar button:hover { background: #313f57; }
-	.dtoolbar button.on { background: #006ce0; border-color: #006ce0; color: #fff; }
+	.dtoolbar button { background: var(--bg-num-pill); color: var(--fg-muted); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 5px 10px; cursor: pointer; font: inherit; }
+	.dtoolbar button:hover { background: var(--bg-hover); color: var(--fg-strong); }
+	.dtoolbar button.on { background: var(--accent); border-color: var(--accent); color: var(--fg-on-accent); }
+	.dtoolbar button:disabled { opacity: 0.4; cursor: default; }
 	.devices { display: flex; gap: 4px; }
+	.histbtns { display: flex; gap: 2px; }
+	.histbtns button { padding: 5px 9px; font-size: 14px; line-height: 1; }
+	/* account control + save indicator (LYK-930) */
+	.acct { display: flex; align-items: center; gap: 8px; margin-left: 4px; padding-left: 10px; border-left: 1px solid var(--border); }
+	.acct-name { font-size: 12px; font-weight: 600; color: var(--fg-strong); }
+	.acct-save { font-size: 11px; color: var(--fg-muted); }
+	.acct-save.state-saved { color: var(--good); }
+	.acct-save.state-error { color: var(--bad); }
+	.auth-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(15, 27, 45, 0.45); display: flex; align-items: center; justify-content: center; }
+	.auth-modal { background: var(--bg-elev); color: var(--fg-body); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 22px; width: 340px; max-width: calc(100vw - 32px); }
+	.auth-modal h2 { margin: 0 0 4px; font-size: 18px; color: var(--fg-strong); }
+	.auth-modal .muted { font-size: 12px; margin: 0 0 14px; }
+	.auth-modal .field { display: block; margin-bottom: 12px; }
+	.auth-modal .field > span { display: block; font-size: 12px; color: var(--fg-muted); margin-bottom: 4px; }
+	.auth-modal input { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--fg-body); font: inherit; }
+	.auth-modal .primary { width: 100%; margin-top: 4px; }
+	.auth-err { color: var(--bad); font-size: 12px; margin: 0 0 10px; }
+	.auth-switch { font-size: 12px; color: var(--fg-muted); margin: 12px 0 0; text-align: center; }
+	.linkish { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
 
-	.cols { flex: 1; display: grid; grid-template-columns: 220px 1fr 300px; min-height: 0; background: #e5e7eb; gap: 1px; }
-	.add-panel, .inspector { background: #fff; overflow: auto; padding: 12px; }
-	.add-panel h2, .inspector h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #5f6b7a; margin: 0 0 10px; }
-	.inspector h3 { font-size: 12px; margin: 18px 0 8px; color: #5f6b7a; }
-	.add-item { display: block; width: 100%; text-align: left; padding: 8px 10px; margin-bottom: 6px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; cursor: pointer; font: inherit; }
-	.add-item:hover { background: #f0f4ff; border-color: #006ce0; }
+	/* gap shows the divider colour between the three panels */
+	.cols { flex: 1; display: grid; grid-template-columns: 220px 1fr 300px; min-height: 0; background: var(--border); gap: 1px; }
+	/* widen the right rail when showing the export view */
+	.cols.exporting { grid-template-columns: 220px 1fr 560px; }
+	/* Code Mode: no palette; canvas (live preview) + a wide code editor rail */
+	.cols.coding { grid-template-columns: 1fr 620px; }
+	.code-rail { background: var(--bg-sidebar); color: var(--fg-body); overflow: auto; padding: 12px; display: flex; flex-direction: column; min-height: 0; }
+	.code-rail .insp-head { display: flex; align-items: center; justify-content: space-between; }
+	.code-rail h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); margin: 0 0 4px; }
+	.code-rail .muted { color: var(--fg-muted); font-size: 12px; margin: 0 0 8px; }
+	.code-rail code { background: var(--bg-num-pill); padding: 0 4px; border-radius: var(--radius-sm); }
+	/* syntax-highlighted editor: transparent textarea over a Shiki <pre>, with a
+	   line-number gutter. Font/line-height/padding match across all three so
+	   glyphs and rows line up exactly. */
+	.code-ed-wrap { position: relative; flex: 1; min-height: 340px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-sunken); overflow: hidden; }
+	.code-ed-wrap > pre.code-hl,
+	.code-ed-wrap > .code-ta {
+		position: absolute; inset: 0; margin: 0; padding: 12px 14px 12px 52px;
+		font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		white-space: pre; overflow: auto; tab-size: 2; -moz-tab-size: 2; box-sizing: border-box;
+	}
+	.code-ed-wrap > pre.code-hl { pointer-events: none; z-index: 0; color: var(--fg-body); }
+	.code-ed-wrap > .code-ta {
+		z-index: 1; resize: none; border: 0; outline: 0; background: transparent;
+		color: transparent; caret-color: var(--fg-strong); -webkit-text-fill-color: transparent;
+	}
+	.code-ed-wrap > .code-ta::selection { background: var(--accent-ring); color: transparent; }
+	.code-gutter {
+		position: absolute; top: 0; bottom: 0; left: 0; width: 44px; overflow: hidden; box-sizing: border-box;
+		padding: 12px 8px 12px 0; background: var(--bg-sunken); border-right: 1px solid var(--border);
+		font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--fg-subtle);
+		text-align: right; pointer-events: none; user-select: none; z-index: 3;
+	}
+	.code-gutter-inner { white-space: pre; }
+	/* Shiki line-height fix (collapse inter-line \n) + dual-theme colour swap */
+	:global(.code-ed-wrap pre.shiki) { background: transparent !important; margin: 0; padding: 0; display: block; white-space: normal; }
+	:global(.code-ed-wrap pre.shiki code) { white-space: normal; display: block; }
+	:global(.code-ed-wrap pre.shiki .line) { display: block; white-space: pre; min-height: 1.55em; }
+	:global(.code-ed-wrap pre.shiki),
+	:global(.code-ed-wrap pre.shiki span) { color: var(--shiki-light, inherit); }
+	:global([data-theme='dark'] .code-ed-wrap pre.shiki),
+	:global([data-theme='dark'] .code-ed-wrap pre.shiki span) { color: var(--shiki-dark, inherit); }
+	.code-err { margin: 8px 0 0; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--bg-sunken); color: var(--bad); border: 1px solid var(--bad); font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; max-height: 120px; overflow: auto; }
+	.code-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+	.code-actions .primary { width: auto; flex: 1; margin: 0; }
+	/* banner shown on the canvas when an active code override pauses visual editing */
+	.code-banner { display: flex; align-items: center; gap: 10px; margin: 0 auto 16px; max-width: 1040px; padding: 8px 12px; border-radius: var(--radius-md); background: var(--bg-accent-subtle); color: var(--fg-strong); border: 1px solid var(--accent); font-size: 13px; }
+
+	/* Accessibility panel (LYK-931) */
+	.a11y-clean { color: var(--good); font-weight: 600; }
+	.a11y-count { color: var(--bad); font-weight: 600; margin: 4px 0 10px; }
+	.a11y-item { border: 1px solid var(--border); border-left-width: 3px; border-radius: var(--radius-sm); padding: 8px 10px; margin-bottom: 8px; }
+	.a11y-item.impact-critical { border-left-color: var(--bad); }
+	.a11y-item.impact-serious { border-left-color: var(--bad); }
+	.a11y-item.impact-moderate { border-left-color: var(--amber); }
+	.a11y-item.impact-minor { border-left-color: var(--border-strong); }
+	.a11y-row { display: flex; align-items: center; gap: 8px; }
+	.a11y-badge { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; color: var(--fg-on-accent); background: var(--fg-muted); border-radius: var(--radius-pill); padding: 1px 7px; }
+	.impact-critical .a11y-badge, .impact-serious .a11y-badge { background: var(--bad); }
+	.impact-moderate .a11y-badge { background: var(--amber); }
+	.a11y-id { font: 12px ui-monospace, monospace; color: var(--fg-strong); }
+	.a11y-n { margin-left: auto; color: var(--fg-muted); font-size: 12px; }
+	.a11y-help { font-size: 12px; color: var(--fg-body); margin: 6px 0 4px; }
+	.a11y-target { display: block; font: 11px ui-monospace, monospace; color: var(--fg-muted); background: var(--bg-sunken); padding: 2px 6px; border-radius: var(--radius-sm); overflow-x: auto; white-space: nowrap; }
+	.a11y-learn { display: inline-block; margin-top: 6px; font-size: 12px; color: var(--accent); }
+
+	/* visible keyboard focus for the builder UI (LYK-931) */
+	.dtoolbar button:focus-visible,
+	.add-item:focus-visible,
+	.add-tabs button:focus-visible,
+	.sec-tools button:focus-visible,
+	.layer-row:focus-visible,
+	.layer-del:focus-visible,
+	.mini:focus-visible,
+	.primary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+	.add-panel, .inspector { background: var(--bg-sidebar); color: var(--fg-body); overflow: auto; padding: 12px; }
+	/* Layers outline tree (LYK-927) */
+	/* Pages panel (LYK-929) */
+	.pages { margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+	.pages-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); margin-bottom: 6px; }
+	.page-row { display: flex; align-items: center; gap: 4px; border-radius: var(--radius-sm); }
+	.page-row.active { background: var(--bg-accent-subtle); }
+	.page-pick { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; background: none; border: 0; cursor: pointer; padding: 5px 8px; text-align: left; font: inherit; color: var(--fg-body); border-radius: var(--radius-sm); min-width: 0; }
+	.page-pick:hover { background: var(--bg-hover); }
+	.page-row.active .page-pick { color: var(--accent); }
+	.page-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+	.page-route { font: 10px ui-monospace, monospace; color: var(--fg-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+	.page-del { flex: 0 0 auto; border: 0; background: none; color: var(--fg-subtle); cursor: pointer; font-size: 11px; padding: 0 4px; opacity: 0; }
+	.page-row:hover .page-del { opacity: 1; }
+	.page-del:hover { color: var(--bad); }
+	.page-settings { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+	.page-settings .field { margin-bottom: 6px; }
+	.page-settings .field > span { display: block; font-size: 11px; color: var(--fg-muted); margin-bottom: 2px; }
+	.page-settings input { width: 100%; box-sizing: border-box; padding: 4px 7px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--fg-body); font: 12px inherit; }
+	.layers { margin-bottom: 14px; max-height: 38vh; overflow: auto; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+	.layers-head { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); margin: 0 0 6px; }
+	.layers-empty { font-size: 12px; color: var(--fg-subtle); }
+	.layer-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 8px; border-radius: var(--radius-sm); cursor: pointer; }
+	.layer-row:hover { background: var(--bg-hover); }
+	.layer-row.sel { background: var(--bg-accent-subtle); color: var(--accent); }
+	.layer-icon { font-size: 11px; color: var(--fg-subtle); flex: 0 0 auto; }
+	.layer-label { flex: 1; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.layer-del { flex: 0 0 auto; border: 0; background: none; color: var(--fg-subtle); cursor: pointer; font-size: 11px; padding: 0 4px; border-radius: var(--radius-sm); opacity: 0; }
+	.layer-row:hover .layer-del { opacity: 1; }
+	.layer-del:hover { color: var(--bad); }
+	.add-panel h2, .inspector h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); margin: 0 0 10px; }
+	.inspector h3 { font-size: 12px; margin: 18px 0 8px; color: var(--fg-muted); }
+	.add-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+	.add-tabs button { flex: 1; padding: 6px; border: 1px solid var(--border); background: var(--bg-elev); border-radius: var(--radius-md); cursor: pointer; font: inherit; color: var(--fg-muted); }
+	.add-tabs button.on { background: var(--accent); border-color: var(--accent); color: var(--fg-on-accent); }
+	.comp-search { width: 100%; box-sizing: border-box; padding: 6px 8px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-elev); color: var(--fg-body); font: inherit; }
+	.add-item { display: block; width: 100%; text-align: left; padding: 8px 10px; margin-bottom: 6px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-elev); color: var(--fg-body); cursor: grab; font: inherit; }
+	.add-item:hover { background: var(--bg-accent-subtle); border-color: var(--accent); }
+	.add-item:active { cursor: grabbing; }
+	.add-item.compact { padding: 6px 10px; font-weight: 600; }
 	.add-name { display: block; font-weight: 600; }
-	.add-blurb { display: block; color: #5f6b7a; font-size: 11px; }
+	.add-blurb { display: block; color: var(--fg-muted); font-size: 11px; }
 
-	.canvas { overflow: auto; background: #eceef0; padding: 24px; }
-	.frame { background: #fff; margin: 0 auto; box-shadow: 0 1px 6px rgba(0,0,0,0.12); border-radius: 6px; overflow: hidden; transition: max-width 0.15s ease; }
+	.canvas { overflow: auto; background: var(--bg-sunken); padding: 24px; }
+	.frame { background: var(--bg-elev); margin: 0 auto; box-shadow: var(--shadow-md); border-radius: var(--radius-md); overflow: hidden; transition: max-width 0.15s ease; min-height: 80px; }
+	/* dashed outline while a palette item or section is being dragged over */
+	.frame.drop-active { outline: 2px dashed var(--accent); outline-offset: 4px; }
 	.frame.device-desktop { max-width: 100%; }
 	.frame.device-tablet { max-width: 768px; }
 	.frame.device-mobile { max-width: 375px; }
-	.empty { color: #94a3b8; text-align: center; padding: 80px 20px; }
+	.empty { color: var(--fg-subtle); text-align: center; padding: 80px 20px; }
+	.empty.drop-here { color: var(--accent); background: var(--bg-accent-subtle); border: 2px dashed var(--accent); border-radius: var(--radius-md); margin: 16px; padding: 64px 20px; }
 
 	.sec { position: relative; cursor: grab; outline: 2px solid transparent; outline-offset: -2px; }
 	.sec:active { cursor: grabbing; }
-	.sec:hover { outline-color: #b9d4f5; }
-	.sec.sel { outline-color: #006ce0; }
+	.sec:hover { outline-color: var(--accent-ring); }
+	.sec.sel { outline-color: var(--accent); }
 	.sec.dragging { opacity: 0.4; }
-	/* content is a preview — clicks/drags go to the section, not the components */
-	.inner { pointer-events: none; }
+	/* highlighted from the export view when its code block is hovered */
+	.sec.hovered { outline-color: var(--amber); outline-width: 3px; }
+	/* The preview is interactive enough to select nodes (data-pk), edit text
+	   (data-pf) and drop into containers (data-drop), but text isn't selectable
+	   so grabbing content still drags the whole section. */
+	.inner { user-select: none; }
+	.sec.editing { cursor: text; }
+	.sec.editing .sec-badge { opacity: 0; }
+	/* editable text markers live inside the live-compiled preview (so :global). */
+	:global(.sec .pf) { cursor: text; border-radius: 3px; transition: background 0.1s, outline-color 0.1s; }
+	:global(.sec .pf:hover) { outline: 1px dashed var(--accent); outline-offset: 2px; }
+	:global(.sec .pf[contenteditable='true']) { outline: 2px solid var(--accent); background: var(--bg-accent-subtle); user-select: text; }
+	/* container drop zones (nesting) */
+	:global(.sec .pdrop) { min-height: 12px; transition: outline-color 0.1s, background 0.1s; }
+	:global(.sec .pdrop.nest-over) { outline: 2px dashed var(--amber); outline-offset: 2px; background: var(--bg-amber-subtle); }
+	:global(.sec .pdrop-empty) { display: block; padding: 14px; text-align: center; color: var(--fg-subtle); border: 1px dashed var(--border); border-radius: var(--radius-sm); font-size: 12px; }
 	/* the blue insert indicator shown between sections while dragging */
-	.drop-line { height: 3px; background: #006ce0; border-radius: 2px; }
-	.sec-badge { position: absolute; top: 0; left: 0; background: #006ce0; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 0 0 6px 0; opacity: 0; transition: opacity 0.1s ease; pointer-events: none; }
+	.drop-line { height: 3px; background: var(--accent); border-radius: 2px; }
+	.sec-badge { position: absolute; top: 0; left: 0; background: var(--accent); color: var(--fg-on-accent); font-size: 11px; padding: 2px 8px; border-radius: 0 0 6px 0; opacity: 0; transition: opacity 0.1s ease; pointer-events: none; }
 	.sec:hover .sec-badge, .sec.sel .sec-badge { opacity: 1; }
 	.sec-tools { position: absolute; top: 4px; right: 4px; display: flex; gap: 2px; }
-	.sec-tools button { background: #006ce0; color: #fff; border: 0; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 12px; line-height: 1; }
-	.sec-tools button:hover { background: #0058b8; }
-	:global(.sec-err) { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; padding: 6px 10px; font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; }
+	.sec-tools button { background: var(--accent); color: var(--fg-on-accent); border: 0; width: 24px; height: 24px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; line-height: 1; }
+	.sec-tools button:hover { background: var(--accent-hover); }
+	:global(.sec-err) { color: var(--bad); background: var(--bg-sunken); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 10px; font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; }
 
 	.insp-head { display: flex; align-items: center; justify-content: space-between; }
 	.field { display: block; margin-bottom: 10px; }
-	.field > span { display: block; color: #5f6b7a; font-size: 12px; margin-bottom: 3px; }
-	.field input[type=text], .field input:not([type]), .field input[type=number], .field select, .field textarea { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #c6c6cd; border-radius: 6px; font: inherit; }
+	.field > span { display: block; color: var(--fg-muted); font-size: 12px; margin-bottom: 3px; }
+	.field input[type=text], .field input:not([type]), .field input[type=number], .field select, .field textarea { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-elev); color: var(--fg-body); font: inherit; }
 	.field textarea { min-height: 64px; resize: vertical; }
 	.bg-row { display: flex; gap: 6px; align-items: center; }
-	.bg-row input[type=color] { width: 44px; height: 30px; padding: 0; border: 1px solid #c6c6cd; border-radius: 6px; }
-	.mini { border: 1px solid #c6c6cd; background: #fff; border-radius: 6px; padding: 4px 8px; cursor: pointer; font: 12px inherit; }
-	.danger { color: #d91515; border-color: #d91515; }
-	.primary { width: 100%; padding: 8px; border: 0; border-radius: 6px; background: #006ce0; color: #fff; cursor: pointer; font: inherit; font-weight: 600; margin-bottom: 10px; }
-	.code { background: #0f141a; color: #e6edf3; padding: 12px; border-radius: 8px; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; overflow: auto; max-height: 420px; }
+	.bg-row input[type=color] { width: 44px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-md); }
+	.mini { border: 1px solid var(--border); background: var(--bg-elev); color: var(--fg-body); border-radius: var(--radius-md); padding: 4px 8px; cursor: pointer; font: 12px inherit; }
+	.danger { color: var(--bad); border-color: var(--bad); }
+	.primary { width: 100%; padding: 8px; border: 0; border-radius: var(--radius-md); background: var(--accent); color: var(--fg-on-accent); cursor: pointer; font: inherit; font-weight: 600; margin-bottom: 10px; }
+	.primary:hover { background: var(--accent-hover); }
+	.code { background: var(--bg-sunken); color: var(--fg-body); padding: 12px; border-radius: var(--radius-md); font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; overflow: auto; max-height: 420px; }
+	/* export view: per-section highlighted code blocks */
+	.export-code { background: var(--bg-sunken); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: auto; padding: 4px; }
+	.export-code .seg { border-radius: var(--radius-sm); transition: background 0.1s ease; }
+	.export-code .seg.hovered { background: var(--bg-amber-subtle); outline: 1px solid var(--amber); }
+	.seg-label { display: block; padding: 4px 10px 0; color: var(--amber); font: 600 10px/1.4 ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+	.export-code .hl :global(.shiki) { margin: 0; padding: 6px 10px; background: transparent !important; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; tab-size: 2; -moz-tab-size: 2; white-space: pre; overflow-x: auto; }
+	.export-code .hl { color: var(--fg-body); font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; tab-size: 2; -moz-tab-size: 2; white-space: pre; padding: 6px 10px; }
+	.export-code .hl:has(.shiki) { padding: 0; }
+	/* Dual-theme Shiki: pui-shiki runs with defaultColor:false, so each token
+	   carries --shiki-light / --shiki-dark vars but no color. Pick the active
+	   one off [data-theme] (light is the default). */
+	:global(.export-code .shiki),
+	:global(.export-code .shiki span) { color: var(--shiki-light, inherit); }
+	:global([data-theme="dark"] .export-code .shiki),
+	:global([data-theme="dark"] .export-code .shiki span) { color: var(--shiki-dark, inherit); }
 </style>

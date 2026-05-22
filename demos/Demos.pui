@@ -36,54 +36,12 @@
 	// expanding/collapsing the imports on either side drives the other.
 	signal importsCollapsed = true;
 
-	// Theme switcher — light / dark / auto. "auto" delegates to the
-	// OS via prefers-color-scheme. The choice is stored in localStorage
-	// so it sticks across reloads, and applied to <html data-theme>
-	// so the CSS-variable theme tokens cascade everywhere (sidebar,
-	// stat tables, code panes, render panes). Mounted in browser-only
-	// code via $effect so SSR / pre-render doesn't try to touch
-	// window / localStorage.
-	type Theme = "light" | "dark" | "auto";
-	const themes: Theme[] = ["light", "dark", "auto"];
-	signal theme: Theme = "auto";
-	const cycleTheme = () => (theme = themes[(themes.indexOf(theme) + 1) % themes.length]!);
-	effect {
-		if (typeof document === "undefined") return;
-		const apply = (t: Theme) => {
-			const resolved =
-				t === "auto"
-					? window.matchMedia("(prefers-color-scheme: dark)").matches
-						? "dark"
-						: "light"
-					: t;
-			document.documentElement.setAttribute("data-theme", resolved);
-			document.documentElement.setAttribute("data-theme-pref", t);
-			// Cloudscape's global-styles drive component colors off
-			// `.awsui-dark-mode` on ANY ancestor — applying it here on
-			// <body> flips every render pane (both Cloudscape React and
-			// the vendored .pui ports use the same `--color-*` tokens).
-			document.body.classList.toggle("awsui-dark-mode", resolved === "dark");
-		};
-		apply(theme);
-		try {
-			localStorage.setItem("parascape-demos-theme", theme);
-		} catch {}
-		// Track OS theme changes only when in auto mode.
-		if (theme !== "auto") return;
-		const mql = window.matchMedia("(prefers-color-scheme: dark)");
-		const onChange = () => apply("auto");
-		mql.addEventListener("change", onChange);
-		return () => mql.removeEventListener("change", onChange);
-	}
-	effect {
-		// Hydrate the persisted choice once at startup.
-		try {
-			const saved = localStorage.getItem("parascape-demos-theme") as Theme | null;
-			if (saved && themes.includes(saved)) theme = saved;
-		} catch {}
-	}
-	derived themeIcon = theme === "light" ? "☀" : theme === "dark" ? "☾" : "◐";
-	derived themeLabel = theme === "light" ? "Light" : theme === "dark" ? "Dark" : "Auto";
+	// Theme (light / dark / auto) is owned site-wide by SiteNav's shared
+	// controller (src/lib/theme.ts): one localStorage key, one toggle in the
+	// top nav, and the same --bg-*/--fg-* tokens (src/lib/theme.css) drive the
+	// sidebar, stat tables, code panes, and render panes here. The render panes
+	// pick up dark mode through `body.awsui-dark-mode`, which the controller
+	// toggles, so both the Cloudscape React and the .pui sides flip together.
 
 	// Byte count, comments stripped — what the author actually typed
 	// past the documentation. JS comments (//, /* */) and HTML comments
@@ -208,16 +166,6 @@
 	<aside class="sidebar">
 		<div class="sidebar-head">
 			<h1>Parascape ↔ Cloudscape</h1>
-			<button
-				type="button"
-				class="theme-toggle"
-				title="Theme: {themeLabel} (click to cycle)"
-				aria-label="Theme: {themeLabel} (click to cycle)"
-				onclick={cycleTheme}
-			>
-				<span aria-hidden="true">{themeIcon}</span>
-				<span class="theme-label">{themeLabel}</span>
-			</button>
 		</div>
 		<p class="lead">
 			Every example is built twice — once in Cloudscape (React), once in Parascape (<code>.pui</code>)
@@ -321,70 +269,14 @@
 </div>
 
 <style>
-	/* Theme tokens — one source of truth so the sidebar, main pane,
-	   code panes, and render panes are all driven by the same vars.
-	   The host page chooses light vs dark by setting data-theme on
-	   <html>. We bundle the light defaults here; the [data-theme]
-	   selectors below override for dark mode. The "auto" toggle in
-	   the toolbar resolves to either by reading prefers-color-scheme
-	   and reflecting the choice as a data-theme attribute. */
-	:global(:root) {
-		--bg-page: #fafbfc;
-		--bg-elev: #ffffff;
-		--bg-pane-head: #f8fafc;
-		--bg-code: #f8fafc;
-		--bg-sidebar: #ffffff;
-		--bg-button-hover: rgba(15, 23, 42, 0.06);
-		--bg-button-active: #e0e7ff;
-		--bg-num-pill: rgba(15, 23, 42, 0.06);
-		--fg-strong: #0f172a;
-		--fg-body: #16191f;
-		--fg-muted: #5f6b7a;
-		--fg-subtle: #94a3b8;
-		--fg-inverse: #ffffff;
-		--accent: #006ce0;
-		--good: #047857;
-		--bad: #b91c1c;
-		--border: #e5e7eb;
-		--border-soft: rgba(15, 23, 42, 0.08);
-		color-scheme: light;
-	}
-	:global([data-theme="dark"]) {
-		/* Flat dark palette — match Cloudscape's `.awsui-dark-mode`
-		   surface tokens (`--color-background-layout-main` and
-		   `--color-background-container-content` are both #161d26 in
-		   dark mode). Every surface — page, sidebar, render panes,
-		   the contained components — paints the same #161d26 so the
-		   only visible boundaries are the 1px dividers. Without this
-		   alignment, every container painted a slightly-lighter shade
-		   onto a slightly-darker page and the components ended up
-		   looking like grey rectangles floating on navy. */
-		--bg-page: #161d26;
-		--bg-elev: #161d26;
-		--bg-pane-head: #1c2533;
-		--bg-code: #0f161f;
-		--bg-sidebar: #161d26;
-		--bg-button-hover: rgba(255, 255, 255, 0.06);
-		--bg-button-active: #1f3450;
-		--bg-num-pill: rgba(255, 255, 255, 0.08);
-		--fg-strong: #f7f8fa;
-		--fg-body: #c6c6cd;
-		--fg-muted: #9ca3af;
-		--fg-subtle: #6b7280;
-		--fg-inverse: #ffffff;
-		--accent: #60a5fa;
-		--good: #34d399;
-		--bad: #f87171;
-		--border: #424650;
-		--border-soft: rgba(255, 255, 255, 0.08);
-		color-scheme: dark;
-	}
-	:global(html, body) {
-		margin: 0;
-		padding: 0;
-		font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+	/* Theme tokens now come from the shared palette (src/lib/theme.css via
+	   site.css) so the demos viewer matches the rest of the site. The sidebar,
+	   stat tables, code panes, and render panes all read the same theme tokens;
+	   the SiteNav toggle (src/lib/theme.ts) flips them. Render panes get
+	   --bg-elev (#161d26 in dark, Cloudscape's own container colour) over the
+	   one-step-darker --bg-page, so the components read as raised cards. */
+	:global(html) {
 		background: var(--bg-page);
-		color: var(--fg-body);
 	}
 	:global(#app) {
 		min-height: 100vh;
@@ -421,27 +313,6 @@
 		margin: 0;
 		color: var(--fg-strong);
 		letter-spacing: 0.2px;
-	}
-	.theme-toggle {
-		display: inline-flex;
-		align-items: center;
-		gap: 4px;
-		background: var(--bg-num-pill);
-		color: var(--fg-muted);
-		border: 1px solid var(--border-soft);
-		border-radius: 999px;
-		padding: 4px 10px;
-		cursor: pointer;
-		font: inherit;
-		font-size: 11px;
-	}
-	.theme-toggle:hover {
-		background: var(--bg-button-hover);
-		color: var(--fg-strong);
-	}
-	.theme-toggle .theme-label {
-		letter-spacing: 0.3px;
-		text-transform: uppercase;
 	}
 	.sidebar .lead {
 		font-size: 13px;

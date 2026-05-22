@@ -173,25 +173,26 @@
 		flex-direction: column;
 		gap: 6px;
 		padding: 16px;
-		border: 1px solid var(--color-border-divider-default-nr68jt, #c6c6cd);
+		border: 1px solid var(--border);
 		border-radius: 12px;
+		background: var(--bg-elev);
 		text-decoration: none;
 		cursor: pointer;
 		transition: border-color 0.12s ease, transform 0.12s ease;
 	}
 	.comp-card:hover {
-		border-color: var(--color-border-item-focused-uk47pl, #006ce0);
+		border-color: var(--accent);
 		transform: translateY(-1px);
 	}
 	.comp-name {
 		font-weight: 700;
 		font-size: 15px;
-		color: var(--color-text-heading-default-izpp46, #0f141a);
+		color: var(--fg-strong);
 	}
 	.comp-blurb {
 		font-size: 13px;
 		line-height: 1.45;
-		color: var(--color-text-body-secondary-fdstM5, #5f6b7a);
+		color: var(--fg-muted);
 	}
 	.props-table {
 		width: 100%;
@@ -201,18 +202,18 @@
 	.props-table th {
 		text-align: left;
 		font-weight: 600;
-		color: var(--color-text-body-secondary-fdstM5, #5f6b7a);
+		color: var(--fg-muted);
 		padding: 6px 12px;
-		border-block-end: 1px solid var(--color-border-divider-default-nr68jt, #c6c6cd);
+		border-block-end: 1px solid var(--border);
 	}
 	.props-table td {
 		padding: 8px 12px;
-		border-block-end: 1px solid var(--color-border-divider-secondary-alwgea, #e9ebed);
+		border-block-end: 1px solid var(--border-soft);
 		vertical-align: top;
 	}
 	.p-name {
 		font-weight: 600;
-		color: var(--color-text-heading-default-izpp46, #0f141a);
+		color: var(--fg-strong);
 		white-space: nowrap;
 	}
 	.p-tag {
@@ -221,19 +222,19 @@
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.4px;
-		color: var(--color-text-status-info-utadld, #006ce0);
+		color: var(--accent);
 	}
 	.p-type code {
 		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 		font-size: 12px;
-		color: var(--color-text-body-default-vvtq8u, #0f141a);
+		color: var(--fg-body);
 	}
 	.p-def {
 		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 		font-size: 12px;
-		color: var(--color-text-body-secondary-fdstM5, #5f6b7a);
+		color: var(--fg-muted);
 	}
 	.p-kind {
-		color: var(--color-text-body-secondary-fdstM5, #5f6b7a);
+		color: var(--fg-muted);
 	}
 </style>
