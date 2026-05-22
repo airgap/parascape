@@ -11,6 +11,7 @@
   triggers a recompile — only prop/content/custom-source edits do.
 -->
 <script lang="pts">
+	import SiteNav from '../src/lib/SiteNav.pui';
 	import { compileParascape, mountSvelte } from '../demos/live-compile';
 	import manifests from '../components/manifests.json';
 	import { catalog } from '../components/catalog';
@@ -342,6 +343,7 @@
 </script>
 
 <div class="app" class:dark>
+	<SiteNav active="builder" />
 	<header class="toolbar">
 		<strong>Parascape Builder</strong>
 		<span class="count">{nodes.length} component{nodes.length === 1 ? '' : 's'}</span>

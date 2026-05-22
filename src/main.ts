@@ -5,6 +5,7 @@ import { mount } from 'svelte';
 import '@cloudscape-design/global-styles/index.css';
 import './lib/tokens/cloudscape-tokens.css';
 import './lib/tokens/cloudscape-tokens-dark.css';
+import './lib/site.css';
 import App from './App.pui';
 
 const target = document.getElementById('app');

@@ -26,6 +26,7 @@
      place a stale-deps or forgotten-setter bug can hide.
 -->
 <script lang="pts">
+	import SiteNav from "../src/lib/SiteNav.pui";
 	import { scenarios } from "./scenarios";
 	import DemoPane from "./DemoPane.pui";
 
@@ -200,6 +201,8 @@
 		return () => dispose.forEach((d) => d());
 	}
 </script>
+
+<SiteNav active="demos" />
 
 <div class="layout">
 	<aside class="sidebar">
@@ -389,20 +392,21 @@
 	.layout {
 		display: grid;
 		grid-template-columns: 320px 1fr;
-		min-height: 100vh;
+		min-height: calc(100vh - 48px);
 	}
 	.sidebar {
 		position: sticky;
-		top: 0;
+		/* sits below the 48px shared SiteNav when stuck */
+		top: 48px;
 		align-self: start;
 		background: var(--bg-sidebar);
 		color: var(--fg-body);
 		border-right: 1px solid var(--border);
 		padding: 28px 20px;
-		/* border-box so the 28px block padding counts inside 100vh —
+		/* border-box so the 28px block padding counts inside the viewport —
 		   otherwise the aside is padding-taller than the viewport. */
 		box-sizing: border-box;
-		max-height: 100vh;
+		max-height: calc(100vh - 48px);
 		overflow-y: auto;
 	}
 	.sidebar-head {

@@ -7,6 +7,7 @@
   inline-markup attribute values so the deeper nesting parses cleanly.
 -->
 <script lang="pts">
+	import SiteNav from '../src/lib/SiteNav.pui';
 	import AppLayout from '@parascape-design/components/app-layout';
 	import SideNavigation from '@parascape-design/components/side-navigation';
 	import ContentLayout from '@parascape-design/components/content-layout';
@@ -137,13 +138,18 @@
 	</ContentLayout>
 {/snippet}
 
-<AppLayout
-	bind:navigationOpen={navOpen}
-	bind:toolsOpen={toolsOpen}
-	navigation={navPanel}
-	tools={toolsPanel}
-	content={active ? detailContent : catalogContent}
-/>
+<div class="site-shell">
+	<SiteNav active="components" />
+	<div class="site-body">
+		<AppLayout
+			bind:navigationOpen={navOpen}
+			bind:toolsOpen={toolsOpen}
+			navigation={navPanel}
+			tools={toolsPanel}
+			content={active ? detailContent : catalogContent}
+		/>
+	</div>
+</div>
 
 <style>
 	.catalog {

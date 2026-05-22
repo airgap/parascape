@@ -1,0 +1,25 @@
+/* Shared base styling loaded by every Parascape entry (home / demos /
+   components / builder) so the whole site shares one typographic system.
+   Open Sans is Cloudscape's open-source font (Apache-2.0) — the same family
+   the awsui design tokens already name — so loading it here makes both the
+   ported components and the page chrome render in it. */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap');
+
+body {
+	margin: 0;
+	font-family: 'Open Sans', 'Helvetica Neue', Roboto, Arial, sans-serif;
+}
+
+/* Full-viewport pages (builder, components) put SiteNav at the top of a
+   flex column so the app body fills the rest. */
+.site-shell {
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+	min-height: 0;
+}
+.site-shell > .site-body {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+}

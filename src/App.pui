@@ -6,6 +6,7 @@
   file is itself .pui, so the "ported to .pui" claim holds end to end.
 -->
 <script lang="pts">
+	import SiteNav from './lib/SiteNav.pui';
 	import Table from './lib/components/Table.pui';
 	import Header from './lib/components/Header.pui';
 	import TextFilter from './lib/components/TextFilter.pui';
@@ -66,14 +67,9 @@
 	}
 </script>
 
-<main>
-	<nav class="site-nav">
-		<a href="/" aria-current="page">Home</a>
-		<a href="/demos/">Demos</a>
-		<a href="/components/">Components</a>
-		<a href="/builder/">Builder</a>
-	</nav>
+<SiteNav active="home" />
 
+<main>
 	<header>
 		<h1>Parascape</h1>
 		<p>
@@ -123,22 +119,6 @@
 		flex-direction: column;
 		gap: 20px;
 		color: #16191f;
-	}
-	.site-nav {
-		display: flex;
-		gap: 20px;
-		font-size: 14px;
-	}
-	.site-nav a {
-		color: #006ce0;
-		text-decoration: none;
-	}
-	.site-nav a[aria-current='page'] {
-		color: #16191f;
-		font-weight: 700;
-	}
-	.site-nav a:hover {
-		text-decoration: underline;
 	}
 	header h1 {
 		margin: 0 0 4px;
