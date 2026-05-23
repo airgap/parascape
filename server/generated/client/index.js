@@ -9,6 +9,14 @@ const routes = {
     hasResponse: true,
     stringResponse: false,
   },
+  addComment: {
+    method: 'POST',
+    path: '/comments',
+    stream: false,
+    hasRequest: true,
+    hasResponse: true,
+    stringResponse: false,
+  },
   createInvite: {
     method: 'POST',
     path: '/project/invites',
@@ -41,6 +49,14 @@ const routes = {
     hasResponse: true,
     stringResponse: false,
   },
+  deleteComment: {
+    method: 'POST',
+    path: '/comment/delete',
+    stream: false,
+    hasRequest: true,
+    hasResponse: true,
+    stringResponse: false,
+  },
   deleteInvite: {
     method: 'POST',
     path: '/project/invites/delete',
@@ -60,6 +76,14 @@ const routes = {
   deleteSnapshot: {
     method: 'POST',
     path: '/snapshot/delete',
+    stream: false,
+    hasRequest: true,
+    hasResponse: true,
+    stringResponse: false,
+  },
+  duplicateProject: {
+    method: 'POST',
+    path: '/project/duplicate',
     stream: false,
     hasRequest: true,
     hasResponse: true,
@@ -100,6 +124,14 @@ const routes = {
   listCollaborators: {
     method: 'POST',
     path: '/project/collaborators/list',
+    stream: false,
+    hasRequest: true,
+    hasResponse: true,
+    stringResponse: false,
+  },
+  listComments: {
+    method: 'POST',
+    path: '/comments/list',
     stream: false,
     hasRequest: true,
     hasResponse: true,
@@ -180,6 +212,14 @@ const routes = {
   removeCollaborator: {
     method: 'POST',
     path: '/project/collaborators/remove',
+    stream: false,
+    hasRequest: true,
+    hasResponse: true,
+    stringResponse: false,
+  },
+  resolveComment: {
+    method: 'POST',
+    path: '/comment/resolve',
     stream: false,
     hasRequest: true,
     hasResponse: true,

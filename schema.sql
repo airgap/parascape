@@ -84,3 +84,14 @@ CREATE TABLE IF NOT EXISTS "project_invites" ("token" TEXT PRIMARY KEY, "project
 ---- Create indexes
 CREATE INDEX IF NOT EXISTS "idx_project_invites_project_id" ON "project_invites" ("project_id");
 
+
+--------------------------------
+---------  comments  ---------
+--------------------------------
+
+---- Create table
+CREATE TABLE IF NOT EXISTS "comments" ("id" INTEGER PRIMARY KEY AUTOINCREMENT, "project_id" INTEGER NOT NULL, "page_id" INTEGER NOT NULL, "node_key" INTEGER, "x" REAL NOT NULL, "y" REAL NOT NULL, "author_id" INTEGER NOT NULL, "author_name" TEXT NOT NULL, "body" TEXT NOT NULL, "resolved" INTEGER CHECK ("resolved" IN (0, 1)) NOT NULL, "created_at" INTEGER NOT NULL);
+
+---- Create indexes
+CREATE INDEX IF NOT EXISTS "idx_comments_project_id" ON "comments" ("project_id");
+

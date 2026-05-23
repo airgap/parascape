@@ -200,3 +200,58 @@ export type InsertableProject_invites = {
   created_by?: bigint;
   created_at?: bigint;
 };
+
+export declare const comments: {
+  type: 'object';
+  properties: {
+    id: { type: 'bigint'; primaryKey: true };
+    project_id: { type: 'bigint' };
+    page_id: { type: 'bigint' };
+    node_key: { type: 'bigint' };
+    x: { type: 'number' };
+    y: { type: 'number' };
+    author_id: { type: 'bigint' };
+    author_name: { type: 'string' };
+    body: { type: 'string' };
+    resolved: { type: 'boolean' };
+    created_at: { type: 'bigint' };
+  };
+  required: [
+    'project_id',
+    'page_id',
+    'x',
+    'y',
+    'author_id',
+    'author_name',
+    'body',
+    'resolved',
+    'created_at',
+  ];
+};
+export type Comments = {
+  id?: bigint;
+  project_id: bigint;
+  page_id: bigint;
+  node_key?: bigint;
+  x: number;
+  y: number;
+  author_id: bigint;
+  author_name: string;
+  body: string;
+  resolved: boolean;
+  created_at: bigint;
+};
+
+export type InsertableComments = {
+  id?: bigint;
+  project_id?: bigint;
+  page_id?: bigint;
+  node_key?: bigint;
+  x?: number;
+  y?: number;
+  author_id?: bigint;
+  author_name?: string;
+  body?: string;
+  resolved?: boolean;
+  created_at?: bigint;
+};

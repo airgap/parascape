@@ -21,6 +21,7 @@ type Events = {
   remote: (project: CollabProject) => void;
   presence: (peers: Presence[]) => void;
   status: (online: boolean) => void;
+  comments: () => void; // a peer added/changed a comment → refetch (LYK-955)
 };
 
 const b64encode = (bytes: Uint8Array): string => {
@@ -40,6 +41,7 @@ export type CollabHandle = {
   disconnect(): void;
   push(project: CollabProject): void;
   setCursor(x: number, y: number, page: number): void;
+  notifyComments(): void;
   on<K extends keyof Events>(ev: K, cb: Events[K]): void;
 };
 
@@ -140,7 +142,14 @@ export function createCollab(opts: {
         peers.delete(Number(msg.clientId));
         emit("presence", [...peers.values()]);
         break;
+      case "comments":
+        emit("comments");
+        break;
     }
+  }
+
+  function notifyComments(): void {
+    if (open && ws) ws.send(JSON.stringify({ t: "comments" }));
   }
 
   function connect(): void {
@@ -188,6 +197,7 @@ export function createCollab(opts: {
     disconnect,
     push,
     setCursor,
+    notifyComments,
     on: (ev, cb) => {
       handlers[ev] = cb;
     },

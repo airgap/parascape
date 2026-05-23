@@ -220,6 +220,106 @@ export const deleteProject = m({
   category: "Projects",
 });
 
+export const duplicateProject = m({
+  method: "POST",
+  path: "/project/duplicate",
+  authenticated: true,
+  request: {
+    type: "object",
+    properties: { id: { type: "number" } },
+    required: ["id"],
+  },
+  response: {
+    type: "object",
+    properties: { id: { type: "number" }, name: { type: "string" } },
+    required: ["id", "name"],
+  },
+  throws: [404],
+  title: "Duplicate project",
+  category: "Projects",
+});
+
+// ── review comments / annotations (LYK-955) ──
+const commentShape = {
+  type: "object",
+  properties: {
+    id: { type: "number" },
+    page_id: { type: "number" },
+    node_key: { type: "number" },
+    x: { type: "number" },
+    y: { type: "number" },
+    author_id: { type: "number" },
+    author_name: { type: "string" },
+    body: { type: "string" },
+    resolved: { type: "boolean" },
+    created_at: { type: "number" },
+  },
+  required: ["id", "page_id", "x", "y", "author_id", "author_name", "body", "resolved", "created_at"],
+} as const;
+
+export const listComments = m({
+  method: "POST",
+  path: "/comments/list",
+  authenticated: true,
+  request: { type: "object", properties: { projectId: { type: "number" } }, required: ["projectId"] },
+  response: {
+    type: "object",
+    properties: { comments: { type: "array", items: commentShape } },
+    required: ["comments"],
+  },
+  throws: [403, 404],
+  title: "List comments",
+  category: "Comments",
+});
+
+export const addComment = m({
+  method: "POST",
+  path: "/comments",
+  authenticated: true,
+  request: {
+    type: "object",
+    properties: {
+      projectId: { type: "number" },
+      pageId: { type: "number" },
+      x: { type: "number" },
+      y: { type: "number" },
+      body: { type: "string" },
+      nodeKey: { type: "number" },
+    },
+    required: ["projectId", "pageId", "x", "y", "body"],
+  },
+  response: commentShape,
+  throws: [403, 404],
+  title: "Add comment",
+  category: "Comments",
+});
+
+export const resolveComment = m({
+  method: "POST",
+  path: "/comment/resolve",
+  authenticated: true,
+  request: {
+    type: "object",
+    properties: { id: { type: "number" }, resolved: { type: "boolean" } },
+    required: ["id", "resolved"],
+  },
+  response: ok,
+  throws: [403, 404],
+  title: "Resolve comment",
+  category: "Comments",
+});
+
+export const deleteComment = m({
+  method: "POST",
+  path: "/comment/delete",
+  authenticated: true,
+  request: { type: "object", properties: { id: { type: "number" } }, required: ["id"] },
+  response: ok,
+  throws: [403, 404],
+  title: "Delete comment",
+  category: "Comments",
+});
+
 // ── sharing / collaborators (LYK-951) ──
 export const addCollaborator = m({
   method: "POST",

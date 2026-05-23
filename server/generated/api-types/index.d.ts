@@ -8,6 +8,26 @@ export type AddCollaboratorResponse = {
   username: string;
   role: string;
 };
+export type AddCommentRequest = {
+  projectId: number;
+  pageId: number;
+  x: number;
+  y: number;
+  body: string;
+  nodeKey?: number;
+};
+export type AddCommentResponse = {
+  id: number;
+  page_id: number;
+  node_key?: number;
+  x: number;
+  y: number;
+  author_id: number;
+  author_name: string;
+  body: string;
+  resolved: boolean;
+  created_at: number;
+};
 export type CreateInviteRequest = { projectId: number; role: string };
 export type CreateInviteResponse = { token: string; role: string };
 export type CreateProjectRequest = { name: string; doc: {} };
@@ -20,12 +40,16 @@ export type CreateSnapshotResponse = {
 };
 export type DeleteAssetRequest = { id: number };
 export type DeleteAssetResponse = { ok: boolean };
+export type DeleteCommentRequest = { id: number };
+export type DeleteCommentResponse = { ok: boolean };
 export type DeleteInviteRequest = { projectId: number; token: string };
 export type DeleteInviteResponse = { ok: boolean };
 export type DeleteProjectRequest = { id: number };
 export type DeleteProjectResponse = { ok: boolean };
 export type DeleteSnapshotRequest = { id: number };
 export type DeleteSnapshotResponse = { ok: boolean };
+export type DuplicateProjectRequest = { id: number };
+export type DuplicateProjectResponse = { id: number; name: string };
 export type GetProjectRequest = { id: number };
 export type GetProjectResponse = {
   id: number;
@@ -57,6 +81,21 @@ export type ListCollaboratorsRequest = { projectId: number };
 export type ListCollaboratorsResponse = {
   owner: { id: number; username: string };
   collaborators: Array<{ user_id: number; username: string; role: string }>;
+};
+export type ListCommentsRequest = { projectId: number };
+export type ListCommentsResponse = {
+  comments: Array<{
+    id: number;
+    page_id: number;
+    node_key?: number;
+    x: number;
+    y: number;
+    author_id: number;
+    author_name: string;
+    body: string;
+    resolved: boolean;
+    created_at: number;
+  }>;
 };
 export type ListInvitesRequest = { projectId: number };
 export type ListInvitesResponse = {
@@ -103,6 +142,8 @@ export type RegisterResponse = {
 };
 export type RemoveCollaboratorRequest = { projectId: number; userId: number };
 export type RemoveCollaboratorResponse = { ok: boolean };
+export type ResolveCommentRequest = { id: number; resolved: boolean };
+export type ResolveCommentResponse = { ok: boolean };
 export type UpdateProjectRequest = { id: number; name?: string; doc?: {} };
 export type UpdateProjectResponse = { ok: boolean };
 export type UploadAssetRequest = { name: string; mime: string; data: string };
@@ -118,6 +159,7 @@ export type ApiTypes = {
     request: AddCollaboratorRequest;
     response: AddCollaboratorResponse;
   };
+  addComment: { request: AddCommentRequest; response: AddCommentResponse };
   createInvite: {
     request: CreateInviteRequest;
     response: CreateInviteResponse;
@@ -131,6 +173,10 @@ export type ApiTypes = {
     response: CreateSnapshotResponse;
   };
   deleteAsset: { request: DeleteAssetRequest; response: DeleteAssetResponse };
+  deleteComment: {
+    request: DeleteCommentRequest;
+    response: DeleteCommentResponse;
+  };
   deleteInvite: {
     request: DeleteInviteRequest;
     response: DeleteInviteResponse;
@@ -143,6 +189,10 @@ export type ApiTypes = {
     request: DeleteSnapshotRequest;
     response: DeleteSnapshotResponse;
   };
+  duplicateProject: {
+    request: DuplicateProjectRequest;
+    response: DuplicateProjectResponse;
+  };
   getProject: { request: GetProjectRequest; response: GetProjectResponse };
   getSnapshot: { request: GetSnapshotRequest; response: GetSnapshotResponse };
   health: { response: HealthResponse };
@@ -150,6 +200,10 @@ export type ApiTypes = {
   listCollaborators: {
     request: ListCollaboratorsRequest;
     response: ListCollaboratorsResponse;
+  };
+  listComments: {
+    request: ListCommentsRequest;
+    response: ListCommentsResponse;
   };
   listInvites: { request: ListInvitesRequest; response: ListInvitesResponse };
   listProjects: { response: ListProjectsResponse };
@@ -166,6 +220,10 @@ export type ApiTypes = {
   removeCollaborator: {
     request: RemoveCollaboratorRequest;
     response: RemoveCollaboratorResponse;
+  };
+  resolveComment: {
+    request: ResolveCommentRequest;
+    response: ResolveCommentResponse;
   };
   updateProject: {
     request: UpdateProjectRequest;

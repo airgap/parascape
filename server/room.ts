@@ -114,6 +114,10 @@ export class ProjectRoom {
     } else if (msg.t === "presence") {
       me.p = { ...me.p, ...(msg.p as Partial<Presence>), id: clientId };
       this.broadcast(clientId, JSON.stringify({ t: "presence", clientId, p: me.p }));
+    } else if (msg.t === "comments") {
+      // review comments live in D1, not the CRDT — just relay a "refetch" ping
+      // (allowed from any member, incl. viewers, since commenting is open to them)
+      this.broadcast(clientId, JSON.stringify({ t: "comments" }));
     } else if (msg.t === "sync") {
       try {
         const diff = Y.encodeStateAsUpdate(this.doc, b64ToBytes(msg.sv as string));

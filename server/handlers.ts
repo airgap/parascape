@@ -29,6 +29,11 @@ import {
   handleListInvites,
   handleDeleteInvite,
   handleRedeemInvite,
+  handleDuplicateProject,
+  handleListComments,
+  handleAddComment,
+  handleResolveComment,
+  handleDeleteComment,
 } from "./generated/handles/index.js";
 import {
   type Env,
@@ -60,6 +65,19 @@ async function roleOf(env: Env, projectId: number, userId: number): Promise<Role
   return c.role === "viewer" ? "viewer" : "editor";
 }
 export { roleOf };
+
+// A comment may be resolved/deleted by its author or the project's owner.
+async function canModerateComment(env: Env, commentId: number, me: number): Promise<boolean> {
+  const c = await env.DB.prepare("SELECT project_id, author_id FROM comments WHERE id = ?")
+    .bind(commentId)
+    .first<{ project_id: number; author_id: number }>();
+  if (!c) return false;
+  if (Number(c.author_id) === me) return true;
+  const proj = await env.DB.prepare("SELECT user_id FROM projects WHERE id = ?")
+    .bind(c.project_id)
+    .first<{ user_id: number }>();
+  return !!proj && Number(proj.user_id) === me;
+}
 
 export function makeHandles(env: Env) {
   return {
@@ -171,6 +189,7 @@ export function makeHandles(env: Env) {
       // Tidy up its shares too (owner-scoped subqueries keep this safe).
       await env.DB.prepare("DELETE FROM collaborators WHERE project_id = ?").bind(req.id).run();
       await env.DB.prepare("DELETE FROM project_invites WHERE project_id = ?").bind(req.id).run();
+      await env.DB.prepare("DELETE FROM comments WHERE project_id = ?").bind(req.id).run();
       await env.DB.prepare("DELETE FROM projects WHERE id = ? AND user_id = ?").bind(req.id, uid(ctx)).run();
       return { ok: true };
     }),
@@ -302,6 +321,106 @@ export function makeHandles(env: Env) {
         .bind(inv.project_id, me, role, now())
         .run();
       return { projectId: Number(inv.project_id), role, name: proj.name };
+    }),
+
+    // ── duplicate project (LYK-954) — fork any project you can read into your own ──
+    duplicateProject: handleDuplicateProject(async (req, ctx) => {
+      const me = uid(ctx);
+      if (!(await roleOf(env, Number(req.id), me))) throw new HttpError(404, "No such project");
+      const row = await env.DB.prepare("SELECT name, doc FROM projects WHERE id = ?")
+        .bind(req.id)
+        .first<{ name: string; doc: string }>();
+      if (!row) throw new HttpError(404, "No such project");
+      const name = `${row.name} (copy)`;
+      const res = await env.DB.prepare("INSERT INTO projects (user_id, name, doc, updated_at) VALUES (?, ?, ?, ?)")
+        .bind(me, name, row.doc, now())
+        .run();
+      return { id: Number(res.meta.last_row_id), name };
+    }),
+
+    // ── review comments (LYK-955) — any member may read/add; author/owner moderate ──
+    listComments: handleListComments(async (req, ctx) => {
+      if (!(await roleOf(env, Number(req.projectId), uid(ctx)))) throw new HttpError(404, "No such project");
+      const rows = await env.DB.prepare(
+        "SELECT id, page_id, node_key, x, y, author_id, author_name, body, resolved, created_at " +
+          "FROM comments WHERE project_id = ? ORDER BY created_at ASC",
+      )
+        .bind(req.projectId)
+        .all<{
+          id: number;
+          page_id: number;
+          node_key: number | null;
+          x: number;
+          y: number;
+          author_id: number;
+          author_name: string;
+          body: string;
+          resolved: number;
+          created_at: number;
+        }>();
+      return {
+        comments: rows.results.map(r => {
+          const c: Record<string, unknown> = {
+            id: r.id,
+            page_id: r.page_id,
+            x: r.x,
+            y: r.y,
+            author_id: r.author_id,
+            author_name: r.author_name,
+            body: r.body,
+            resolved: !!r.resolved,
+            created_at: r.created_at,
+          };
+          if (r.node_key != null) c.node_key = Number(r.node_key);
+          return c;
+        }),
+      };
+    }),
+
+    addComment: handleAddComment(async (req, ctx) => {
+      const me = uid(ctx);
+      if (!(await roleOf(env, Number(req.projectId), me))) throw new HttpError(404, "No such project");
+      const user = await env.DB.prepare("SELECT username FROM users WHERE id = ?")
+        .bind(me)
+        .first<{ username: string }>();
+      const author_name = user?.username ?? "Someone";
+      const nodeKey = req.nodeKey == null ? null : Number(req.nodeKey);
+      const created_at = now();
+      const res = await env.DB.prepare(
+        "INSERT INTO comments (project_id, page_id, node_key, x, y, author_id, author_name, body, resolved, created_at) " +
+          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
+      )
+        .bind(req.projectId, req.pageId, nodeKey, req.x, req.y, me, author_name, String(req.body), created_at)
+        .run();
+      const c: Record<string, unknown> = {
+        id: Number(res.meta.last_row_id),
+        page_id: Number(req.pageId),
+        x: Number(req.x),
+        y: Number(req.y),
+        author_id: me,
+        author_name,
+        body: String(req.body),
+        resolved: false,
+        created_at,
+      };
+      if (nodeKey != null) c.node_key = nodeKey;
+      return c;
+    }),
+
+    resolveComment: handleResolveComment(async (req, ctx) => {
+      if (!(await canModerateComment(env, Number(req.id), uid(ctx))))
+        throw new HttpError(403, "Only the author or owner can resolve this comment");
+      await env.DB.prepare("UPDATE comments SET resolved = ? WHERE id = ?")
+        .bind(req.resolved ? 1 : 0, req.id)
+        .run();
+      return { ok: true };
+    }),
+
+    deleteComment: handleDeleteComment(async (req, ctx) => {
+      if (!(await canModerateComment(env, Number(req.id), uid(ctx))))
+        throw new HttpError(403, "Only the author or owner can delete this comment");
+      await env.DB.prepare("DELETE FROM comments WHERE id = ?").bind(req.id).run();
+      return { ok: true };
     }),
 
     listAssets: handleListAssets(async (_req, ctx) => {

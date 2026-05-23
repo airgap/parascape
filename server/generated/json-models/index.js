@@ -90,3 +90,31 @@ export const project_invites = {
   },
   required: ['project_id', 'role', 'created_by', 'created_at'],
 };
+
+export const comments = {
+  type: 'object',
+  properties: {
+    id: { type: 'bigint', primaryKey: true },
+    project_id: { type: 'bigint' },
+    page_id: { type: 'bigint' },
+    node_key: { type: 'bigint' },
+    x: { type: 'number' },
+    y: { type: 'number' },
+    author_id: { type: 'bigint' },
+    author_name: { type: 'string' },
+    body: { type: 'string' },
+    resolved: { type: 'boolean' },
+    created_at: { type: 'bigint' },
+  },
+  required: [
+    'project_id',
+    'page_id',
+    'x',
+    'y',
+    'author_id',
+    'author_name',
+    'body',
+    'resolved',
+    'created_at',
+  ],
+};

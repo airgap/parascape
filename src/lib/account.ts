@@ -79,6 +79,43 @@ export async function saveProject(id: number, doc: unknown): Promise<void> {
 export async function deleteProject(id: number): Promise<void> {
   await client.deleteProject({ id });
 }
+// fork any readable project into a new one you own (LYK-954)
+export async function duplicateProject(id: number): Promise<{ id: number; name: string }> {
+  return client.duplicateProject({ id });
+}
+
+// --- review comments (LYK-955) ---
+export type Comment = {
+  id: number;
+  page_id: number;
+  node_key?: number;
+  x: number;
+  y: number;
+  author_id: number;
+  author_name: string;
+  body: string;
+  resolved: boolean;
+  created_at: number;
+};
+export async function listComments(projectId: number): Promise<Comment[]> {
+  return (await client.listComments({ projectId })).comments as Comment[];
+}
+export async function addComment(
+  projectId: number,
+  pageId: number,
+  x: number,
+  y: number,
+  body: string,
+  nodeKey?: number,
+): Promise<Comment> {
+  return client.addComment({ projectId, pageId, x, y, body, nodeKey }) as Promise<Comment>;
+}
+export async function resolveComment(id: number, resolved: boolean): Promise<void> {
+  await client.resolveComment({ id, resolved });
+}
+export async function deleteComment(id: number): Promise<void> {
+  await client.deleteComment({ id });
+}
 
 // --- sharing / collaborators (LYK-951) ---
 export type Collaborator = { user_id: number; username: string; role: Role };

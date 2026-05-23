@@ -91,6 +91,26 @@ export const project_invites = rec({
   required: ["project_id", "role", "created_by", "created_at"],
 });
 
+// Review comments / annotations (LYK-955): pinned to a normalized canvas
+// position on a page, optionally associated with a node. Any project member
+// (incl. viewers) may add; author or owner may resolve/delete.
+export const comments = rec({
+  properties: {
+    id: { type: "bigserial", primaryKey: true },
+    project_id: { type: "bigint" },
+    page_id: { type: "bigint" },
+    node_key: { type: "bigint" }, // optional (nullable) — pin associated with a node
+    x: { type: "real" }, // normalized 0..1 canvas position
+    y: { type: "real" },
+    author_id: { type: "bigint" },
+    author_name: { type: "text" },
+    body: { type: "text" },
+    resolved: { type: "boolean" },
+    created_at: { type: "bigint" },
+  },
+  required: ["project_id", "page_id", "x", "y", "author_id", "author_name", "body", "resolved", "created_at"],
+});
+
 // Version history (LYK-943): named, restorable project snapshots.
 export const snapshots = rec({
   properties: {
@@ -125,6 +145,7 @@ export const records = {
   snapshots,
   collaborators,
   project_invites,
+  comments,
 };
 
 /** Table models (records + indexes) → schema.sql via @lyku/lockstep-sqlite. */
@@ -139,5 +160,6 @@ export const config = {
     snapshots: tbl({ schema: snapshots, indexes: ["user_id"] }),
     collaborators: tbl({ schema: collaborators, indexes: ["project_id", "user_id"] }),
     project_invites: tbl({ schema: project_invites, indexes: ["project_id"] }),
+    comments: tbl({ schema: comments, indexes: ["project_id"] }),
   },
 };

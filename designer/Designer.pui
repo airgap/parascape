@@ -486,6 +486,17 @@
 	signal shareBusy = false;
 	signal shareErr = '';
 	signal copiedToken: string | null = null;
+	// duplicate project (LYK-954)
+	signal dupBusy = false;
+	// review comments / annotations (LYK-955)
+	signal comments: account.Comment[] = [];
+	signal commentMode = false;
+	signal showComments = false;
+	signal pendingPin: { x: number; y: number } | null = null;
+	signal commentDraft = '';
+	signal commentBusy = false;
+	derived pageComments = comments.filter((c) => c.page_id === activePageId);
+	derived openCommentCount = pageComments.filter((c) => !c.resolved).length;
 	signal showAuth = false;
 	signal authMode: 'login' | 'register' = 'login';
 	signal authUser = '';
@@ -2075,6 +2086,7 @@
 		applyProject(p.doc);
 		saveState = 'saved';
 		startCollab();
+		loadComments();
 	}
 	async function loadFromServer() {
 		await loadProjectList();
@@ -2119,6 +2131,7 @@
 		const c = createCollab({ projectId, token, selfName: acct.username, selfId: String(acct.id), getLocal: () => currentProject() });
 		c.on('status', (online) => (collabLive = online));
 		c.on('presence', (list) => (collabPeers = list));
+		c.on('comments', () => loadComments());
 		c.on('remote', (raw) => {
 			applyingRemote = true;
 			try {
@@ -2157,6 +2170,81 @@
 		collab = null;
 		collabPeers = [];
 		collabLive = false;
+	}
+
+	// --- duplicate project (LYK-954) ---
+	async function duplicateCurrent() {
+		if (projectId === null || dupBusy) return;
+		dupBusy = true;
+		try {
+			const d = await account.duplicateProject(projectId);
+			await loadProjectList();
+			await openProject(d.id);
+		} catch (e: unknown) {
+			alert((e as { message?: string })?.message ?? 'Could not duplicate this project.');
+		} finally {
+			dupBusy = false;
+		}
+	}
+
+	// --- review comments / annotations (LYK-955) ---
+	async function loadComments() {
+		if (!acct || projectId === null) {
+			comments = [];
+			return;
+		}
+		try {
+			comments = await account.listComments(projectId);
+		} catch {
+			comments = [];
+		}
+	}
+	function toggleCommentMode() {
+		commentMode = !commentMode;
+		if (commentMode) showComments = true;
+		else pendingPin = null;
+	}
+	// click on the comment overlay → start a pin at a normalized canvas position
+	function startPin(e: PointerEvent) {
+		const el = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		if (!el.width || !el.height) return;
+		pendingPin = { x: (e.clientX - el.left) / el.width, y: (e.clientY - el.top) / el.height };
+		commentDraft = '';
+	}
+	async function submitComment() {
+		if (projectId === null || !pendingPin || commentBusy) return;
+		const body = commentDraft.trim();
+		if (!body) return;
+		commentBusy = true;
+		try {
+			const c = await account.addComment(projectId, activePageId, pendingPin.x, pendingPin.y, body);
+			comments = [...comments, c];
+			collab?.notifyComments();
+			pendingPin = null;
+			commentDraft = '';
+		} catch (e: unknown) {
+			alert((e as { message?: string })?.message ?? 'Could not add comment.');
+		} finally {
+			commentBusy = false;
+		}
+	}
+	async function toggleResolve(c: account.Comment) {
+		try {
+			await account.resolveComment(c.id, !c.resolved);
+			comments = comments.map((x) => (x.id === c.id ? { ...x, resolved: !c.resolved } : x));
+			collab?.notifyComments();
+		} catch (e: unknown) {
+			alert((e as { message?: string })?.message ?? 'Could not update comment.');
+		}
+	}
+	async function removeComment(id: number) {
+		try {
+			await account.deleteComment(id);
+			comments = comments.filter((x) => x.id !== id);
+			collab?.notifyComments();
+		} catch (e: unknown) {
+			alert((e as { message?: string })?.message ?? 'Could not delete comment.');
+		}
 	}
 
 	// --- sharing panel (LYK-951) ---
@@ -2535,6 +2623,11 @@
 		{#if acct && myRole === 'owner'}
 			<button onclick={openShare} class:on={showShare} title="Invite people to edit this project">Share</button>
 		{/if}
+		{#if acct && projectId !== null}
+			<button onclick={duplicateCurrent} disabled={dupBusy} title="Make a copy of this project that you own">{dupBusy ? 'Duplicating…' : 'Duplicate'}</button>
+			<button class="cmt-toggle" onclick={toggleCommentMode} class:on={commentMode} title="Comment mode — click the canvas to pin a comment" aria-label="Comment mode">💬</button>
+			<button onclick={() => (showComments = !showComments)} class:on={showComments} title="Show comments">Comments{openCommentCount ? ` ${openCommentCount}` : ''}</button>
+		{/if}
 		{#if collabLive}
 			<span class="collab" title="Live collaboration — others editing this project appear here">
 				<span class="collab-dot"></span>
@@ -2661,6 +2754,31 @@
 				<button class="share-done" onclick={() => (showShare = false)}>Done</button>
 			</div>
 		</div>
+	{/if}
+
+	{#if showComments}
+		<aside class="comments-drawer" aria-label="Comments">
+			<div class="cd-head">
+				<strong>Comments</strong>
+				<span class="muted">{activePage?.name ?? ''}</span>
+				<button class="mini" aria-label="Close comments" onclick={() => (showComments = false)}>✕</button>
+			</div>
+			{#if !pageComments.length}
+				<p class="muted cd-empty">No comments on this page.{acct ? ' Toggle 💬 and click the canvas to add one.' : ''}</p>
+			{/if}
+			<ul class="cd-list">
+				{#each pageComments as c (c.id)}
+					<li class:resolved={c.resolved}>
+						<div class="cd-meta"><span class="cd-author">{c.author_name}</span><span class="cd-time">{relTime(c.created_at)}</span></div>
+						<div class="cd-body">{c.body}</div>
+						<div class="cd-actions">
+							<button class="mini" onclick={() => toggleResolve(c)}>{c.resolved ? 'Reopen' : 'Resolve'}</button>
+							<button class="mini danger" onclick={() => removeComment(c.id)}>Delete</button>
+						</div>
+					</li>
+				{/each}
+			</ul>
+		</aside>
 	{/if}
 
 	{#if showPalette}
@@ -2986,6 +3104,31 @@
 							<span class="rcursor-name" style="background:{p.color}">{p.name}</span>
 						</div>
 					{/each}
+				</div>
+			{/if}
+			<!-- review comments (LYK-955): pin markers + a click-to-place overlay -->
+			{#if pageComments.length}
+				<div class="pin-layer">
+					{#each pageComments as c (c.id)}
+						<button class="pin" class:resolved={c.resolved} style="left:{c.x * 100}%; top:{c.y * 100}%" title="{c.author_name}: {c.body}" onclick={() => (showComments = true)}>💬</button>
+					{/each}
+				</div>
+			{/if}
+			{#if commentMode && !pendingPin}
+				<div class="comment-capture" title="Click to place a comment" onpointerdown={startPin}></div>
+			{/if}
+			{#if pendingPin}
+				<div class="pin-compose" style="left:{pendingPin.x * 100}%; top:{pendingPin.y * 100}%">
+					<textarea
+						bind:value={commentDraft}
+						placeholder="Add a comment…"
+						autofocus
+						onkeydown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitComment(); else if (e.key === 'Escape') pendingPin = null; }}
+					></textarea>
+					<div class="pin-compose-row">
+						<button class="mini" onclick={() => (pendingPin = null)}>Cancel</button>
+						<button class="mini primary" onclick={submitComment} disabled={commentBusy || !commentDraft.trim()}>Comment</button>
+					</div>
 				</div>
 			{/if}
 		</main>
@@ -3595,6 +3738,29 @@
 	.link-url { flex: 1; font-size: 11px; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-sunken); color: var(--fg-muted); }
 	.mini.danger { color: var(--danger, #d33); }
 	.share-done { margin-top: 18px; width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--fg); cursor: pointer; }
+	/* review comments (LYK-955) */
+	.cmt-toggle.on { background: var(--accent); color: #fff; }
+	.comment-capture { position: absolute; inset: 0; z-index: 45; cursor: crosshair; }
+	.pin-layer { position: absolute; inset: 0; pointer-events: none; z-index: 46; }
+	.pin { position: absolute; transform: translate(-50%, -100%); pointer-events: auto; border: none; background: var(--accent); color: #fff; width: 24px; height: 24px; border-radius: 50% 50% 50% 2px; cursor: pointer; font-size: 11px; line-height: 1; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
+	.pin.resolved { background: var(--fg-muted); opacity: 0.6; }
+	.pin-compose { position: absolute; z-index: 50; transform: translate(-50%, 8px); width: 240px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); padding: 8px; }
+	.pin-compose textarea { width: 100%; min-height: 56px; resize: vertical; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--fg); padding: 6px; font: inherit; }
+	.pin-compose-row { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }
+	.pin-compose-row .primary { background: var(--accent); color: #fff; }
+	.comments-drawer { position: fixed; top: 96px; right: 16px; bottom: 16px; width: 300px; z-index: 60; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden; }
+	.cd-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+	.cd-head strong { flex: 0 0 auto; }
+	.cd-head .muted { flex: 1; font-size: 12px; }
+	.cd-empty { padding: 14px; }
+	.cd-list { list-style: none; margin: 0; padding: 8px; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+	.cd-list li { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; }
+	.cd-list li.resolved { opacity: 0.6; }
+	.cd-meta { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }
+	.cd-author { font-weight: 700; color: var(--fg-strong); }
+	.cd-time { color: var(--fg-muted); }
+	.cd-body { font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+	.cd-actions { display: flex; gap: 6px; margin-top: 6px; }
 	.frame { background: var(--bg-elev); margin: 0 auto; box-shadow: var(--shadow-md); border-radius: var(--radius-md); overflow: hidden; transition: max-width 0.15s ease; min-height: 80px; transform: scale(var(--zoom, 1)); transform-origin: top center; }
 	/* dashed outline while a palette item or section is being dragged over */
 	.frame.drop-active { outline: 2px dashed var(--accent); outline-offset: 4px; }
