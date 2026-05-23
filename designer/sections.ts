@@ -59,7 +59,10 @@ export const SECTIONS: SectionDef[] = [
     id: "hero",
     name: "Hero",
     blurb: "Big headline, subtext, and a primary call to action.",
-    imports: ["space-between", "header", "box", "button"],
+    // Centered hero headline uses <Box variant="h1">, not <Header>: Cloudscape's
+    // Header is a left-aligned title-bar (flex row + text-align:start reset) and
+    // won't center. Box is a plain heading block that honours the band's alignment.
+    imports: ["space-between", "box", "button"],
     fields: [
       { key: "title", label: "Headline" },
       { key: "subtitle", label: "Subtext", multiline: true },
@@ -72,7 +75,7 @@ export const SECTIONS: SectionDef[] = [
     },
     style: sty({ padY: 96, bg: "#0f1b2d", fg: "light" }),
     markup: (f, fld) => `<SpaceBetween size="l">
-	<Header variant="h1">${fld("title")}</Header>
+	<Box variant="h1">${fld("title")}</Box>
 	<Box variant="p" fontSize="heading-s">${fld("subtitle")}</Box>
 	<Box><Button variant="primary">${fld("cta")}</Button></Box>
 </SpaceBetween>`,
@@ -173,7 +176,8 @@ export const SECTIONS: SectionDef[] = [
     id: "cta",
     name: "Call to action",
     blurb: "A centered heading with a button.",
-    imports: ["space-between", "header", "button", "box"],
+    // Centered heading → <Box variant="h2"> (see Hero note); Header won't center.
+    imports: ["space-between", "button", "box"],
     fields: [
       { key: "title", label: "Heading" },
       { key: "cta", label: "Button label" },
@@ -181,7 +185,7 @@ export const SECTIONS: SectionDef[] = [
     defaults: { title: "Ready to try it?", cta: "Open the Builder" },
     style: sty({ padY: 72, bg: "#006ce0", fg: "light" }),
     markup: (f, fld) => `<SpaceBetween size="m">
-	<Header variant="h2">${fld("title")}</Header>
+	<Box variant="h2">${fld("title")}</Box>
 	<Box><Button variant="primary">${fld("cta")}</Button></Box>
 </SpaceBetween>`,
   },
