@@ -105,8 +105,11 @@ const projectSummary = {
     id: { type: "number" },
     name: { type: "string" },
     updated_at: { type: "number" },
+    // sharing (LYK-951): am I the owner, and (if shared with me) my role
+    owner: { type: "boolean" },
+    role: { type: "string" }, // 'owner' | 'editor' | 'viewer'
   },
-  required: ["id", "name", "updated_at"],
+  required: ["id", "name", "updated_at", "owner", "role"],
 } as const;
 
 const projectFull = {
@@ -116,8 +119,25 @@ const projectFull = {
     name: { type: "string" },
     doc: { type: "object" },
     updated_at: { type: "number" },
+    role: { type: "string" }, // the caller's role: 'owner' | 'editor' | 'viewer'
   },
-  required: ["id", "name", "doc", "updated_at"],
+  required: ["id", "name", "doc", "updated_at", "role"],
+} as const;
+
+// sharing shapes (LYK-951)
+const collaboratorShape = {
+  type: "object",
+  properties: {
+    user_id: { type: "number" },
+    username: { type: "string" },
+    role: { type: "string" },
+  },
+  required: ["user_id", "username", "role"],
+} as const;
+const inviteShape = {
+  type: "object",
+  properties: { token: { type: "string" }, role: { type: "string" } },
+  required: ["token", "role"],
 } as const;
 
 export const listProjects = m({
@@ -198,6 +218,127 @@ export const deleteProject = m({
   throws: [404],
   title: "Delete project",
   category: "Projects",
+});
+
+// ── sharing / collaborators (LYK-951) ──
+export const addCollaborator = m({
+  method: "POST",
+  path: "/project/collaborators",
+  authenticated: true,
+  request: {
+    type: "object",
+    properties: { projectId: { type: "number" }, username: { type: "string" }, role: { type: "string" } },
+    required: ["projectId", "username", "role"],
+  },
+  response: collaboratorShape,
+  throws: [400, 403, 404],
+  title: "Add collaborator",
+  category: "Sharing",
+});
+
+export const listCollaborators = m({
+  method: "POST",
+  path: "/project/collaborators/list",
+  authenticated: true,
+  request: {
+    type: "object",
+    properties: { projectId: { type: "number" } },
+    required: ["projectId"],
+  },
+  response: {
+    type: "object",
+    properties: {
+      owner: userShape,
+      collaborators: { type: "array", items: collaboratorShape },
+    },
+    required: ["owner", "collaborators"],
+  },
+  throws: [403, 404],
+  title: "List collaborators",
+  category: "Sharing",
+});
+
+export const removeCollaborator = m({
+  method: "POST",
+  path: "/project/collaborators/remove",
+  authenticated: true,
+  request: {
+    type: "object",
+    properties: { projectId: { type: "number" }, userId: { type: "number" } },
+    required: ["projectId", "userId"],
+  },
+  response: ok,
+  throws: [403, 404],
+  title: "Remove collaborator",
+  category: "Sharing",
+});
+
+export const createInvite = m({
+  method: "POST",
+  path: "/project/invites",
+  authenticated: true,
+  request: {
+    type: "object",
+    properties: { projectId: { type: "number" }, role: { type: "string" } },
+    required: ["projectId", "role"],
+  },
+  response: inviteShape,
+  throws: [403, 404],
+  title: "Create share link",
+  category: "Sharing",
+});
+
+export const listInvites = m({
+  method: "POST",
+  path: "/project/invites/list",
+  authenticated: true,
+  request: {
+    type: "object",
+    properties: { projectId: { type: "number" } },
+    required: ["projectId"],
+  },
+  response: {
+    type: "object",
+    properties: { invites: { type: "array", items: inviteShape } },
+    required: ["invites"],
+  },
+  throws: [403, 404],
+  title: "List share links",
+  category: "Sharing",
+});
+
+export const deleteInvite = m({
+  method: "POST",
+  path: "/project/invites/delete",
+  authenticated: true,
+  request: {
+    type: "object",
+    properties: { projectId: { type: "number" }, token: { type: "string" } },
+    required: ["projectId", "token"],
+  },
+  response: ok,
+  throws: [403],
+  title: "Revoke share link",
+  category: "Sharing",
+});
+
+export const redeemInvite = m({
+  method: "POST",
+  path: "/invite/redeem",
+  authenticated: true,
+  request: {
+    type: "object",
+    properties: { token: { type: "string" } },
+    required: ["token"],
+  },
+  response: {
+    type: "object",
+    properties: { projectId: { type: "number" }, role: { type: "string" }, name: { type: "string" } },
+    required: ["projectId", "role", "name"],
+  },
+  throws: [404],
+  title: "Redeem share link",
+  category: "Sharing",
 });
 
 // ── assets ──

@@ -66,3 +66,27 @@ export const snapshots = {
   },
   required: ['user_id', 'label', 'doc', 'created_at'],
 };
+
+export const collaborators = {
+  type: 'object',
+  properties: {
+    id: { type: 'bigint', primaryKey: true },
+    project_id: { type: 'bigint' },
+    user_id: { type: 'bigint' },
+    role: { type: 'string' },
+    created_at: { type: 'bigint' },
+  },
+  required: ['project_id', 'user_id', 'role', 'created_at'],
+};
+
+export const project_invites = {
+  type: 'object',
+  properties: {
+    token: { type: 'string', primaryKey: true },
+    project_id: { type: 'bigint' },
+    role: { type: 'string' },
+    created_by: { type: 'bigint' },
+    created_at: { type: 'bigint' },
+  },
+  required: ['project_id', 'role', 'created_by', 'created_at'],
+};

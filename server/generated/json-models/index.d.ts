@@ -146,3 +146,57 @@ export type InsertableSnapshots = {
   doc?: {};
   created_at?: bigint;
 };
+
+export declare const collaborators: {
+  type: 'object';
+  properties: {
+    id: { type: 'bigint'; primaryKey: true };
+    project_id: { type: 'bigint' };
+    user_id: { type: 'bigint' };
+    role: { type: 'string' };
+    created_at: { type: 'bigint' };
+  };
+  required: ['project_id', 'user_id', 'role', 'created_at'];
+};
+export type Collaborators = {
+  id?: bigint;
+  project_id: bigint;
+  user_id: bigint;
+  role: string;
+  created_at: bigint;
+};
+
+export type InsertableCollaborators = {
+  id?: bigint;
+  project_id?: bigint;
+  user_id?: bigint;
+  role?: string;
+  created_at?: bigint;
+};
+
+export declare const project_invites: {
+  type: 'object';
+  properties: {
+    token: { type: 'string'; primaryKey: true };
+    project_id: { type: 'bigint' };
+    role: { type: 'string' };
+    created_by: { type: 'bigint' };
+    created_at: { type: 'bigint' };
+  };
+  required: ['project_id', 'role', 'created_by', 'created_at'];
+};
+export type Project_invites = {
+  token?: string;
+  project_id: bigint;
+  role: string;
+  created_by: bigint;
+  created_at: bigint;
+};
+
+export type InsertableProject_invites = {
+  token?: string;
+  project_id?: bigint;
+  role?: string;
+  created_by?: bigint;
+  created_at?: bigint;
+};

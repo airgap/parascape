@@ -11,7 +11,7 @@
 //   schema:  wrangler d1 execute parascape --remote --file=schema.sql
 //   deploy:  wrangler deploy
 import { pack, unpack } from "msgpackr";
-import { makeHandles } from "./handlers";
+import { makeHandles, roleOf } from "./handlers";
 import { type Env, HttpError, json, userFromRequest, bearerToken } from "./lib";
 export { ProjectRoom } from "./room";
 
@@ -71,16 +71,16 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
       .bind(token)
       .first<{ id: number; username: string }>();
     if (!user) return fail(401, "Not signed in");
-    const owned = await env.DB.prepare("SELECT id FROM projects WHERE id = ? AND user_id = ?")
-      .bind(projectId, user.id)
-      .first();
-    if (!owned) return fail(403, "No access to this project");
+    // owner OR collaborator may join the room (LYK-951); the role gates editing.
+    const role = await roleOf(env, projectId, user.id);
+    if (!role) return fail(403, "No access to this project");
     const stub = env.ROOM.get(env.ROOM.idFromName(`p:${projectId}`));
     // Pass identity via query (copying req.headers preserves the WS upgrade as-is).
     const fwd = new URL(req.url);
     fwd.searchParams.set("uid", String(user.id));
     fwd.searchParams.set("uname", user.username);
     fwd.searchParams.set("pid", String(projectId));
+    fwd.searchParams.set("role", role);
     return stub.fetch(new Request(fwd.toString(), { method: req.method, headers: req.headers }));
   }
 

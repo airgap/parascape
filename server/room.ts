@@ -20,7 +20,7 @@ type Presence = {
   cursor?: { x: number; y: number };
   page?: number;
 };
-type Client = { ws: WebSocket; p: Presence };
+type Client = { ws: WebSocket; p: Presence; canEdit: boolean };
 
 interface DOStorage {
   get<T = unknown>(key: string): Promise<T | undefined>;
@@ -69,6 +69,7 @@ export class ProjectRoom {
     if (pid) this.projectId = pid;
     const userId = q.get("uid") || "";
     const name = q.get("uname") || "Someone";
+    const canEdit = q.get("role") !== "viewer"; // owner/editor may write; viewer is read-only
     await this.ensureLoaded();
 
     const pair = new WebSocketPair();
@@ -78,7 +79,7 @@ export class ProjectRoom {
 
     const clientId = ++this.seq;
     const who: Presence = { id: clientId, name, color: colorFor(userId || name) };
-    this.clients.set(clientId, { ws: server, p: who });
+    this.clients.set(clientId, { ws: server, p: who, canEdit });
 
     const peers = [...this.clients.values()].filter(c => c.p.id !== clientId).map(c => c.p);
     server.send(JSON.stringify({ t: "welcome", clientId, peers }));
@@ -102,6 +103,7 @@ export class ProjectRoom {
       return;
     }
     if (msg.t === "update") {
+      if (!me.canEdit) return; // viewers are read-only — drop edits even from a hostile client
       try {
         Y.applyUpdate(this.doc, b64ToBytes(msg.update as string), "client");
       } catch {

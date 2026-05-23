@@ -61,3 +61,26 @@ CREATE TABLE IF NOT EXISTS "snapshots" ("id" INTEGER PRIMARY KEY AUTOINCREMENT, 
 ---- Create indexes
 CREATE INDEX IF NOT EXISTS "idx_snapshots_user_id" ON "snapshots" ("user_id");
 
+
+--------------------------------
+------  collaborators  ------
+--------------------------------
+
+---- Create table
+CREATE TABLE IF NOT EXISTS "collaborators" ("id" INTEGER PRIMARY KEY AUTOINCREMENT, "project_id" INTEGER NOT NULL, "user_id" INTEGER NOT NULL, "role" TEXT NOT NULL, "created_at" INTEGER NOT NULL);
+
+---- Create indexes
+CREATE INDEX IF NOT EXISTS "idx_collaborators_project_id" ON "collaborators" ("project_id");
+CREATE INDEX IF NOT EXISTS "idx_collaborators_user_id" ON "collaborators" ("user_id");
+
+
+--------------------------------
+-----  project_invites  -----
+--------------------------------
+
+---- Create table
+CREATE TABLE IF NOT EXISTS "project_invites" ("token" TEXT PRIMARY KEY, "project_id" INTEGER NOT NULL, "role" TEXT NOT NULL, "created_by" INTEGER NOT NULL, "created_at" INTEGER NOT NULL);
+
+---- Create indexes
+CREATE INDEX IF NOT EXISTS "idx_project_invites_project_id" ON "project_invites" ("project_id");
+

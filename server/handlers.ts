@@ -22,6 +22,13 @@ import {
   handleCreateSnapshot,
   handleGetSnapshot,
   handleDeleteSnapshot,
+  handleAddCollaborator,
+  handleListCollaborators,
+  handleRemoveCollaborator,
+  handleCreateInvite,
+  handleListInvites,
+  handleDeleteInvite,
+  handleRedeemInvite,
 } from "./generated/handles/index.js";
 import {
   type Env,
@@ -36,6 +43,23 @@ import {
 } from "./lib";
 
 const uid = (ctx: { requester?: bigint }): number => Number(ctx.requester);
+
+type Role = "owner" | "editor" | "viewer";
+// A user's access to a project: owner (projects.user_id), a collaborator's role,
+// or null (no access). Used by the project read/write handlers + the room gate.
+async function roleOf(env: Env, projectId: number, userId: number): Promise<Role | null> {
+  const proj = await env.DB.prepare("SELECT user_id FROM projects WHERE id = ?")
+    .bind(projectId)
+    .first<{ user_id: number }>();
+  if (!proj) return null;
+  if (Number(proj.user_id) === userId) return "owner";
+  const c = await env.DB.prepare("SELECT role FROM collaborators WHERE project_id = ? AND user_id = ?")
+    .bind(projectId, userId)
+    .first<{ role: string }>();
+  if (!c) return null;
+  return c.role === "viewer" ? "viewer" : "editor";
+}
+export { roleOf };
 
 export function makeHandles(env: Env) {
   return {
@@ -82,12 +106,31 @@ export function makeHandles(env: Env) {
     }),
 
     listProjects: handleListProjects(async (_req, ctx) => {
-      const rows = await env.DB.prepare(
+      const me = uid(ctx);
+      const owned = await env.DB.prepare(
         "SELECT id, name, updated_at FROM projects WHERE user_id = ? ORDER BY updated_at DESC",
       )
-        .bind(uid(ctx))
+        .bind(me)
         .all<{ id: number; name: string; updated_at: number }>();
-      return { projects: rows.results };
+      // projects shared with me (LYK-951)
+      const shared = await env.DB.prepare(
+        "SELECT p.id, p.name, p.updated_at, c.role FROM collaborators c " +
+          "JOIN projects p ON p.id = c.project_id WHERE c.user_id = ? ORDER BY p.updated_at DESC",
+      )
+        .bind(me)
+        .all<{ id: number; name: string; updated_at: number; role: string }>();
+      return {
+        projects: [
+          ...owned.results.map(r => ({ ...r, owner: true, role: "owner" })),
+          ...shared.results.map(r => ({
+            id: r.id,
+            name: r.name,
+            updated_at: r.updated_at,
+            owner: false,
+            role: r.role === "viewer" ? "viewer" : "editor",
+          })),
+        ],
+      };
     }),
 
     createProject: handleCreateProject(async (req, ctx) => {
@@ -99,18 +142,19 @@ export function makeHandles(env: Env) {
     }),
 
     getProject: handleGetProject(async (req, ctx) => {
-      const row = await env.DB.prepare("SELECT id, name, doc, updated_at FROM projects WHERE id = ? AND user_id = ?")
-        .bind(req.id, uid(ctx))
+      const role = await roleOf(env, Number(req.id), uid(ctx));
+      if (!role) throw new HttpError(404, "No such project");
+      const row = await env.DB.prepare("SELECT id, name, doc, updated_at FROM projects WHERE id = ?")
+        .bind(req.id)
         .first<{ id: number; name: string; doc: string; updated_at: number }>();
       if (!row) throw new HttpError(404, "No such project");
-      return { id: row.id, name: row.name, doc: JSON.parse(row.doc), updated_at: row.updated_at };
+      return { id: row.id, name: row.name, doc: JSON.parse(row.doc), updated_at: row.updated_at, role };
     }),
 
     updateProject: handleUpdateProject(async (req, ctx) => {
-      const owned = await env.DB.prepare("SELECT id FROM projects WHERE id = ? AND user_id = ?")
-        .bind(req.id, uid(ctx))
-        .first();
-      if (!owned) throw new HttpError(404, "No such project");
+      const role = await roleOf(env, Number(req.id), uid(ctx));
+      if (!role) throw new HttpError(404, "No such project");
+      if (role === "viewer") throw new HttpError(403, "You have read-only access to this project");
       if (req.name !== undefined)
         await env.DB.prepare("UPDATE projects SET name = ?, updated_at = ? WHERE id = ?")
           .bind(String(req.name), now(), req.id)
@@ -124,8 +168,140 @@ export function makeHandles(env: Env) {
 
     deleteProject: handleDeleteProject(async (req, ctx) => {
       // Scoped by user_id, so deleting a non-owned/absent row is a harmless no-op.
+      // Tidy up its shares too (owner-scoped subqueries keep this safe).
+      await env.DB.prepare("DELETE FROM collaborators WHERE project_id = ?").bind(req.id).run();
+      await env.DB.prepare("DELETE FROM project_invites WHERE project_id = ?").bind(req.id).run();
       await env.DB.prepare("DELETE FROM projects WHERE id = ? AND user_id = ?").bind(req.id, uid(ctx)).run();
       return { ok: true };
+    }),
+
+    // ── sharing / collaborators (LYK-951) ──
+    addCollaborator: handleAddCollaborator(async (req, ctx) => {
+      const me = uid(ctx);
+      const proj = await env.DB.prepare("SELECT user_id FROM projects WHERE id = ?")
+        .bind(req.projectId)
+        .first<{ user_id: number }>();
+      if (!proj) throw new HttpError(404, "No such project");
+      if (Number(proj.user_id) !== me) throw new HttpError(403, "Only the owner can share this project");
+      const role = req.role === "viewer" ? "viewer" : "editor";
+      const target = await env.DB.prepare("SELECT id, username FROM users WHERE username = ?")
+        .bind(String(req.username).trim())
+        .first<{ id: number; username: string }>();
+      if (!target) throw new HttpError(404, "No user with that username");
+      if (Number(target.id) === me) throw new HttpError(400, "You already own this project");
+      const existing = await env.DB.prepare("SELECT id FROM collaborators WHERE project_id = ? AND user_id = ?")
+        .bind(req.projectId, target.id)
+        .first();
+      if (existing) {
+        await env.DB.prepare("UPDATE collaborators SET role = ? WHERE project_id = ? AND user_id = ?")
+          .bind(role, req.projectId, target.id)
+          .run();
+      } else {
+        await env.DB.prepare("INSERT INTO collaborators (project_id, user_id, role, created_at) VALUES (?, ?, ?, ?)")
+          .bind(req.projectId, target.id, role, now())
+          .run();
+      }
+      return { user_id: Number(target.id), username: target.username, role };
+    }),
+
+    listCollaborators: handleListCollaborators(async (req, ctx) => {
+      const role = await roleOf(env, Number(req.projectId), uid(ctx));
+      if (!role) throw new HttpError(404, "No such project");
+      const proj = await env.DB.prepare("SELECT user_id FROM projects WHERE id = ?")
+        .bind(req.projectId)
+        .first<{ user_id: number }>();
+      const owner = await env.DB.prepare("SELECT id, username FROM users WHERE id = ?")
+        .bind(proj!.user_id)
+        .first<SessionUser>();
+      const rows = await env.DB.prepare(
+        "SELECT c.user_id, u.username, c.role FROM collaborators c " +
+          "JOIN users u ON u.id = c.user_id WHERE c.project_id = ? ORDER BY u.username",
+      )
+        .bind(req.projectId)
+        .all<{ user_id: number; username: string; role: string }>();
+      return {
+        owner: { id: Number(owner!.id), username: owner!.username },
+        collaborators: rows.results.map(r => ({ user_id: Number(r.user_id), username: r.username, role: r.role })),
+      };
+    }),
+
+    removeCollaborator: handleRemoveCollaborator(async (req, ctx) => {
+      const me = uid(ctx);
+      const proj = await env.DB.prepare("SELECT user_id FROM projects WHERE id = ?")
+        .bind(req.projectId)
+        .first<{ user_id: number }>();
+      if (!proj) throw new HttpError(404, "No such project");
+      // owner may remove anyone; a collaborator may remove themselves (leave)
+      if (Number(proj.user_id) !== me && Number(req.userId) !== me)
+        throw new HttpError(403, "Only the owner can remove collaborators");
+      await env.DB.prepare("DELETE FROM collaborators WHERE project_id = ? AND user_id = ?")
+        .bind(req.projectId, req.userId)
+        .run();
+      return { ok: true };
+    }),
+
+    createInvite: handleCreateInvite(async (req, ctx) => {
+      const me = uid(ctx);
+      const proj = await env.DB.prepare("SELECT user_id FROM projects WHERE id = ?")
+        .bind(req.projectId)
+        .first<{ user_id: number }>();
+      if (!proj) throw new HttpError(404, "No such project");
+      if (Number(proj.user_id) !== me) throw new HttpError(403, "Only the owner can create share links");
+      const role = req.role === "viewer" ? "viewer" : "editor";
+      const token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "");
+      await env.DB.prepare(
+        "INSERT INTO project_invites (token, project_id, role, created_by, created_at) VALUES (?, ?, ?, ?, ?)",
+      )
+        .bind(token, req.projectId, role, me, now())
+        .run();
+      return { token, role };
+    }),
+
+    listInvites: handleListInvites(async (req, ctx) => {
+      const me = uid(ctx);
+      const proj = await env.DB.prepare("SELECT user_id FROM projects WHERE id = ?")
+        .bind(req.projectId)
+        .first<{ user_id: number }>();
+      if (!proj) throw new HttpError(404, "No such project");
+      if (Number(proj.user_id) !== me) throw new HttpError(403, "Only the owner can view share links");
+      const rows = await env.DB.prepare(
+        "SELECT token, role FROM project_invites WHERE project_id = ? ORDER BY created_at DESC",
+      )
+        .bind(req.projectId)
+        .all<{ token: string; role: string }>();
+      return { invites: rows.results };
+    }),
+
+    deleteInvite: handleDeleteInvite(async (req, ctx) => {
+      // Only revoke links on projects this user owns.
+      await env.DB.prepare(
+        "DELETE FROM project_invites WHERE token = ? AND project_id IN (SELECT id FROM projects WHERE user_id = ?)",
+      )
+        .bind(req.token, uid(ctx))
+        .run();
+      return { ok: true };
+    }),
+
+    redeemInvite: handleRedeemInvite(async (req, ctx) => {
+      const me = uid(ctx);
+      const inv = await env.DB.prepare("SELECT project_id, role FROM project_invites WHERE token = ?")
+        .bind(req.token)
+        .first<{ project_id: number; role: string }>();
+      if (!inv) throw new HttpError(404, "This share link is invalid or was revoked");
+      const proj = await env.DB.prepare("SELECT user_id, name FROM projects WHERE id = ?")
+        .bind(inv.project_id)
+        .first<{ user_id: number; name: string }>();
+      if (!proj) throw new HttpError(404, "That project no longer exists");
+      if (Number(proj.user_id) === me) return { projectId: Number(inv.project_id), role: "owner", name: proj.name };
+      const role = inv.role === "viewer" ? "viewer" : "editor";
+      const existing = await env.DB.prepare("SELECT role FROM collaborators WHERE project_id = ? AND user_id = ?")
+        .bind(inv.project_id, me)
+        .first<{ role: string }>();
+      if (existing) return { projectId: Number(inv.project_id), role: existing.role, name: proj.name };
+      await env.DB.prepare("INSERT INTO collaborators (project_id, user_id, role, created_at) VALUES (?, ?, ?, ?)")
+        .bind(inv.project_id, me, role, now())
+        .run();
+      return { projectId: Number(inv.project_id), role, name: proj.name };
     }),
 
     listAssets: handleListAssets(async (_req, ctx) => {

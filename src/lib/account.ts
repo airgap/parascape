@@ -8,7 +8,8 @@ import { createClient } from "../../server/generated/client/index.js";
 const TOKEN_KEY = "parascape-token";
 
 export type Account = { id: number; username: string };
-export type ProjectMeta = { id: number; name: string; updated_at: number };
+export type Role = "owner" | "editor" | "viewer";
+export type ProjectMeta = { id: number; name: string; updated_at: number; owner: boolean; role: Role };
 
 export const getToken = (): string | null => {
   try {
@@ -58,8 +59,16 @@ export async function me(): Promise<{ user: Account; guest: boolean }> {
 export async function listProjects(): Promise<ProjectMeta[]> {
   return (await client.listProjects()).projects;
 }
-export async function getProject(id: number): Promise<{ id: number; name: string; doc: unknown; updated_at: number }> {
-  return client.getProject({ id });
+export async function getProject(
+  id: number,
+): Promise<{ id: number; name: string; doc: unknown; updated_at: number; role: Role }> {
+  return client.getProject({ id }) as Promise<{
+    id: number;
+    name: string;
+    doc: unknown;
+    updated_at: number;
+    role: Role;
+  }>;
 }
 export async function createProject(name: string, doc: unknown): Promise<number> {
   return (await client.createProject({ name, doc })).id;
@@ -69,6 +78,31 @@ export async function saveProject(id: number, doc: unknown): Promise<void> {
 }
 export async function deleteProject(id: number): Promise<void> {
   await client.deleteProject({ id });
+}
+
+// --- sharing / collaborators (LYK-951) ---
+export type Collaborator = { user_id: number; username: string; role: Role };
+export type ShareInvite = { token: string; role: Role };
+export async function addCollaborator(projectId: number, username: string, role: Role): Promise<Collaborator> {
+  return client.addCollaborator({ projectId, username, role }) as Promise<Collaborator>;
+}
+export async function listCollaborators(projectId: number): Promise<{ owner: Account; collaborators: Collaborator[] }> {
+  return client.listCollaborators({ projectId }) as Promise<{ owner: Account; collaborators: Collaborator[] }>;
+}
+export async function removeCollaborator(projectId: number, userId: number): Promise<void> {
+  await client.removeCollaborator({ projectId, userId });
+}
+export async function createInvite(projectId: number, role: Role): Promise<ShareInvite> {
+  return client.createInvite({ projectId, role }) as Promise<ShareInvite>;
+}
+export async function listInvites(projectId: number): Promise<ShareInvite[]> {
+  return (await client.listInvites({ projectId })).invites as ShareInvite[];
+}
+export async function deleteInvite(projectId: number, token: string): Promise<void> {
+  await client.deleteInvite({ projectId, token });
+}
+export async function redeemInvite(token: string): Promise<{ projectId: number; role: Role; name: string }> {
+  return client.redeemInvite({ token }) as Promise<{ projectId: number; role: Role; name: string }>;
 }
 
 // --- assets (LYK-935) ---

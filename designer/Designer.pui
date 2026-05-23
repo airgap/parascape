@@ -471,6 +471,21 @@
 	let applyingRemote = false;
 	signal collabPeers: Presence[] = [];
 	signal collabLive = false;
+	// Cross-account sharing (LYK-951). myRole is my access to the OPEN project;
+	// viewers are read-only. `projects` backs the project picker (owned + shared).
+	signal myRole: account.Role = 'owner';
+	derived readOnly = myRole === 'viewer';
+	signal projects: account.ProjectMeta[] = [];
+	signal showShare = false;
+	signal collaborators: account.Collaborator[] = [];
+	signal shareOwner: Account | null = null;
+	signal shareInvites: account.ShareInvite[] = [];
+	signal shareUser = '';
+	signal shareRole: account.Role = 'editor';
+	signal shareLinkRole: account.Role = 'editor';
+	signal shareBusy = false;
+	signal shareErr = '';
+	signal copiedToken: string | null = null;
 	signal showAuth = false;
 	signal authMode: 'login' | 'register' = 'login';
 	signal authUser = '';
@@ -2044,19 +2059,51 @@
 		const active = proj.pages.find((p) => p.id === proj.activePageId) ?? proj.pages[0];
 		loadPageDoc(active.doc);
 	}
+	async function loadProjectList() {
+		try {
+			projects = await account.listProjects();
+		} catch {
+			projects = [];
+		}
+	}
+	// Open a specific project (owned or shared), (re)connecting collaboration.
+	async function openProject(id: number) {
+		stopCollab();
+		const p = await account.getProject(id);
+		projectId = p.id;
+		myRole = p.role;
+		applyProject(p.doc);
+		saveState = 'saved';
+		startCollab();
+	}
 	async function loadFromServer() {
-		const ps = await account.listProjects();
-		if (ps.length) {
-			const p = await account.getProject(ps[0].id);
-			projectId = p.id;
-			applyProject(p.doc);
+		await loadProjectList();
+		// joining via a share link? (LYK-951)
+		const joinTok = new URLSearchParams(location.search).get('join');
+		if (joinTok) {
+			try {
+				const r = await account.redeemInvite(joinTok);
+				history.replaceState(null, '', location.pathname); // drop ?join from the URL
+				await loadProjectList();
+				await openProject(r.projectId);
+				loadAssets();
+				loadSnapshots();
+				return;
+			} catch {
+				/* invalid/revoked link → fall through to the normal load */
+			}
+		}
+		if (projects.length) {
+			await openProject(projects[0].id);
 		} else {
 			projectId = await account.createProject('My site', currentProject());
+			myRole = 'owner';
+			await loadProjectList();
+			startCollab();
 		}
 		saveState = 'saved';
 		loadAssets();
 		loadSnapshots();
-		startCollab();
 	}
 
 	// --- real-time collaboration (LYK-944) ---
@@ -2104,6 +2151,95 @@
 		});
 		collab = c;
 		c.connect(); // the room's state seeds us (or we seed it if it's empty)
+	}
+	function stopCollab() {
+		collab?.disconnect();
+		collab = null;
+		collabPeers = [];
+		collabLive = false;
+	}
+
+	// --- sharing panel (LYK-951) ---
+	async function openShare() {
+		showShare = true;
+		shareErr = '';
+		await refreshShare();
+	}
+	async function refreshShare() {
+		if (projectId === null) return;
+		try {
+			const c = await account.listCollaborators(projectId);
+			shareOwner = c.owner;
+			collaborators = c.collaborators;
+			if (myRole === 'owner') shareInvites = await account.listInvites(projectId);
+		} catch (e: unknown) {
+			shareErr = (e as { message?: string })?.message ?? 'Could not load sharing.';
+		}
+	}
+	async function inviteCollaborator() {
+		if (projectId === null || shareBusy) return;
+		const name = shareUser.trim();
+		if (!name) return;
+		shareBusy = true;
+		shareErr = '';
+		try {
+			await account.addCollaborator(projectId, name, shareRole);
+			shareUser = '';
+			await refreshShare();
+		} catch (e: unknown) {
+			shareErr = (e as { message?: string })?.message ?? 'Could not add collaborator.';
+		} finally {
+			shareBusy = false;
+		}
+	}
+	async function setCollaboratorRole(userId: number, role: account.Role, username: string) {
+		if (projectId === null) return;
+		try {
+			await account.addCollaborator(projectId, username, role); // upserts the role
+			await refreshShare();
+		} catch (e: unknown) {
+			shareErr = (e as { message?: string })?.message ?? 'Could not change role.';
+		}
+	}
+	async function removeCollaboratorRow(userId: number) {
+		if (projectId === null) return;
+		try {
+			await account.removeCollaborator(projectId, userId);
+			collaborators = collaborators.filter((c) => c.user_id !== userId);
+		} catch (e: unknown) {
+			shareErr = (e as { message?: string })?.message ?? 'Could not remove collaborator.';
+		}
+	}
+	async function makeShareLink() {
+		if (projectId === null || shareBusy) return;
+		shareBusy = true;
+		try {
+			await account.createInvite(projectId, shareLinkRole);
+			shareInvites = await account.listInvites(projectId);
+		} catch (e: unknown) {
+			shareErr = (e as { message?: string })?.message ?? 'Could not create link.';
+		} finally {
+			shareBusy = false;
+		}
+	}
+	const linkFor = (token: string) => `${location.origin}${location.pathname}?join=${token}`;
+	async function copyShareLink(token: string) {
+		try {
+			await navigator.clipboard.writeText(linkFor(token));
+			copiedToken = token;
+			setTimeout(() => (copiedToken = copiedToken === token ? null : copiedToken), 1500);
+		} catch {
+			shareErr = 'Copy failed — select and copy the link manually.';
+		}
+	}
+	async function revokeShareLink(token: string) {
+		if (projectId === null) return;
+		try {
+			await account.deleteInvite(projectId, token);
+			shareInvites = shareInvites.filter((i) => i.token !== token);
+		} catch (e: unknown) {
+			shareErr = (e as { message?: string })?.message ?? 'Could not revoke link.';
+		}
 	}
 	// canvas-relative cursor (0..1 fractions, so it maps across zoom/viewport).
 	function onCanvasPointerMove(e: PointerEvent) {
@@ -2206,6 +2342,7 @@
 			_d = siteData,
 			_du = dataUrl; // track edits + page changes
 		untrack(() => {
+			if (readOnly) return; // viewers never write (the room + updateProject reject edits anyway)
 			collab?.push(currentProject()); // mirror local edits to peers (idempotent if unchanged)
 			if (!acct || projectId === null) return;
 			const pid = projectId;
@@ -2362,7 +2499,7 @@
 	</details>
 {/snippet}
 
-<div class="designer">
+<div class="designer" class:readonly={readOnly} data-project-id={projectId ?? ''} data-role={myRole}>
 	<SiteNav active="designer" />
 	<header class="dtoolbar">
 		<strong>Site Designer</strong>
@@ -2387,7 +2524,17 @@
 		{#if !codeOverride}<button onclick={() => { showExport = !showExport; selectedKey = null; }} class:on={showExport}>Export</button>{/if}
 		{#if acct || guest}<button onclick={publishPage} disabled={publishBusy} title="Publish this page to the dev preview server">{publishBusy ? 'Publishing…' : 'Publish'}</button>{/if}
 		{#if publishUrl}<a class="pub-link" href={publishUrl} target="_blank" rel="noreferrer">Preview ↗</a>{/if}
-		<button onclick={clearAll}>Clear</button>
+		<button onclick={clearAll} disabled={readOnly}>Clear</button>
+		{#if acct && projects.length > 1}
+			<select class="proj-pick" title="Switch project" onchange={(e) => openProject(Number(e.currentTarget.value))}>
+				{#each projects as pr (pr.id)}
+					<option value={pr.id} selected={pr.id === projectId}>{pr.name}{pr.owner ? '' : ` · ${pr.role}`}</option>
+				{/each}
+			</select>
+		{/if}
+		{#if acct && myRole === 'owner'}
+			<button onclick={openShare} class:on={showShare} title="Invite people to edit this project">Share</button>
+		{/if}
 		{#if collabLive}
 			<span class="collab" title="Live collaboration — others editing this project appear here">
 				<span class="collab-dot"></span>
@@ -2415,6 +2562,12 @@
 		<div class="comp-edit-banner">
 			<span>Editing component <strong>{editingComponent?.name ?? ''}</strong> — changes update every instance.</span>
 			<button class="mini" onclick={exitComponentEdit}>Done</button>
+		</div>
+	{/if}
+
+	{#if readOnly}
+		<div class="comp-edit-banner readonly-banner">
+			<span>You're viewing <strong>{projects.find((p) => p.id === projectId)?.name ?? 'this project'}</strong> as a viewer — changes are read-only.</span>
 		</div>
 	{/if}
 
@@ -2448,6 +2601,65 @@
 					{/if}
 				</p>
 			</form>
+		</div>
+	{/if}
+
+	{#if showShare}
+		<div class="auth-backdrop" role="presentation" onclick={() => (showShare = false)}>
+			<div class="share-modal" role="dialog" aria-modal="true" aria-label="Share project" onclick={(e) => e.stopPropagation()}>
+				<h2>Share this project</h2>
+				<p class="muted">Invite people by username, or send a link. Editors can change the design; viewers can watch live, read-only.</p>
+				{#if shareErr}<p class="auth-err">{shareErr}</p>{/if}
+
+				<h3>People with access</h3>
+				<ul class="collab-list">
+					{#if shareOwner}
+						<li><span class="collab-who">{shareOwner.username}</span><span class="collab-role-tag">Owner</span></li>
+					{/if}
+					{#each collaborators as c (c.user_id)}
+						<li>
+							<span class="collab-who">{c.username}</span>
+							<select class="role-pick" value={c.role} onchange={(e) => setCollaboratorRole(c.user_id, e.currentTarget.value, c.username)}>
+								<option value="editor" selected={c.role === 'editor'}>Editor</option>
+								<option value="viewer" selected={c.role === 'viewer'}>Viewer</option>
+							</select>
+							<button class="mini danger" title="Remove {c.username}" onclick={() => removeCollaboratorRow(c.user_id)}>Remove</button>
+						</li>
+					{/each}
+				</ul>
+
+				<h3>Invite by username</h3>
+				<form class="invite-row" onsubmit={(e) => { e.preventDefault(); inviteCollaborator(); }}>
+					<input class="invite-user" placeholder="username" bind:value={shareUser} autocomplete="off" />
+					<select class="role-pick" bind:value={shareRole}>
+						<option value="editor">Editor</option>
+						<option value="viewer">Viewer</option>
+					</select>
+					<button class="primary mini" type="submit" disabled={shareBusy || !shareUser.trim()}>Invite</button>
+				</form>
+
+				<h3>Share links</h3>
+				<ul class="link-list">
+					{#each shareInvites as inv (inv.token)}
+						<li>
+							<span class="link-role">{inv.role}</span>
+							<input class="link-url" readonly value={linkFor(inv.token)} onclick={(e) => e.currentTarget.select()} />
+							<button class="mini" onclick={() => copyShareLink(inv.token)}>{copiedToken === inv.token ? 'Copied!' : 'Copy'}</button>
+							<button class="mini danger" onclick={() => revokeShareLink(inv.token)}>Revoke</button>
+						</li>
+					{/each}
+					{#if !shareInvites.length}<li class="muted">No share links yet.</li>{/if}
+				</ul>
+				<div class="invite-row">
+					<select class="role-pick" bind:value={shareLinkRole}>
+						<option value="editor">Editor</option>
+						<option value="viewer">Viewer</option>
+					</select>
+					<button class="mini" onclick={makeShareLink} disabled={shareBusy}>Create link</button>
+				</div>
+
+				<button class="share-done" onclick={() => (showShare = false)}>Done</button>
+			</div>
 		</div>
 	{/if}
 
@@ -3364,6 +3576,25 @@
 	.rcursor { position: absolute; transform: translate(-2px, -2px); transition: left 0.06s linear, top 0.06s linear; }
 	.rcursor svg { display: block; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4)); }
 	.rcursor-name { position: absolute; left: 14px; top: 12px; white-space: nowrap; color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 8px; }
+	/* cross-account sharing (LYK-951) */
+	.proj-pick { font-size: 12px; padding: 3px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--fg); max-width: 180px; }
+	.readonly-banner { background: var(--bg-sunken); color: var(--fg-muted); }
+	/* viewers: editing affordances are inert (the server rejects edits regardless) */
+	.designer.readonly .add-rail, .designer.readonly .inspector, .designer.readonly .sec-tools, .designer.readonly .histbtns { pointer-events: none; opacity: 0.45; }
+	.share-modal { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; width: min(560px, 92vw); max-height: 86vh; overflow: auto; box-shadow: var(--shadow-lg); }
+	.share-modal h2 { margin: 0 0 4px; }
+	.share-modal h3 { margin: 18px 0 8px; font-size: 13px; color: var(--fg-strong); }
+	.collab-list, .link-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+	.collab-list li, .link-list li { display: flex; align-items: center; gap: 8px; }
+	.collab-who { flex: 1; font-weight: 600; font-size: 13px; }
+	.collab-role-tag { font-size: 11px; color: var(--fg-muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
+	.role-pick { font-size: 12px; padding: 3px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--fg); }
+	.invite-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+	.invite-user { flex: 1; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--fg); }
+	.link-role { font-size: 11px; text-transform: capitalize; color: var(--fg-muted); width: 48px; }
+	.link-url { flex: 1; font-size: 11px; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-sunken); color: var(--fg-muted); }
+	.mini.danger { color: var(--danger, #d33); }
+	.share-done { margin-top: 18px; width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--fg); cursor: pointer; }
 	.frame { background: var(--bg-elev); margin: 0 auto; box-shadow: var(--shadow-md); border-radius: var(--radius-md); overflow: hidden; transition: max-width 0.15s ease; min-height: 80px; transform: scale(var(--zoom, 1)); transform-origin: top center; }
 	/* dashed outline while a palette item or section is being dragged over */
 	.frame.drop-active { outline: 2px dashed var(--accent); outline-offset: 4px; }

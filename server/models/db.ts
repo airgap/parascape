@@ -64,6 +64,33 @@ export const published = rec({
   required: ["user_id", "doc", "updated_at"],
 });
 
+// Cross-account sharing (LYK-951): who (besides the owner) may open a project,
+// and their role. Uniqueness of (project_id, user_id) is enforced in the handler
+// (lockstep-sqlite indexes are non-unique; an upsert keeps one row per pair).
+export const collaborators = rec({
+  properties: {
+    id: { type: "bigserial", primaryKey: true },
+    project_id: { type: "bigint" },
+    user_id: { type: "bigint" },
+    role: { type: "text" }, // 'editor' | 'viewer'
+    created_at: { type: "bigint" },
+  },
+  required: ["project_id", "user_id", "role", "created_at"],
+});
+
+// Share-link tokens (LYK-951): a reusable link that, when redeemed by a
+// signed-in user, adds them as a collaborator with the link's role.
+export const project_invites = rec({
+  properties: {
+    token: { type: "text", primaryKey: true },
+    project_id: { type: "bigint" },
+    role: { type: "text" }, // 'editor' | 'viewer'
+    created_by: { type: "bigint" },
+    created_at: { type: "bigint" },
+  },
+  required: ["project_id", "role", "created_by", "created_at"],
+});
+
 // Version history (LYK-943): named, restorable project snapshots.
 export const snapshots = rec({
   properties: {
@@ -89,7 +116,16 @@ const assetMeta = {
 // for getSnapshot; json-models keeps the full record (doc is jsonb → object).
 
 /** Bare records → json-models (record types). */
-export const records = { users, sessions, projects, assets: assetMeta, published, snapshots };
+export const records = {
+  users,
+  sessions,
+  projects,
+  assets: assetMeta,
+  published,
+  snapshots,
+  collaborators,
+  project_invites,
+};
 
 /** Table models (records + indexes) → schema.sql via @lyku/lockstep-sqlite. */
 const tbl = <S extends PostgresRecordModel>(m: PostgresTableModel<S>) => m;
@@ -101,5 +137,7 @@ export const config = {
     assets: tbl({ schema: assets, indexes: ["user_id"] }),
     published: tbl({ schema: published }),
     snapshots: tbl({ schema: snapshots, indexes: ["user_id"] }),
+    collaborators: tbl({ schema: collaborators, indexes: ["project_id", "user_id"] }),
+    project_invites: tbl({ schema: project_invites, indexes: ["project_id"] }),
   },
 };

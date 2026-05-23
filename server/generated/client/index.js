@@ -1,6 +1,22 @@
 import { pack, unpack } from 'msgpackr';
 
 const routes = {
+  addCollaborator: {
+    method: 'POST',
+    path: '/project/collaborators',
+    stream: false,
+    hasRequest: true,
+    hasResponse: true,
+    stringResponse: false,
+  },
+  createInvite: {
+    method: 'POST',
+    path: '/project/invites',
+    stream: false,
+    hasRequest: true,
+    hasResponse: true,
+    stringResponse: false,
+  },
   createProject: {
     method: 'POST',
     path: '/projects',
@@ -20,6 +36,14 @@ const routes = {
   deleteAsset: {
     method: 'POST',
     path: '/asset/delete',
+    stream: false,
+    hasRequest: true,
+    hasResponse: true,
+    stringResponse: false,
+  },
+  deleteInvite: {
+    method: 'POST',
+    path: '/project/invites/delete',
     stream: false,
     hasRequest: true,
     hasResponse: true,
@@ -73,6 +97,22 @@ const routes = {
     hasResponse: true,
     stringResponse: false,
   },
+  listCollaborators: {
+    method: 'POST',
+    path: '/project/collaborators/list',
+    stream: false,
+    hasRequest: true,
+    hasResponse: true,
+    stringResponse: false,
+  },
+  listInvites: {
+    method: 'POST',
+    path: '/project/invites/list',
+    stream: false,
+    hasRequest: true,
+    hasResponse: true,
+    stringResponse: false,
+  },
   listProjects: {
     method: 'GET',
     path: '/projects',
@@ -121,9 +161,25 @@ const routes = {
     hasResponse: true,
     stringResponse: false,
   },
+  redeemInvite: {
+    method: 'POST',
+    path: '/invite/redeem',
+    stream: false,
+    hasRequest: true,
+    hasResponse: true,
+    stringResponse: false,
+  },
   register: {
     method: 'POST',
     path: '/register',
+    stream: false,
+    hasRequest: true,
+    hasResponse: true,
+    stringResponse: false,
+  },
+  removeCollaborator: {
+    method: 'POST',
+    path: '/project/collaborators/remove',
     stream: false,
     hasRequest: true,
     hasResponse: true,

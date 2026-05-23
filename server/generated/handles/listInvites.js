@@ -1,5 +1,5 @@
-import { getProject } from '../../models/api';
-export const handleGetProject = (handler) => ({
+import { listInvites } from '../../models/api';
+export const handleListInvites = (handler) => ({
   execute: handler,
   validator: {
     validate: (request) => {
@@ -11,31 +11,31 @@ export const handleGetProject = (handler) => ({
       ) {
         allErrors.push('Value must be an object');
       } else {
-        for (const prop of ['id']) {
+        for (const prop of ['projectId']) {
           if (!(prop in request)) {
             allErrors.push(`Missing required property: ${prop}`);
           }
         }
 
-        if ('id' in request) {
+        if ('projectId' in request) {
           const propErrors = [];
           {
             let allErrors = propErrors;
 
-            let numValue = request['id'];
-            if (typeof request['id'] === 'string') {
-              numValue = Number(request['id']);
+            let numValue = request['projectId'];
+            if (typeof request['projectId'] === 'string') {
+              numValue = Number(request['projectId']);
               if (isNaN(numValue)) {
                 allErrors.push('Value must be a valid number');
               } else {
               }
-            } else if (typeof request['id'] !== 'number') {
+            } else if (typeof request['projectId'] !== 'number') {
               allErrors.push('Value must be a number');
             } else {
             }
           }
           for (const error of propErrors) {
-            allErrors.push(`Property "id": ${error}`);
+            allErrors.push(`Property "projectId": ${error}`);
           }
         }
       }
@@ -50,25 +50,25 @@ export const handleGetProject = (handler) => ({
         throw new Error('Value must be an object');
       }
 
-      for (const prop of ['id']) {
+      for (const prop of ['projectId']) {
         if (!(prop in request)) {
           throw new Error(`Missing required property: ${prop}`);
         }
       }
 
-      if ('id' in request) {
+      if ('projectId' in request) {
         try {
-          let numValue = request['id'];
-          if (typeof request['id'] === 'string') {
-            numValue = Number(request['id']);
+          let numValue = request['projectId'];
+          if (typeof request['projectId'] === 'string') {
+            numValue = Number(request['projectId']);
             if (isNaN(numValue)) {
               throw new Error('Value must be a valid number');
             }
-          } else if (typeof request['id'] !== 'number') {
+          } else if (typeof request['projectId'] !== 'number') {
             throw new Error('Value must be a number');
           }
         } catch (error) {
-          throw new Error(`Property "id": ${error.message}`);
+          throw new Error(`Property "projectId": ${error.message}`);
         }
       }
     },
@@ -81,28 +81,28 @@ export const handleGetProject = (handler) => ({
         return 'Value must be an object';
       }
 
-      for (const prop of ['id']) {
+      for (const prop of ['projectId']) {
         if (!(prop in request)) {
           return `Missing required property: ${prop}`;
         }
       }
 
-      if ('id' in request) {
+      if ('projectId' in request) {
         const propResult = (() => {
-          let numValue = request['id'];
-          if (typeof request['id'] === 'string') {
-            numValue = Number(request['id']);
+          let numValue = request['projectId'];
+          if (typeof request['projectId'] === 'string') {
+            numValue = Number(request['projectId']);
             if (isNaN(numValue)) {
               return 'Value must be a valid number';
             }
-          } else if (typeof request['id'] !== 'number') {
+          } else if (typeof request['projectId'] !== 'number') {
             return 'Value must be a number';
           }
 
           return true;
         })();
         if (propResult !== true) {
-          return `Property "id": ${propResult}`;
+          return `Property "projectId": ${propResult}`;
         }
       }
       return true;
@@ -111,26 +111,29 @@ export const handleGetProject = (handler) => ({
 
   model: {
     method: 'POST',
-    path: '/project/get',
+    path: '/project/invites/list',
     authenticated: true,
     request: {
       type: 'object',
-      properties: { id: { type: 'number' } },
-      required: ['id'],
+      properties: { projectId: { type: 'number' } },
+      required: ['projectId'],
     },
     response: {
       type: 'object',
       properties: {
-        id: { type: 'number' },
-        name: { type: 'string' },
-        doc: { type: 'object' },
-        updated_at: { type: 'number' },
-        role: { type: 'string' },
+        invites: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { token: { type: 'string' }, role: { type: 'string' } },
+            required: ['token', 'role'],
+          },
+        },
       },
-      required: ['id', 'name', 'doc', 'updated_at', 'role'],
+      required: ['invites'],
     },
-    throws: [404],
-    title: 'Get project',
-    category: 'Projects',
+    throws: [403, 404],
+    title: 'List share links',
+    category: 'Sharing',
   },
 });
