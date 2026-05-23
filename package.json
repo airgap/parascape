@@ -71,6 +71,7 @@
     "vitest": "^3"
   },
   "dependencies": {
-    "msgpackr": "^2.0.1"
+    "msgpackr": "^2.0.1",
+    "yjs": "^13.6.30"
   }
 }

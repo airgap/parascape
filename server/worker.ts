@@ -13,6 +13,7 @@
 import { pack, unpack } from "msgpackr";
 import { makeHandles } from "./handlers";
 import { type Env, HttpError, json, userFromRequest, bearerToken } from "./lib";
+export { ProjectRoom } from "./room";
 
 // lockstep's wire format is MessagePack (msgpackr) — it carries bigint, unlike
 // JSON. The generated client sends/accepts application/x-msgpack; the handle
@@ -53,6 +54,34 @@ async function handleApi(req: Request, env: Env, url: URL): Promise<Response> {
       .first<{ doc: string; updated_at: number }>();
     if (!row) return fail(404, "No such published page");
     return json({ slug: pubm[1], doc: JSON.parse(row.doc), updated_at: row.updated_at });
+  }
+
+  // ── real-time collaboration (LYK-944): WebSocket → the project's room ──
+  // The token rides as a query param (browsers can't set WS headers); we
+  // authenticate + check ownership here, then forward the upgrade to the Durable
+  // Object with the editor's identity in headers.
+  const collab = path.match(/^\/collab\/(\d+)$/);
+  if (collab) {
+    if (req.headers.get("upgrade") !== "websocket") return fail(426, "Expected websocket");
+    const projectId = Number(collab[1]);
+    const token = url.searchParams.get("t") || "";
+    const user = await env.DB.prepare(
+      "SELECT u.id, u.username FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?",
+    )
+      .bind(token)
+      .first<{ id: number; username: string }>();
+    if (!user) return fail(401, "Not signed in");
+    const owned = await env.DB.prepare("SELECT id FROM projects WHERE id = ? AND user_id = ?")
+      .bind(projectId, user.id)
+      .first();
+    if (!owned) return fail(403, "No access to this project");
+    const stub = env.ROOM.get(env.ROOM.idFromName(`p:${projectId}`));
+    // Pass identity via query (copying req.headers preserves the WS upgrade as-is).
+    const fwd = new URL(req.url);
+    fwd.searchParams.set("uid", String(user.id));
+    fwd.searchParams.set("uname", user.username);
+    fwd.searchParams.set("pid", String(projectId));
+    return stub.fetch(new Request(fwd.toString(), { method: req.method, headers: req.headers }));
   }
 
   // ── lockstep handles (msgpack) ──

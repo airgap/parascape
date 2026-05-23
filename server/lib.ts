@@ -15,9 +15,18 @@ export interface D1PreparedStatement {
 export interface D1Database {
   prepare(query: string): D1PreparedStatement;
 }
+export interface DurableObjectStub {
+  fetch(req: Request): Promise<Response>;
+}
+export interface DurableObjectNamespace {
+  idFromName(name: string): unknown;
+  get(id: unknown): DurableObjectStub;
+}
 export interface Env {
   DB: D1Database;
   ASSETS: { fetch: (req: Request) => Promise<Response> };
+  // collaboration room (LYK-944) — one Durable Object instance per project
+  ROOM: DurableObjectNamespace;
 }
 
 export const now = (): number => Date.now();
