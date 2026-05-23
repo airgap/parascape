@@ -9,6 +9,9 @@ tests/visual/__screenshots__/
 tests/visual/cloudscape-ref/dist*/
 tests/conformance/.cache/
 
+# wrangler local dev state / build temp (regenerable)
+.wrangler/
+
 # local account/persistence db (LYK-930)
 parascape.sqlite
 parascape.sqlite-*

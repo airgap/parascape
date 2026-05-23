@@ -1,0 +1,148 @@
+export declare const users: {
+  type: 'object';
+  properties: {
+    id: { type: 'bigint'; primaryKey: true };
+    username: { type: 'string'; unique: true; minLength: 3 };
+    password_hash: { type: 'string' };
+    created_at: { type: 'bigint' };
+  };
+  required: ['username', 'password_hash', 'created_at'];
+};
+export type Users = {
+  id?: bigint;
+  username: string;
+  password_hash: string;
+  created_at: bigint;
+};
+
+export type InsertableUsers = {
+  id?: bigint;
+  username?: string;
+  password_hash?: string;
+  created_at?: bigint;
+};
+
+export declare const sessions: {
+  type: 'object';
+  properties: {
+    token: { type: 'string'; primaryKey: true };
+    user_id: { type: 'bigint' };
+    created_at: { type: 'bigint' };
+  };
+  required: ['user_id', 'created_at'];
+};
+export type Sessions = { token?: string; user_id: bigint; created_at: bigint };
+
+export type InsertableSessions = {
+  token?: string;
+  user_id?: bigint;
+  created_at?: bigint;
+};
+
+export declare const projects: {
+  type: 'object';
+  properties: {
+    id: { type: 'bigint'; primaryKey: true };
+    user_id: { type: 'bigint' };
+    name: { type: 'string' };
+    doc: { type: 'object'; properties: {}; required: [] };
+    updated_at: { type: 'bigint' };
+  };
+  required: ['user_id', 'name', 'doc', 'updated_at'];
+};
+export type Projects = {
+  id?: bigint;
+  user_id: bigint;
+  name: string;
+  doc: {};
+  updated_at: bigint;
+};
+
+export type InsertableProjects = {
+  id?: bigint;
+  user_id?: bigint;
+  name?: string;
+  doc?: {};
+  updated_at?: bigint;
+};
+
+export declare const assets: {
+  type: 'object';
+  properties: {
+    id: { type: 'bigint'; primaryKey: true };
+    user_id: { type: 'bigint' };
+    name: { type: 'string' };
+    mime: { type: 'string' };
+    size: { type: 'bigint' };
+    created_at: { type: 'bigint' };
+  };
+  required: ['user_id', 'name', 'mime', 'size', 'created_at'];
+};
+export type Assets = {
+  id?: bigint;
+  user_id: bigint;
+  name: string;
+  mime: string;
+  size: bigint;
+  created_at: bigint;
+};
+
+export type InsertableAssets = {
+  id?: bigint;
+  user_id?: bigint;
+  name?: string;
+  mime?: string;
+  size?: bigint;
+  created_at?: bigint;
+};
+
+export declare const published: {
+  type: 'object';
+  properties: {
+    slug: { type: 'string'; primaryKey: true };
+    user_id: { type: 'bigint' };
+    doc: { type: 'object'; properties: {}; required: [] };
+    updated_at: { type: 'bigint' };
+  };
+  required: ['user_id', 'doc', 'updated_at'];
+};
+export type Published = {
+  slug?: string;
+  user_id: bigint;
+  doc: {};
+  updated_at: bigint;
+};
+
+export type InsertablePublished = {
+  slug?: string;
+  user_id?: bigint;
+  doc?: {};
+  updated_at?: bigint;
+};
+
+export declare const snapshots: {
+  type: 'object';
+  properties: {
+    id: { type: 'bigint'; primaryKey: true };
+    user_id: { type: 'bigint' };
+    label: { type: 'string' };
+    doc: { type: 'object'; properties: {}; required: [] };
+    created_at: { type: 'bigint' };
+  };
+  required: ['user_id', 'label', 'doc', 'created_at'];
+};
+export type Snapshots = {
+  id?: bigint;
+  user_id: bigint;
+  label: string;
+  doc: {};
+  created_at: bigint;
+};
+
+export type InsertableSnapshots = {
+  id?: bigint;
+  user_id?: bigint;
+  label?: string;
+  doc?: {};
+  created_at?: bigint;
+};

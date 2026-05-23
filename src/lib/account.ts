@@ -1,7 +1,9 @@
-// Client for the Parascape account + persistence API (LYK-930). Talks to the
-// account server through the Vite /api proxy (same-origin, no CORS). The session
-// token is kept in localStorage and sent as a Bearer header. When signed out,
-// the Designer falls back to its localStorage-only persistence.
+// Client for the Parascape account + persistence API (LYK-930), backed by the
+// lockstep-generated client (server/generated/client) over MessagePack — the
+// session token rides as a Bearer header via getSessionId. When signed out, the
+// Designer falls back to its localStorage-only persistence. assetUrl points at
+// the public binary route (raw, not a client call).
+import { createClient } from "../../server/generated/client/index.js";
 
 const TOKEN_KEY = "parascape-token";
 
@@ -22,61 +24,51 @@ const setToken = (t: string | null) => {
   } catch {}
 };
 
-type Opts = { method?: string; body?: unknown };
-async function api<T = unknown>(path: string, opts: Opts = {}): Promise<T> {
-  const token = getToken();
-  const res = await fetch("/api" + path, {
-    method: opts.method ?? "GET",
-    headers: {
-      "content-type": "application/json",
-      ...(token ? { authorization: "Bearer " + token } : {}),
-    },
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-  });
-  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!res.ok) throw new Error((data.error as string) || `HTTP ${res.status}`);
-  return data as T;
-}
+const client = createClient({
+  baseUrl: "/api",
+  getSessionId: () => getToken() ?? undefined,
+});
 
 export async function register(username: string, password: string): Promise<Account> {
-  const r = await api<{ token: string; user: Account }>("/register", { method: "POST", body: { username, password } });
+  const r = await client.register({ username, password });
   setToken(r.token);
   return r.user;
 }
 // Always-200 probe: tells the client whether the server is in guest mode without
 // triggering a 401 (so we only call the authed /me when there's a token or guest).
 export async function health(): Promise<{ ok: boolean; guest: boolean }> {
-  const r = await api<{ ok?: boolean; guest?: boolean }>("/health");
+  const r = await client.health();
   return { ok: !!r.ok, guest: !!r.guest };
 }
 export async function login(username: string, password: string): Promise<Account> {
-  const r = await api<{ token: string; user: Account }>("/login", { method: "POST", body: { username, password } });
+  const r = await client.login({ username, password });
   setToken(r.token);
   return r.user;
 }
 export async function logout(): Promise<void> {
   try {
-    await api("/logout", { method: "POST" });
+    await client.logout();
   } catch {}
   setToken(null);
 }
 export async function me(): Promise<{ user: Account; guest: boolean }> {
-  const r = await api<{ user: Account; guest?: boolean }>("/me");
+  const r = await client.me();
   return { user: r.user, guest: !!r.guest };
 }
 export async function listProjects(): Promise<ProjectMeta[]> {
-  const r = await api<{ projects: ProjectMeta[] }>("/projects");
-  return r.projects;
+  return (await client.listProjects()).projects;
 }
 export async function getProject(id: number): Promise<{ id: number; name: string; doc: unknown; updated_at: number }> {
-  return api(`/projects/${id}`);
+  return client.getProject({ id });
 }
 export async function createProject(name: string, doc: unknown): Promise<number> {
-  const r = await api<{ id: number }>("/projects", { method: "POST", body: { name, doc } });
-  return r.id;
+  return (await client.createProject({ name, doc })).id;
 }
 export async function saveProject(id: number, doc: unknown): Promise<void> {
-  await api(`/projects/${id}`, { method: "PUT", body: { doc } });
+  await client.updateProject({ id, doc });
+}
+export async function deleteProject(id: number): Promise<void> {
+  await client.deleteProject({ id });
 }
 
 // --- assets (LYK-935) ---
@@ -92,20 +84,38 @@ const fileToBase64 = (file: File): Promise<string> =>
   });
 export async function uploadAsset(file: File): Promise<AssetMeta> {
   const data = await fileToBase64(file);
-  return api<AssetMeta>("/assets", {
-    method: "POST",
-    body: { name: file.name, mime: file.type || "application/octet-stream", data },
+  const r = await client.uploadAsset({
+    name: file.name,
+    mime: file.type || "application/octet-stream",
+    data,
   });
+  return { ...r, created_at: Date.now() };
 }
 export async function listAssets(): Promise<AssetMeta[]> {
-  const r = await api<{ assets: AssetMeta[] }>("/assets");
-  return r.assets;
+  return (await client.listAssets()).assets;
 }
 export async function deleteAsset(id: number): Promise<void> {
-  await api(`/assets/${id}`, { method: "DELETE" });
+  await client.deleteAsset({ id });
 }
 
 // --- publish / dev preview (LYK-934) ---
 export async function publish(slug: string, doc: unknown): Promise<{ slug: string; url: string }> {
-  return api("/publish", { method: "POST", body: { slug, doc } });
+  return client.publish({ slug, doc });
+}
+
+// --- version history / snapshots (LYK-943) ---
+export type SnapshotMeta = { id: number; label: string; created_at: number };
+export async function listSnapshots(): Promise<SnapshotMeta[]> {
+  return (await client.listSnapshots()).snapshots;
+}
+export async function createSnapshot(label: string, doc: unknown): Promise<SnapshotMeta> {
+  return client.createSnapshot({ label, doc });
+}
+export async function getSnapshot(
+  id: number,
+): Promise<{ id: number; label: string; doc: unknown; created_at: number }> {
+  return client.getSnapshot({ id });
+}
+export async function deleteSnapshot(id: number): Promise<void> {
+  await client.deleteSnapshot({ id });
 }
