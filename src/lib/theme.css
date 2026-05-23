@@ -132,3 +132,21 @@
   --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.6);
 }
+
+/* ── Dark hero "islands" on a LIGHT page ─────────────────────────────────
+   App.pui and the Designer landing wrap CTAs in `.awsui-dark-mode` bands.
+   On a light page Cloudscape recolors the island's button TEXT for dark mode
+   but not the button BACKGROUND, leaving dark text on the light-mode blue
+   (3.71:1) for primary buttons and the dim light-mode blue for link buttons
+   on the dark band (3.47:1) — both below WCAG AA. Restore contrast here.
+   Scoped to the light theme so genuine dark mode (whole page → brighter blue
+   button background, where dark text is correct) is left untouched. The
+   `[class*="awsui_variant-…"]` match ignores the build-specific hash suffix. */
+html[data-theme="light"] .awsui-dark-mode [class*="awsui_variant-primary"] [class*="awsui_content"],
+html[data-theme="light"] .awsui-dark-mode [class*="awsui_variant-primary"] .pf {
+  color: #ffffff;
+}
+html[data-theme="light"] .awsui-dark-mode [class*="awsui_variant-link"] [class*="awsui_content"],
+html[data-theme="light"] .awsui-dark-mode [class*="awsui_variant-link"] .pf {
+  color: #4d9bff; /* the dark-theme --accent, legible on the dark band */
+}
