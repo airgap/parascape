@@ -209,7 +209,7 @@
     "props": [
       {
         "name": "variant",
-        "type": "string",
+        "type": "'h1' | 'h2' | 'h3'",
         "default": "'h2'",
         "optional": true,
         "bindable": false,
@@ -1561,7 +1561,7 @@
       },
       {
         "name": "variant",
-        "type": "string",
+        "type": "'container' | 'embedded' | 'borderless' | 'stacked' | 'full-page'",
         "default": "'container'",
         "optional": true,
         "bindable": false,
@@ -1592,6 +1592,14 @@
         "kind": "value"
       },
       {
+        "name": "onSortingChange",
+        "type": "(e: { sortingColumn: any; isDescending: boolean }) => void",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "event"
+      },
+      {
         "name": "selectedItems",
         "type": "any[]",
         "default": "[]",
@@ -1615,7 +1623,7 @@
     "props": [
       {
         "name": "color",
-        "type": "string",
+        "type": "'blue' | 'grey' | 'green' | 'red' | 'severity-critical' | 'severity-high' | 'severity-medium' | 'severity-low' | 'severity-neutral'",
         "default": "'grey'",
         "optional": true,
         "bindable": false,
@@ -2029,7 +2037,7 @@
     "props": [
       {
         "name": "variant",
-        "type": "string",
+        "type": "'default' | 'stacked'",
         "default": "'default'",
         "optional": true,
         "bindable": false,
@@ -2413,7 +2421,7 @@
     "props": [
       {
         "name": "position",
-        "type": "string",
+        "type": "'top' | 'right' | 'bottom' | 'left'",
         "default": "'right'",
         "optional": true,
         "bindable": false,
@@ -2813,13 +2821,51 @@
       }
     ]
   },
+  "columns": {
+    "id": "columns",
+    "name": "Columns",
+    "props": [
+      {
+        "name": "cols",
+        "type": "number",
+        "default": "3",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "gap",
+        "type": "string",
+        "default": "'24px'",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "align",
+        "type": "'left' | 'center' | 'right'",
+        "default": "'left'",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "children",
+        "type": "import('svelte').Snippet",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "slot"
+      }
+    ]
+  },
   "expandable-section": {
     "id": "expandable-section",
     "name": "ExpandableSection",
     "props": [
       {
         "name": "variant",
-        "type": "string",
+        "type": "'default' | 'footer' | 'container' | 'stacked' | 'navigation'",
         "default": "'default'",
         "optional": true,
         "bindable": false,
@@ -3487,7 +3533,7 @@
       },
       {
         "name": "variant",
-        "type": "string",
+        "type": "'normal' | 'primary' | 'link' | 'icon' | 'inline-icon' | 'inline-link'",
         "default": "'normal'",
         "optional": true,
         "bindable": false,
@@ -3637,7 +3683,7 @@
     "props": [
       {
         "name": "variant",
-        "type": "string",
+        "type": "'div' | 'span' | 'p' | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'small' | 'code' | 'pre' | 'strong' | 'awsui-key-label' | 'awsui-value-large' | 'awsui-gen-ai-label'",
         "default": "'div'",
         "optional": true,
         "bindable": false,
@@ -3669,7 +3715,7 @@
       },
       {
         "name": "display",
-        "type": "string",
+        "type": "'block' | 'inline' | 'inline-block' | 'none'",
         "default": null,
         "optional": true,
         "bindable": false,
@@ -3677,7 +3723,7 @@
       },
       {
         "name": "textAlign",
-        "type": "string",
+        "type": "'left' | 'center' | 'right'",
         "default": null,
         "optional": true,
         "bindable": false,
@@ -3701,7 +3747,7 @@
       },
       {
         "name": "fontWeight",
-        "type": "string",
+        "type": "'light' | 'normal' | 'bold' | 'heavy'",
         "default": null,
         "optional": true,
         "bindable": false,
@@ -4001,7 +4047,7 @@
     "props": [
       {
         "name": "variant",
-        "type": "string",
+        "type": "'primary' | 'secondary' | 'info'",
         "default": null,
         "optional": true,
         "bindable": false,
@@ -4017,7 +4063,7 @@
       },
       {
         "name": "color",
-        "type": "string",
+        "type": "'normal' | 'inverted'",
         "default": "'normal'",
         "optional": true,
         "bindable": false,
@@ -5111,7 +5157,7 @@
     "props": [
       {
         "name": "size",
-        "type": "string",
+        "type": "'normal' | 'big' | 'large'",
         "default": "'normal'",
         "optional": true,
         "bindable": false,
@@ -5119,7 +5165,7 @@
       },
       {
         "name": "variant",
-        "type": "string",
+        "type": "'normal' | 'disabled' | 'inverted'",
         "default": "'normal'",
         "optional": true,
         "bindable": false,
@@ -5597,7 +5643,7 @@
       },
       {
         "name": "type",
-        "type": "string",
+        "type": "'text' | 'number' | 'password' | 'search' | 'email' | 'url' | 'tel'",
         "default": "'text'",
         "optional": true,
         "bindable": false,
@@ -5819,7 +5865,7 @@
     "props": [
       {
         "name": "type",
-        "type": "string",
+        "type": "'success' | 'error' | 'warning' | 'info' | 'in-progress' | 'stopped' | 'loading' | 'pending'",
         "default": "'success'",
         "optional": true,
         "bindable": false,
@@ -6409,7 +6455,7 @@
       },
       {
         "name": "size",
-        "type": "string",
+        "type": "'normal' | 'small' | 'medium' | 'big' | 'large'",
         "default": "'normal'",
         "optional": true,
         "bindable": false,
@@ -6417,7 +6463,7 @@
       },
       {
         "name": "variant",
-        "type": "string",
+        "type": "'normal' | 'disabled' | 'error' | 'success' | 'warning' | 'link' | 'subtle' | 'inverted' | 'gen-ai'",
         "default": "'normal'",
         "optional": true,
         "bindable": false,
@@ -8827,6 +8873,60 @@
         "name": "class",
         "type": "string",
         "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "children",
+        "type": "import('svelte').Snippet",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "slot"
+      }
+    ]
+  },
+  "section": {
+    "id": "section",
+    "name": "Section",
+    "props": [
+      {
+        "name": "bg",
+        "type": "string",
+        "default": "'transparent'",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "padY",
+        "type": "number",
+        "default": "64",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "fg",
+        "type": "'inherit' | 'light'",
+        "default": "'inherit'",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "align",
+        "type": "'left' | 'center' | 'right'",
+        "default": "'center'",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "width",
+        "type": "number",
+        "default": "1040",
         "optional": true,
         "bindable": false,
         "kind": "value"

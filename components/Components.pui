@@ -13,12 +13,11 @@
 	import ContentLayout from '@parascape-design/components/content-layout';
 	import Header from '@parascape-design/components/header';
 	import Box from '@parascape-design/components/box';
-	import Button from '@parascape-design/components/button';
 	import SpaceBetween from '@parascape-design/components/space-between';
 	import HelpPanel from '@parascape-design/components/help-panel';
 	import Container from '@parascape-design/components/container';
 	import Link from '@parascape-design/components/link';
-	import Examples from './Examples.pui';
+	import Configurator from './Configurator.pui';
 	import { catalog, allItems } from './catalog';
 	import manifests from './manifests.json';
 
@@ -26,12 +25,8 @@
 
 	signal navOpen = true;
 	signal toolsOpen = false;
-	signal dark = true;
-
-	effect {
-		document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-		document.body.classList.toggle('awsui-dark-mode', dark);
-	}
+	// Theme is owned by the shared controller (SiteNav → theme.ts); this page
+	// must not run its own — doing so forced dark + duplicated the toggle.
 
 	// Hash routing: `#/<id>` shows that component's detail page; anything
 	// else shows the catalog. The sidebar + cards link to `#/<id>`.
@@ -58,8 +53,6 @@
 		text: g.category,
 		items: g.items.map((it) => ({ type: 'link', text: it.name, href: '#/' + it.id })),
 	}));
-	derived themeLabel = dark ? 'Light' : 'Dark';
-	const toggleTheme = () => (dark = !dark);
 </script>
 
 {#snippet navPanel()}
@@ -75,16 +68,13 @@
 	</HelpPanel>
 {/snippet}
 
-{#snippet headerActions()}
-	<Button onClick={toggleTheme}>{themeLabel} theme</Button>
-{/snippet}
 
 {#snippet detailContent()}
 	<ContentLayout header={<Header variant="h1" description={active.blurb}>{active.name}</Header>}>
 		<SpaceBetween size="l">
 			<Link href="#/">← All components</Link>
-			<Container header={<Header variant="h2">Example</Header>}>
-				<Examples id={active.id} />
+			<Container header={<Header variant="h2" description="Adjust the props and watch the component update live.">Playground</Header>}>
+				<Configurator id={active.id} />
 			</Container>
 			<Container header={<Header variant="h2" counter={`(${activeProps.length})`}>Properties</Header>}>
 				{#if activeProps.length}
@@ -116,7 +106,6 @@
 				variant="h1"
 				description="Cloudscape's component library, ported to Parascape (.pui) — Svelte 5 under the hood, Para reactivity on top."
 				counter={`(${allItems.length})`}
-				actions={headerActions}
 			>Components</Header>
 		}
 	>
@@ -144,6 +133,14 @@
 		<AppLayout
 			bind:navigationOpen={navOpen}
 			bind:toolsOpen={toolsOpen}
+			ariaLabels={{
+				navigation: 'Navigation',
+				navigationToggle: 'Open navigation',
+				navigationClose: 'Close navigation',
+				tools: 'Help panel',
+				toolsToggle: 'Open help panel',
+				toolsClose: 'Close help panel',
+			}}
 			navigation={navPanel}
 			tools={toolsPanel}
 			content={active ? detailContent : catalogContent}

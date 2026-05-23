@@ -13,7 +13,7 @@
 		children = undefined,
 		...rest
 	}: {
-		color?: string;
+		color?: 'blue' | 'grey' | 'green' | 'red' | 'severity-critical' | 'severity-high' | 'severity-medium' | 'severity-low' | 'severity-neutral';
 		style?: Record<string, any>;
 		class?: string;
 		children?: import('svelte').Snippet;

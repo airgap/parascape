@@ -56,7 +56,7 @@
 		class: extraClass = undefined,
 		...rest
 	}: {
-		position?: string;
+		position?: 'top' | 'right' | 'bottom' | 'left';
 		size?: 'small' | 'medium' | 'large';
 		triggerType?: 'text' | 'custom';
 		dismissButton?: boolean;

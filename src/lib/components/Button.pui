@@ -63,7 +63,7 @@
 		iconUrl?: string;
 		iconSvg?: unknown;
 		iconAlt?: string;
-		variant?: string;
+		variant?: 'normal' | 'primary' | 'link' | 'icon' | 'inline-icon' | 'inline-link';
 		loading?: boolean;
 		loadingText?: string;
 		disabled?: boolean;

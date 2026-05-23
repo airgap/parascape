@@ -75,7 +75,7 @@
 		class: extraClass = undefined,
 		...rest
 	}: {
-		variant?: string;
+		variant?: 'default' | 'footer' | 'container' | 'stacked' | 'navigation';
 		headerText?: string;
 		header?: import('svelte').Snippet | string;
 		headingTagOverride?: string;

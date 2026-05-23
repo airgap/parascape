@@ -25,7 +25,7 @@
 		class: extraClass = undefined,
 		...rest
 	}: {
-		type?: string;
+		type?: 'success' | 'error' | 'warning' | 'info' | 'in-progress' | 'stopped' | 'loading' | 'pending';
 		children?: import('svelte').Snippet | string;
 		iconAriaLabel?: string;
 		colorOverride?: 'red' | 'grey' | 'blue' | 'green' | 'yellow';

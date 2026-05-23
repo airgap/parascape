@@ -37,9 +37,9 @@
 		class: extraClass = undefined,
 		...rest
 	}: {
-		variant?: string;
+		variant?: 'primary' | 'secondary' | 'info';
 		fontSize?: string;
-		color?: string;
+		color?: 'normal' | 'inverted';
 		external?: boolean;
 		href?: string;
 		target?: string;

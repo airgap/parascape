@@ -25,15 +25,15 @@
 		children = undefined,
 		...rest
 	}: {
-		variant?: string;
+		variant?: 'div' | 'span' | 'p' | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'small' | 'code' | 'pre' | 'strong' | 'awsui-key-label' | 'awsui-value-large' | 'awsui-gen-ai-label';
 		tagOverride?: string;
 		margin?: string | Record<string, string>;
 		padding?: string | Record<string, string>;
-		display?: string;
-		textAlign?: string;
+		display?: 'block' | 'inline' | 'inline-block' | 'none';
+		textAlign?: 'left' | 'center' | 'right';
 		float?: string;
 		fontSize?: string;
-		fontWeight?: string;
+		fontWeight?: 'normal' | 'light' | 'bold' | 'heavy';
 		color?: string;
 		class?: string;
 		children?: import('svelte').Snippet;

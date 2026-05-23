@@ -59,7 +59,7 @@
 		footer?: import('svelte').Snippet | string;
 		filter?: import('svelte').Snippet;
 		filtering?: boolean;
-		variant?: string;
+		variant?: 'container' | 'embedded' | 'borderless' | 'stacked' | 'full-page';
 		sortingColumn?: any;
 		sortingDescending?: boolean;
 		sortingDisabled?: boolean;

@@ -5,7 +5,7 @@
 	import styles from '../cloudscape/spinner.styles.js';
 	import '../cloudscape/spinner.scoped.css';
 	let { size = 'normal', variant = 'normal', class: extraClass = undefined, ...rest }:
-		{ size?: string; variant?: string; class?: string; [k: string]: unknown } = $props();
+		{ size?: 'normal' | 'big' | 'large'; variant?: 'normal' | 'disabled' | 'inverted'; class?: string; [k: string]: unknown } = $props();
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const s = styles as Record<string, string>;
 	derived className = cx(extraClass, s.root, s[`size-${size}`], s[`variant-${variant}`]);

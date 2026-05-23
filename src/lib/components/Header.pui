@@ -27,7 +27,7 @@
 		children = undefined,
 		...rest
 	}: {
-		variant?: string;
+		variant?: 'h1' | 'h2' | 'h3';
 		headingTagOverride?: string;
 		counter?: import('svelte').Snippet | string;
 		description?: import('svelte').Snippet | string;

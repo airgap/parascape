@@ -62,7 +62,7 @@
 		...rest
 	}: {
 		value?: string;
-		type?: string;
+		type?: 'text' | 'number' | 'password' | 'search' | 'email' | 'url' | 'tel';
 		autoComplete?: boolean | string;
 		disabled?: boolean;
 		readOnly?: boolean;

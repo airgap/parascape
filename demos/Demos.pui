@@ -359,14 +359,14 @@
 		font-size: 12px;
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
-		color: var(--fg-subtle);
+		color: var(--fg-muted);
 		padding-bottom: 6px;
 	}
 	table.totals thead th,
 	table.stats thead th {
 		text-align: right;
 		font-weight: 500;
-		color: var(--fg-subtle);
+		color: var(--fg-muted);
 		padding: 4px 8px;
 		border-bottom: 1px solid var(--border-soft);
 	}
@@ -432,7 +432,7 @@
 		display: grid;
 		place-items: center;
 		font-size: 11px;
-		color: var(--fg-muted);
+		color: var(--fg-body);
 		background: var(--bg-num-pill);
 		border-radius: 4px;
 		height: 28px;

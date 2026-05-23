@@ -32,7 +32,7 @@
 		children = undefined,
 		...rest
 	}: {
-		variant?: string;
+		variant?: 'default' | 'stacked';
 		disableHeaderPaddings?: boolean;
 		disableContentPaddings?: boolean;
 		disableFooterPaddings?: boolean;
