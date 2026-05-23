@@ -344,6 +344,9 @@
 	signal codeMode = false;
 	signal codeDraft = '';
 	signal codeErr: string | null = null;
+	// Code Mode diagnostics + autocomplete (LYK-939)
+	signal codeErrLine: number | null = null;
+	signal codeCaret = 0;
 	// syntax-highlighted editor overlay (textarea over a Shiki <pre>)
 	signal codeScrollY = 0;
 	signal hlReady = false;
@@ -1543,10 +1546,62 @@
 		try {
 			compileParascape(codeDraft); // validate
 			codeErr = null;
+			codeErrLine = null;
 			codeOverride = codeDraft;
 		} catch (e: unknown) {
-			codeErr = (e as { message?: string })?.message ?? String(e);
+			const err = e as { message?: string; start?: { line?: number }; line?: number };
+			codeErr = err?.message ?? String(e);
+			// surface the offending line: the compiler object first, else parse the
+			// message — prefer the `(line:col)` form, then a "line N" mention.
+			const paren = (codeErr ?? '').match(/\((\d+):\d+\)/);
+			const lineKw = (codeErr ?? '').match(/line\s*(\d+)/i);
+			codeErrLine = err?.start?.line ?? err?.line ?? (paren ? Number(paren[1]) : lineKw ? Number(lineKw[1]) : null);
 		}
+	}
+	// --- Code Mode autocomplete (LYK-939) ---
+	// component tags after `<`, or prop names inside an open tag — sourced from the
+	// component list + manifests (editableProps).
+	type Completion = { label: string; insert: string; detail: string };
+	derived codeCompletions {
+		if (!codeMode) return [] as Completion[];
+		const before = codeDraft.slice(0, codeCaret);
+		const tag = before.match(/<([A-Za-z][A-Za-z0-9]*)$/);
+		if (tag) {
+			const partial = tag[1].toLowerCase();
+			return allComponents
+				.filter((c) => c.name.toLowerCase().startsWith(partial))
+				.slice(0, 8)
+				.map((c) => ({ label: c.name, insert: c.name, detail: 'component' }));
+		}
+		const open = before.match(/<([A-Z][A-Za-z0-9]*)(\s[^<>]*)$/);
+		if (open) {
+			const id = allComponents.find((c) => c.name === open[1])?.id;
+			if (id) {
+				const word = ((open[2].match(/([a-zA-Z]*)$/) ?? ['', ''])[1] ?? '').toLowerCase();
+				return editableProps(id)
+					.filter((p) => p.name.toLowerCase().startsWith(word))
+					.slice(0, 8)
+					.map((p) => ({ label: p.name, insert: p.name + '=""', detail: p.type.trim().slice(0, 22) }));
+			}
+		}
+		return [] as Completion[];
+	}
+	function applyCompletion(c: Completion) {
+		const before = codeDraft.slice(0, codeCaret);
+		const tag = before.match(/<([A-Za-z][A-Za-z0-9]*)$/);
+		const partial = tag ? tag[1] : (before.match(/([a-zA-Z]*)$/) ?? ['', ''])[1];
+		const start = codeCaret - partial.length;
+		codeDraft = codeDraft.slice(0, start) + c.insert + codeDraft.slice(codeCaret);
+		const caret = start + c.insert.length;
+		codeCaret = caret;
+		queueMicrotask(() => {
+			const ta = document.querySelector('.code-ta') as HTMLTextAreaElement | null;
+			if (ta) {
+				ta.focus();
+				ta.selectionStart = ta.selectionEnd = caret;
+			}
+		});
+		onCodeInput();
 	}
 	function onCodeInput() {
 		clearTimeout(codeTimer);
@@ -2279,7 +2334,9 @@
 					<textarea
 						class="code-ta"
 						bind:value={codeDraft}
-						oninput={onCodeInput}
+						oninput={(e) => { codeCaret = (e.target as HTMLTextAreaElement).selectionStart; onCodeInput(); }}
+						onkeyup={(e) => (codeCaret = (e.target as HTMLTextAreaElement).selectionStart)}
+						onclick={(e) => (codeCaret = (e.target as HTMLTextAreaElement).selectionStart)}
 						onkeydown={codeTab}
 						onscroll={codeSync}
 						spellcheck="false"
@@ -2287,7 +2344,17 @@
 						autocapitalize="off"
 					></textarea>
 				</div>
-				{#if codeErr}<pre class="code-err">{codeErr}</pre>{/if}
+				{#if codeCompletions.length}
+					<div class="code-complete">
+						<div class="cc-head">Suggestions</div>
+						{#each codeCompletions as c (c.label)}
+							<button class="cc-item" onclick={() => applyCompletion(c)}>
+								<span class="cc-label">{c.label}</span><span class="cc-detail">{c.detail}</span>
+							</button>
+						{/each}
+					</div>
+				{/if}
+				{#if codeErr}<pre class="code-err">{codeErrLine !== null ? `Line ${codeErrLine}: ` : ''}{codeErr}</pre>{/if}
 				<div class="code-actions">
 					<button class="primary" onclick={download}>Download Page.pui</button>
 					{#if codeOverride !== null}<button class="mini danger" onclick={revertToVisual}>Revert to visual</button>{/if}
@@ -2636,6 +2703,12 @@
 	:global([data-theme='dark'] .code-ed-wrap pre.shiki),
 	:global([data-theme='dark'] .code-ed-wrap pre.shiki span) { color: var(--shiki-dark, inherit); }
 	.code-err { margin: 8px 0 0; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--bg-sunken); color: var(--bad); border: 1px solid var(--bad); font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; max-height: 120px; overflow: auto; }
+	/* Code Mode autocomplete (LYK-939) */
+	.code-complete { margin: 8px 0 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-sunken); max-height: 180px; overflow: auto; }
+	.cc-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--fg-muted); padding: 6px 10px 2px; }
+	.cc-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; text-align: left; background: none; border: 0; padding: 5px 10px; cursor: pointer; font: inherit; color: var(--fg-strong); }
+	.cc-item:hover { background: var(--bg-hover); }
+	.cc-detail { font-size: 11px; color: var(--fg-muted); font-family: ui-monospace, monospace; }
 	.code-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
 	.code-actions .primary { width: auto; flex: 1; margin: 0; }
 	/* banner shown on the canvas when an active code override pauses visual editing */
