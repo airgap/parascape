@@ -1881,17 +1881,11 @@
 
 <!-- Layers outline row (recursive over the node tree) -->
 {#snippet layerRow(node: Section, depth: number)}
-	<div
-		class="layer-row"
-		class:sel={node.key === selectedKey}
-		style="padding-left: {8 + depth * 14}px"
-		role="button"
-		tabindex="0"
-		onclick={() => { selectedKey = node.key; showExport = false; }}
-		onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedKey = node.key; showExport = false; } }}
-	>
-		<span class="layer-icon" aria-hidden="true">{isComp(node) ? '◇' : '▭'}</span>
-		<span class="layer-label">{labelOf(node)}</span>
+	<div class="layer-row" class:sel={node.key === selectedKey} style="padding-left: {8 + depth * 14}px">
+		<button class="layer-pick" onclick={() => { selectedKey = node.key; showExport = false; }}>
+			<span class="layer-icon" aria-hidden="true">{isFree(node) ? '▦' : isInstance(node) ? '◈' : isComp(node) ? '◇' : '▭'}</span>
+			<span class="layer-label">{labelOf(node)}</span>
+		</button>
 		<button class="layer-del" title="Delete" aria-label="Delete {labelOf(node)}" onclick={(e) => { e.stopPropagation(); removeSection(node.key); }}>✕</button>
 	</div>
 	{#if node.children}
@@ -2816,11 +2810,12 @@
 	.style-group .bg-row input { flex: 1; min-width: 0; }
 	.style-group .bg-row select { flex: 0 0 auto; max-width: 92px; }
 	.bp-note { font-size: 11px; color: var(--accent); margin: 0 0 8px; }
-	.layer-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 8px; border-radius: var(--radius-sm); cursor: pointer; }
+	.layer-row { display: flex; align-items: center; gap: 4px; padding: 2px 6px 2px 8px; border-radius: var(--radius-sm); }
 	.layer-row:hover { background: var(--bg-hover); }
 	.layer-row.sel { background: var(--bg-accent-subtle); color: var(--accent); }
+	.layer-pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; background: none; border: 0; cursor: pointer; font: inherit; color: inherit; text-align: left; padding: 4px 0; }
 	.layer-icon { font-size: 11px; color: var(--fg-subtle); flex: 0 0 auto; }
-	.layer-label { flex: 1; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.layer-label { flex: 1; min-width: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.layer-del { flex: 0 0 auto; border: 0; background: none; color: var(--fg-subtle); cursor: pointer; font-size: 11px; padding: 0 4px; border-radius: var(--radius-sm); opacity: 0; }
 	.layer-row:hover .layer-del { opacity: 1; }
 	.layer-del:hover { color: var(--bad); }

@@ -108,7 +108,9 @@
   --fg-muted: #9aa5b4;
   --fg-subtle: #6b7686;
   --fg-inverse: #0f1b2d;
-  --fg-on-accent: #ffffff;
+  /* dark text on the lighter dark-mode accent — white fails WCAG AA on #4d9bff
+     (LYK-948); matches Cloudscape's dark-mode buttons */
+  --fg-on-accent: #06121f;
 
   /* Brighten the blue + amber so they keep contrast on the navy. */
   --accent: #4d9bff;

@@ -107,7 +107,7 @@
 		font-weight: 600;
 	}
 	.tagline {
-		color: var(--fg-subtle);
+		color: var(--fg-muted);
 		font-size: 12px;
 		white-space: nowrap;
 	}
