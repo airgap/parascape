@@ -18,6 +18,7 @@
 	import { highlight, highlightSync, ready as shikiReady } from '../demos/pui-shiki';
 	import { SECTIONS, SECTION_BY_ID, sectionSource, markupOf, importLine, esc } from './sections';
 	import type { SectionStyle } from './sections';
+	import { COLOR_TOKENS, RADIUS_TOKENS, SHADOW_TOKENS, SPACE_SCALE } from './theme-tokens';
 	import { TEMPLATES } from './templates';
 	import type { Template } from './templates';
 	import {
@@ -46,6 +47,9 @@
 		comp?: string;
 		props?: Record<string, string | number | boolean>;
 		content?: string;
+		bind?: string; // LYK-945: data path bound to this node's content (e.g. "hero.title")
+		propBind?: Record<string, string>; // LYK-945: prop name → data path
+		source?: string; // LYK-945: for a `repeat` node — the data-array path to loop
 		children?: Section[];
 		ref?: string;
 		// freeform placement (LYK-936): a child of a `free` section is absolutely
@@ -68,6 +72,9 @@
 	// A "free canvas" section: its direct children are placed freely (absolute),
 	// the Builder's freeform mode folded into the Designer (LYK-936).
 	const isFree = (s: Section) => s.type === 'free';
+	// A "repeat" section (LYK-945): renders its children template once per item of
+	// a data-array (`source`); export emits `{#each data.<source> as item}…`.
+	const isRepeat = (s: Section) => s.type === 'repeat';
 
 	// --- tree helpers (operate on the nested node tree by key) ---
 	function findNode(list: Section[], key: number): Section | null {
@@ -161,12 +168,17 @@
 	// project is what persists (localStorage + the server project blob). `nextKey`
 	// is a project-global node-key counter so keys stay unique across pages.
 	type Doc = { sections: Section[]; codeOverride: string | null };
-	type Page = { id: number; name: string; route: string; params: string; doc: Doc };
+	// Per-page SEO / social metadata (LYK-947), emitted into the exported /
+	// published <svelte:head>.
+	type PageMeta = { title?: string; description?: string; image?: string; favicon?: string; lang?: string };
+	type Page = { id: number; name: string; route: string; params: string; doc: Doc; meta?: PageMeta };
 	// A reusable named component (symbol, LYK-949). `def` is a node tree edited in
 	// one place; page nodes reference it by id as instances (`Section.ref`). Lives
 	// on the project (shared across pages), not on any one page.
 	type NamedComponent = { id: string; name: string; def: Section[] };
-	type Project = { pages: Page[]; activePageId: number; nextKey: number; components: NamedComponent[]; nextCompId: number };
+	// `data` (LYK-945): inline data sources — named variables/collections bound
+	// into node content (Section.bind) + emitted as a `const data = …` in export.
+	type Project = { pages: Page[]; activePageId: number; nextKey: number; components: NamedComponent[]; nextCompId: number; data?: Record<string, unknown>; dataUrl?: string };
 	type Saved = { sections: Section[]; nextKey?: number; codeOverride?: string | null };
 	// Early Designer builds shipped an unprofessional footer default ("for-funzies
 	// … Not affiliated with AWS") and later a copyright line. Pages saved then keep
@@ -267,6 +279,7 @@
 				route: p.route ?? '/',
 				params: p.params ?? '',
 				doc: cleanDoc(p.doc),
+					meta: p.meta && typeof p.meta === 'object' ? (p.meta as PageMeta) : undefined,
 			}));
 			if (!pages.length) return starterProject();
 			const activePageId = pages.some((p) => p.id === x.activePageId) ? (x.activePageId as number) : pages[0].id;
@@ -277,6 +290,8 @@
 				nextKey: typeof x.nextKey === 'number' ? x.nextKey : 1,
 				components,
 				nextCompId: typeof x.nextCompId === 'number' ? x.nextCompId : components.length + 1,
+				data: x.data && typeof x.data === 'object' && !Array.isArray(x.data) ? (x.data as Record<string, unknown>) : {},
+				dataUrl: typeof x.dataUrl === 'string' ? x.dataUrl : '',
 			};
 		}
 		if (Array.isArray(x?.sections)) {
@@ -315,6 +330,44 @@
 	let nextPageId = Math.max(0, ...init.pages.map((p) => p.id)) + 1;
 	signal pages: Page[] = init.pages;
 	signal activePageId = init.activePageId;
+	// LYK-945: inline data sources, edited as JSON; bound into node content.
+	signal siteData: Record<string, unknown> = init.data ?? {};
+	signal dataText = JSON.stringify(init.data ?? {}, null, 2);
+	signal dataError: string | null = null;
+	const setDataText = (t: string) => {
+		dataText = t;
+		try {
+			const v = JSON.parse(t || '{}');
+			if (v == null || typeof v !== 'object' || Array.isArray(v)) {
+				dataError = 'Data must be a JSON object';
+				return;
+			}
+			siteData = v as Record<string, unknown>;
+			dataError = null;
+		} catch {
+			dataError = 'Invalid JSON';
+		}
+	};
+	// LYK-945: optional live data source — a CMS/API URL. The Designer fetches it
+	// to preview against real data; the export emits a runtime fetch (see dataDecl).
+	signal dataUrl = init.dataUrl ?? '';
+	signal dataLoading = false;
+	async function loadDataUrl() {
+		const url = dataUrl.trim();
+		if (!url || dataLoading) return;
+		dataLoading = true;
+		dataError = null;
+		try {
+			const d = await (await fetch(url)).json();
+			if (d == null || typeof d !== 'object' || Array.isArray(d)) throw new Error('not an object');
+			siteData = d as Record<string, unknown>;
+			dataText = JSON.stringify(d, null, 2);
+		} catch {
+			dataError = 'Could not fetch / parse that URL';
+		} finally {
+			dataLoading = false;
+		}
+	}
 	const _initActive = init.pages.find((p) => p.id === init.activePageId) ?? init.pages[0];
 	signal sections: Section[] = _initActive.doc.sections;
 
@@ -377,6 +430,9 @@
 	// media library (LYK-935): uploaded images, stored server-side in SQLite.
 	signal assets: AssetMeta[] = [];
 	signal assetErr: string | null = null;
+	// version history (LYK-943): server-backed named snapshots
+	signal snapshots: account.SnapshotMeta[] = [];
+	signal historyBusy = false;
 	// publish / dev preview (LYK-934)
 	signal publishBusy = false;
 	signal publishUrl: string | null = null;
@@ -416,7 +472,7 @@
 
 	const defOf = (s: Section) => SECTION_BY_ID[s.type];
 	const labelOf = (s: Section) =>
-		isInstance(s) ? compById(s.ref)?.name ?? 'Component' : isFree(s) ? 'Free canvas' : isComp(s) ? displayName(s.comp!) : defOf(s)?.name ?? s.type;
+		isInstance(s) ? compById(s.ref)?.name ?? 'Component' : isFree(s) ? 'Free canvas' : isRepeat(s) ? 'Repeater' : isComp(s) ? displayName(s.comp!) : defOf(s)?.name ?? s.type;
 	// true when this section, or any node nested inside it, is the selection.
 	const inSel = (s: Section) => selectedKey !== null && !!findNode([s], selectedKey);
 	derived selected = selectedKey === null ? null : findNode(sections, selectedKey);
@@ -443,6 +499,8 @@
 			nextKey,
 			components: clone(componentsNow()),
 			nextCompId,
+			data: siteData,
+			dataUrl: dataUrl || undefined,
 		};
 	}
 	effect {
@@ -452,7 +510,9 @@
 			_p = pages,
 			_a = activePageId,
 			_cm = components,
-			_e = editingComponentId; // track
+			_e = editingComponentId,
+			_d = siteData,
+			_du = dataUrl; // track
 		try {
 			localStorage.setItem(KEY, JSON.stringify(currentProject()));
 		} catch {}
@@ -551,6 +611,8 @@
 	const renamePage = (id: number, name: string) => (pages = pages.map((p) => (p.id === id ? { ...p, name } : p)));
 	const setRoute = (id: number, route: string) => (pages = pages.map((p) => (p.id === id ? { ...p, route } : p)));
 	const setParams = (id: number, params: string) => (pages = pages.map((p) => (p.id === id ? { ...p, params } : p)));
+	const setMeta = (id: number, patch: Partial<PageMeta>) =>
+		(pages = pages.map((p) => (p.id === id ? { ...p, meta: { ...p.meta, ...patch } } : p)));
 
 	// --- named components / symbols (LYK-949) ---
 	// PascalCase identifier from a display name (for the exported tag / module).
@@ -807,6 +869,7 @@
 		];
 		for (const a of actions) all.push({ key: 'a:' + a.label, label: a.label, group: 'Action', run: a.run });
 		all.push({ key: 's:free', label: 'Add Free canvas', group: 'Section', run: addFreeSection });
+		all.push({ key: 's:repeat', label: 'Add Repeater (data list)', group: 'Section', run: addRepeat });
 		for (const def of SECTIONS) all.push({ key: 's:' + def.id, label: 'Add section: ' + def.name, group: 'Section', run: () => addSection(def.id) });
 		for (const t of TEMPLATES) all.push({ key: 't:' + t.id, label: 'Template: ' + t.name, group: 'Template', run: () => insertTemplate(t) });
 		for (const c of allComponents) all.push({ key: 'c:' + c.id, label: 'Add component: ' + c.name, group: 'Component', run: () => addComponent(c.id) });
@@ -957,11 +1020,41 @@
 	function addComponent(id: string) {
 		insertSection(makeComponent(id), sections.length);
 	}
+	// LYK-945: a repeater node — a container whose children are the row template.
+	function makeRepeat(): Section {
+		return {
+			key: nextKey++,
+			type: 'repeat',
+			source: '',
+			values: {},
+			children: [],
+			style: { bg: 'transparent', fg: 'inherit', padY: 24, align: 'left', width: 1040 },
+		};
+	}
+	function addRepeat() {
+		insertSection(makeRepeat(), sections.length);
+	}
+	function setSource(key: number, source: string) {
+		sections = mapTree(sections, key, (s) => ({ ...s, source }));
+	}
 	function setProp(key: number, name: string, value: string | number | boolean) {
 		sections = mapTree(sections, key, (s) => ({ ...s, props: { ...(s.props ?? {}), [name]: value } }));
 	}
 	function setContent(key: number, value: string) {
 		sections = mapTree(sections, key, (s) => ({ ...s, content: value }));
+	}
+	// LYK-945: bind/unbind a node's content to a data path.
+	function setBind(key: number, path: string) {
+		sections = mapTree(sections, key, (s) => ({ ...s, bind: path || undefined }));
+	}
+	// LYK-945: bind/unbind a single prop to a data path.
+	function setPropBind(key: number, prop: string, path: string) {
+		sections = mapTree(sections, key, (s) => {
+			const pb = { ...(s.propBind ?? {}) };
+			if (path) pb[prop] = path;
+			else delete pb[prop];
+			return { ...s, propBind: Object.keys(pb).length ? pb : undefined };
+		});
 	}
 	function removeSection(key: number) {
 		sections = removeTree(sections, key);
@@ -1223,20 +1316,8 @@
 		'box-shadow',
 		'gap',
 	];
-	// theme tokens (mirror src/lib/theme.css) offered in the value/colour pickers
-	const THEME_COLOR_TOKENS = [
-		'var(--fg-strong)',
-		'var(--fg-body)',
-		'var(--fg-muted)',
-		'var(--accent)',
-		'var(--bg-page)',
-		'var(--bg-elev)',
-		'var(--bg-sunken)',
-		'var(--border)',
-		'var(--good)',
-		'var(--bad)',
-	];
-	const THEME_SPACE_TOKENS = ['4px', '8px', '12px', '16px', '24px', '32px', '48px'];
+	// Theme tokens for the value/colour pickers are read from src/lib/theme.css
+	// (LYK-946, ./theme-tokens) so they stay in sync with the canonical palette.
 	// responsive cascade (LYK-932): the device selector edits one breakpoint;
 	// narrower breakpoints override wider ones. Preview merges the active cascade
 	// inline; export keeps base inline and emits the overrides as media queries.
@@ -1270,7 +1351,88 @@
 		});
 	}
 
-	function nodeBody(n: Section, editable: boolean): string {
+	// LYK-945: read a dotted path out of the inline data ("hero.title", "items.0.name").
+	const resolvePath = (obj: unknown, path: string): unknown =>
+		path.split('.').reduce<unknown>((o, k) => (o == null ? undefined : (o as Record<string, unknown>)[k]), obj);
+	// Flatten the data object to selectable leaf paths (strings/numbers/booleans) for the binding picker.
+	function dataPaths(obj: unknown, prefix = ''): string[] {
+		if (obj == null || typeof obj !== 'object') return prefix ? [prefix] : [];
+		const out: string[] = [];
+		for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+			const p = prefix ? `${prefix}.${k}` : k;
+			if (v != null && typeof v === 'object') out.push(...dataPaths(v, p));
+			else out.push(p);
+		}
+		return out;
+	}
+	derived dataPathOptions = dataPaths(siteData);
+	// LYK-945: if `key` sits inside a repeater, the field names of that repeater's
+	// array items (so the binding picker offers item fields, bound against `item`).
+	function repeatAncestorFields(key: number): string[] | null {
+		let rep: Section | null = null;
+		const walk = (list: Section[], cur: Section | null): boolean => {
+			for (const n of list) {
+				const c = isRepeat(n) ? n : cur;
+				if (n.key === key) {
+					rep = c;
+					return true;
+				}
+				if (n.children && walk(n.children, c)) return true;
+			}
+			return false;
+		};
+		walk(sections, null);
+		if (!rep) return null;
+		const arr = resolvePath(siteData, (rep as Section).source ?? '');
+		const item = Array.isArray(arr) && arr.length ? arr[0] : null;
+		return item && typeof item === 'object' ? Object.keys(item as Record<string, unknown>) : [];
+	}
+	// binding options for the currently-selected node: item fields when inside a
+	// repeater, else the global data paths.
+	derived bindOptions {
+		if (selected) {
+			const f = repeatAncestorFields(selected.key);
+			if (f) return f;
+		}
+		return dataPathOptions;
+	}
+	// data paths whose value is an array — for the repeater "Repeat over" picker.
+	derived arrayPathOptions {
+		const out: string[] = [];
+		const walk = (obj: unknown, prefix: string) => {
+			if (obj == null || typeof obj !== 'object') return;
+			for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+				const p = prefix ? `${prefix}.${k}` : k;
+				if (Array.isArray(v)) out.push(p);
+				else if (v && typeof v === 'object') walk(v, p);
+			}
+		};
+		walk(siteData, '');
+		return out;
+	}
+	function nodeBody(n: Section, editable: boolean, scope?: { item: unknown; ref: string }): string {
+		// LYK-945: repeater — render the children template once per array item.
+		// `scope` carries the current item (preview value resolution) + its var name
+		// (export reference); nested repeaters shadow `item`.
+		if (isRepeat(n)) {
+			const src = n.source ?? '';
+			const arrRaw = src ? resolvePath(scope ? scope.item : siteData, src) : undefined;
+			const arr = Array.isArray(arrRaw) ? arrRaw : [];
+			const tmpl = n.children ?? [];
+			if (editable) {
+				const childScope = { item: arr.length ? arr[0] : {}, ref: 'item' };
+				const inner = tmpl.length
+					? tmpl.map((c) => nodeBody(c, true, childScope)).join('\n')
+					: '<span class="pdrop-empty">Drop a template component here</span>';
+				const badge = `<div class="repeat-badge">↻ repeats × ${arr.length}${src ? ` over ${esc(src)}` : ' — set “Repeat over”'}</div>`;
+				return `<div data-pk="${n.key}" class="repeat-zone"><div class="pdrop" data-drop="${n.key}">${inner}</div>${badge}</div>`;
+			}
+			if (!src || !tmpl.length) return `<!-- repeater: ${src ? 'empty template' : 'no source'} -->`;
+			const childScope = { item: undefined, ref: 'item' };
+			const inner = tmpl.map((c) => nodeBody(c, false, childScope)).join('\n');
+			const base = scope ? `${scope.ref}.${src}` : `data.${src}`;
+			return `{#each ${base} as item}\n${inner}\n{/each}`;
+		}
 		if (isInstance(n)) {
 			const c = compById(n.ref);
 			if (!c) {
@@ -1296,7 +1458,7 @@
 				.map((c) => {
 					const pos =
 						`position:absolute;left:${c.x ?? 24}px;top:${c.y ?? 24}px;` + (c.w ? `width:${c.w}px;` : '') + (c.h ? `height:${c.h}px;` : '');
-					return `<div style="${pos}">\n${nodeBody(c, false)}\n</div>`;
+					return `<div style="${pos}">\n${nodeBody(c, false, scope)}\n</div>`;
 				})
 				.join('\n');
 			const minH = Math.max(240, ...(n.children ?? []).map((c) => (c.y ?? 0) + (c.h ?? 80)));
@@ -1312,14 +1474,37 @@
 			const cls = !editable && hasResponsive(n) ? ` class="pn-${n.key}"` : '';
 			return sty || cls ? `<div${cls} style="${sty}">${html}</div>` : html;
 		}
-		const open = componentOpen(n.comp!, n.props ?? {});
+		// LYK-945: props bound to data. Build the open tag from the unbound props,
+		// then append each bound prop as an expression — preview bakes the resolved
+		// value, export references `data`/`item`.
+		const pBinds = n.propBind ?? {};
+		const baseProps = { ...(n.props ?? {}) };
+		for (const k of Object.keys(pBinds)) if (pBinds[k]) delete baseProps[k];
+		let open = componentOpen(n.comp!, baseProps);
+		for (const [k, path] of Object.entries(pBinds)) {
+			if (!path) continue;
+			open += editable
+				? ` ${k}={${JSON.stringify(resolvePath(scope ? scope.item : siteData, path) ?? null)}}`
+				: ` ${k}={${scope ? scope.ref : 'data'}.${path}}`;
+		}
 		let tag: string;
 		if (!takesContent(n.comp!)) {
 			tag = `${open} />`;
 		} else {
 			let inner: string;
 			if (n.children && n.children.length) {
-				inner = n.children.map((c) => nodeBody(c, editable)).join('\n');
+				inner = n.children.map((c) => nodeBody(c, editable, scope)).join('\n');
+			} else if (n.bind) {
+				// LYK-945: content bound to data. Preview shows the resolved value
+				// (not editable); export emits a Svelte expression. Inside a repeater
+				// the binding resolves against the current `item` (scope), else `data`.
+				const refBase = scope ? scope.ref : 'data';
+				if (editable) {
+					const v = resolvePath(scope ? scope.item : siteData, n.bind);
+					inner = `<span class="pf-bound" title="Bound to ${esc(refBase)}.${esc(n.bind)}">${esc(v == null ? `{{${n.bind}}}` : String(v))}</span>`;
+				} else {
+					inner = `{${refBase}.${n.bind}}`;
+				}
 			} else if (n.content) {
 				inner = editable ? `<span class="pf" data-pf="content">${n.content}</span>` : n.content;
 			} else {
@@ -1344,6 +1529,7 @@
 			return c ? c.def.flatMap((d) => nodeImports(d, false)) : [];
 		}
 		if (isFree(n)) return (n.children ?? []).flatMap((c) => nodeImports(c, forExport));
+		if (isRepeat(n)) return (n.children ?? []).flatMap((c) => nodeImports(c, forExport));
 		if (!isComp(n)) return defOf(n)?.imports ?? [];
 		const ids = [n.comp!];
 		if (n.children) for (const c of n.children) ids.push(...nodeImports(c, forExport));
@@ -1458,7 +1644,65 @@
 		const params = p.params.trim();
 		return `<!-- route: ${p.route}${params ? `  params: ${params}` : ''} -->\n`;
 	}
-	derived exportHead = sections.length ? `${routeComment}<script lang="pts">\n${pageImports}\n<\/script>\n\n<div class="page">` : '';
+	// Per-page SEO / social tags (LYK-947) → exported/published <svelte:head>.
+	// `esc` doesn't cover double quotes, so attribute values get extra escaping.
+	derived metaHead {
+		const m = activePage?.meta ?? {};
+		const attr = (s: string) => esc(s).split('"').join('&quot;');
+		// Page-name title fallback only when the page sets SOME explicit SEO, so
+		// pages without metadata keep the default (head-less) export. The trailing
+		// `if (!tags.length) return ''` then naturally emits nothing.
+		const explicit = m.title || m.description || m.image || m.favicon || m.lang;
+		const title = (m.title || (explicit ? activePage?.name : '') || '').trim();
+		const tags: string[] = [];
+		if (title) {
+			tags.push(`<title>${esc(title)}</title>`);
+			tags.push(`<meta property="og:title" content="${attr(title)}" />`);
+			tags.push(`<meta name="twitter:title" content="${attr(title)}" />`);
+		}
+		const desc = (m.description ?? '').trim();
+		if (desc) {
+			tags.push(`<meta name="description" content="${attr(desc)}" />`);
+			tags.push(`<meta property="og:description" content="${attr(desc)}" />`);
+			tags.push(`<meta name="twitter:description" content="${attr(desc)}" />`);
+		}
+		const img = (m.image ?? '').trim();
+		if (img) {
+			tags.push(`<meta property="og:image" content="${attr(img)}" />`);
+			tags.push(`<meta name="twitter:image" content="${attr(img)}" />`);
+			tags.push(`<meta name="twitter:card" content="summary_large_image" />`);
+		}
+		const fav = (m.favicon ?? '').trim();
+		if (fav) tags.push(`<link rel="icon" href="${attr(fav)}" />`);
+		const lang = (m.lang ?? '').trim();
+		if (lang) tags.push(`<meta property="og:locale" content="${attr(lang)}" />`);
+		if (!tags.length) return '';
+		tags.push(`<meta property="og:type" content="website" />`);
+		return `<svelte:head>\n\t${tags.join('\n\t')}\n<\/svelte:head>\n\n`;
+	}
+	// LYK-945: when any node binds to data, declare `const data = …` in the
+	// exported page so the `{data.path}` expressions resolve.
+	derived hasBinding {
+		const walk = (list: Section[]): boolean =>
+			list.some(
+				(n) =>
+					!!n.bind ||
+					(n.propBind && Object.keys(n.propBind).length > 0) ||
+					(isRepeat(n) && !!n.source) ||
+					(n.children ? walk(n.children) : false),
+			);
+		return walk(sections);
+	}
+	// `const data = …` for inline sources; a live `signal data` + fetch effect when
+	// a CMS/API URL is configured (LYK-945) so the published page loads it at runtime.
+	derived dataDecl {
+		if (!hasBinding) return '';
+		const url = dataUrl.trim();
+		if (url)
+			return `\tsignal data = {};\n\teffect { fetch(${JSON.stringify(url)}).then((r) => r.json()).then((d) => (data = d)).catch(() => {}); }\n`;
+		return `\tconst data = ${JSON.stringify(siteData)};\n`;
+	}
+	derived exportHead = sections.length ? `${routeComment}${metaHead}<script lang="pts">\n${pageImports}\n${dataDecl}<\/script>\n\n<div class="page">` : '';
 	// Media-query rules from per-node responsive overrides (LYK-932): each node
 	// with cssMd/cssSm exports a `.pn-<key>` class targeted at ≤768 / ≤480.
 	derived responsiveCss {
@@ -1780,6 +2024,9 @@
 		nextPageId = Math.max(nextPageId, ...proj.pages.map((p) => p.id)) + 1;
 		components = proj.components;
 		nextCompId = Math.max(nextCompId, proj.nextCompId);
+		siteData = proj.data ?? {};
+		dataText = JSON.stringify(siteData, null, 2);
+		dataUrl = proj.dataUrl ?? '';
 		editingComponentId = null;
 		pageSectionsStash = null;
 		const active = proj.pages.find((p) => p.id === proj.activePageId) ?? proj.pages[0];
@@ -1796,7 +2043,64 @@
 		}
 		saveState = 'saved';
 		loadAssets();
+		loadSnapshots();
 	}
+
+	// --- version history / snapshots (LYK-943) ---
+	async function loadSnapshots() {
+		try {
+			snapshots = await account.listSnapshots();
+		} catch {
+			snapshots = [];
+		}
+	}
+	async function saveSnapshot() {
+		if (historyBusy) return;
+		const label = (prompt('Name this version', `Snapshot ${new Date().toLocaleString()}`) ?? '').trim();
+		if (!label) return;
+		historyBusy = true;
+		try {
+			await account.createSnapshot(label, currentProject());
+			await loadSnapshots();
+		} catch (e: unknown) {
+			alert((e as { message?: string })?.message ?? 'Could not save snapshot.');
+		} finally {
+			historyBusy = false;
+		}
+	}
+	async function restoreSnapshot(id: number) {
+		if (historyBusy) return;
+		if (!confirm('Restore this version? Your current page replaces with the snapshot (autosaved).')) return;
+		historyBusy = true;
+		try {
+			const snap = await account.getSnapshot(id);
+			applyProject(snap.doc);
+		} catch (e: unknown) {
+			alert((e as { message?: string })?.message ?? 'Could not restore snapshot.');
+		} finally {
+			historyBusy = false;
+		}
+	}
+	async function removeSnapshot(id: number) {
+		if (historyBusy) return;
+		historyBusy = true;
+		try {
+			await account.deleteSnapshot(id);
+			snapshots = snapshots.filter((s) => s.id !== id);
+		} catch {
+		} finally {
+			historyBusy = false;
+		}
+	}
+	const relTime = (ms: number): string => {
+		const s = Math.floor((Date.now() - ms) / 1000);
+		if (s < 60) return 'just now';
+		const m = Math.floor(s / 60);
+		if (m < 60) return `${m}m ago`;
+		const h = Math.floor(m / 60);
+		if (h < 24) return `${h}h ago`;
+		return new Date(ms).toLocaleDateString();
+	};
 	// On mount, probe the session: in guest mode the server returns the guest user
 	// with no token (→ silent persistence, account UI hidden); with a real token it
 	// returns that user; otherwise 401 → signed out (web build shows Sign in).
@@ -1829,7 +2133,9 @@
 		const _s = sections,
 			_c = codeOverride,
 			_p = pages,
-			_a = activePageId; // track edits + page changes
+			_a = activePageId,
+			_d = siteData,
+			_du = dataUrl; // track edits + page changes
 		untrack(() => {
 			if (!acct || projectId === null) return;
 			const pid = projectId;
@@ -1894,6 +2200,22 @@
 {/snippet}
 
 <!-- Per-node "Element style" controls (LYK-933) — shown for every node type -->
+{#snippet colorSwatches(node, prop)}
+	<div class="swatches" role="group" aria-label="Theme colour tokens">
+		{#each COLOR_TOKENS as name (name)}
+			<button
+				type="button"
+				class="swatch"
+				class:on={styVal(node, prop) === `var(${name})`}
+				style="background: var({name})"
+				title={name}
+				aria-label="Set {prop} to {name}"
+				onclick={() => setCss(node.key, prop, `var(${name})`)}
+			></button>
+		{/each}
+	</div>
+{/snippet}
+
 {#snippet styleGroup(node)}
 	<details class="style-group">
 		<summary>Element style{device !== 'desktop' ? ` · ${device} only` : ''}</summary>
@@ -1901,34 +2223,30 @@
 			<p class="bp-note">Editing the <strong>{device}</strong> breakpoint — overrides inherit from desktop.</p>
 		{/if}
 		<label class="field"><span>Text colour</span>
-			<span class="bg-row">
-				<input value={styVal(node, 'color')} placeholder="color or var(--…)" oninput={(e) => setCss(node.key, 'color', (e.target as HTMLInputElement).value)} />
-				<select onchange={(e) => { setCss(node.key, 'color', (e.target as HTMLSelectElement).value); (e.target as HTMLSelectElement).selectedIndex = 0; }}>
-					<option value="">token…</option>
-					{#each THEME_COLOR_TOKENS as t (t)}<option value={t}>{t}</option>{/each}
-				</select>
-			</span>
+			<input value={styVal(node, 'color')} placeholder="color or var(--…)" oninput={(e) => setCss(node.key, 'color', (e.target as HTMLInputElement).value)} />
 		</label>
+		{@render colorSwatches(node, 'color')}
 		<label class="field"><span>Background</span>
-			<span class="bg-row">
-				<input value={styVal(node, 'background')} placeholder="color or var(--…)" oninput={(e) => setCss(node.key, 'background', (e.target as HTMLInputElement).value)} />
-				<select onchange={(e) => { setCss(node.key, 'background', (e.target as HTMLSelectElement).value); (e.target as HTMLSelectElement).selectedIndex = 0; }}>
-					<option value="">token…</option>
-					{#each THEME_COLOR_TOKENS as t (t)}<option value={t}>{t}</option>{/each}
-				</select>
-			</span>
+			<input value={styVal(node, 'background')} placeholder="color or var(--…)" oninput={(e) => setCss(node.key, 'background', (e.target as HTMLInputElement).value)} />
 		</label>
+		{@render colorSwatches(node, 'background')}
 		<label class="field"><span>Padding</span>
 			<span class="bg-row">
 				<input value={styVal(node, 'padding')} placeholder="e.g. 16px or 8px 16px" oninput={(e) => setCss(node.key, 'padding', (e.target as HTMLInputElement).value)} />
 				<select onchange={(e) => { setCss(node.key, 'padding', (e.target as HTMLSelectElement).value); (e.target as HTMLSelectElement).selectedIndex = 0; }}>
 					<option value="">scale…</option>
-					{#each THEME_SPACE_TOKENS as t (t)}<option value={t}>{t}</option>{/each}
+					{#each SPACE_SCALE as t (t)}<option value={t}>{t}</option>{/each}
 				</select>
 			</span>
 		</label>
 		<label class="field"><span>Margin</span>
-			<input value={styVal(node, 'margin')} placeholder="e.g. 0 0 16px" oninput={(e) => setCss(node.key, 'margin', (e.target as HTMLInputElement).value)} />
+			<span class="bg-row">
+				<input value={styVal(node, 'margin')} placeholder="e.g. 0 0 16px" oninput={(e) => setCss(node.key, 'margin', (e.target as HTMLInputElement).value)} />
+				<select onchange={(e) => { setCss(node.key, 'margin', (e.target as HTMLSelectElement).value); (e.target as HTMLSelectElement).selectedIndex = 0; }}>
+					<option value="">scale…</option>
+					{#each SPACE_SCALE as t (t)}<option value={t}>{t}</option>{/each}
+				</select>
+			</span>
 		</label>
 		<label class="field"><span>Font size</span>
 			<input value={styVal(node, 'font-size')} placeholder="e.g. 18px" oninput={(e) => setCss(node.key, 'font-size', (e.target as HTMLInputElement).value)} />
@@ -1954,10 +2272,22 @@
 			<input value={styVal(node, 'border')} placeholder="e.g. 1px solid var(--border)" oninput={(e) => setCss(node.key, 'border', (e.target as HTMLInputElement).value)} />
 		</label>
 		<label class="field"><span>Radius</span>
-			<input value={styVal(node, 'border-radius')} placeholder="e.g. 8px" oninput={(e) => setCss(node.key, 'border-radius', (e.target as HTMLInputElement).value)} />
+			<span class="bg-row">
+				<input value={styVal(node, 'border-radius')} placeholder="e.g. 8px" oninput={(e) => setCss(node.key, 'border-radius', (e.target as HTMLInputElement).value)} />
+				<select onchange={(e) => { setCss(node.key, 'border-radius', (e.target as HTMLSelectElement).value); (e.target as HTMLSelectElement).selectedIndex = 0; }}>
+					<option value="">token…</option>
+					{#each RADIUS_TOKENS as name (name)}<option value={`var(${name})`}>{name}</option>{/each}
+				</select>
+			</span>
 		</label>
 		<label class="field"><span>Shadow</span>
-			<input value={styVal(node, 'box-shadow')} placeholder="e.g. 0 2px 8px rgba(0,0,0,.12)" oninput={(e) => setCss(node.key, 'box-shadow', (e.target as HTMLInputElement).value)} />
+			<span class="bg-row">
+				<input value={styVal(node, 'box-shadow')} placeholder="e.g. 0 2px 8px rgba(0,0,0,.12)" oninput={(e) => setCss(node.key, 'box-shadow', (e.target as HTMLInputElement).value)} />
+				<select onchange={(e) => { setCss(node.key, 'box-shadow', (e.target as HTMLSelectElement).value); (e.target as HTMLSelectElement).selectedIndex = 0; }}>
+					<option value="">token…</option>
+					{#each SHADOW_TOKENS as name (name)}<option value={`var(${name})`}>{name}</option>{/each}
+				</select>
+			</span>
 		</label>
 	</details>
 {/snippet}
@@ -2121,8 +2451,54 @@
 						<label class="field"><span>Query params</span>
 							<input value={activePage.params} oninput={(e) => setParams(activePage.id, (e.target as HTMLInputElement).value)} placeholder="id, tab" />
 						</label>
+						<div class="seo-head">SEO &amp; social</div>
+						<label class="field"><span>Title</span>
+							<input value={activePage.meta?.title ?? ""} oninput={(e) => setMeta(activePage.id, { title: (e.target as HTMLInputElement).value })} placeholder={activePage.name} />
+						</label>
+						<label class="field"><span>Description</span>
+							<input value={activePage.meta?.description ?? ""} oninput={(e) => setMeta(activePage.id, { description: (e.target as HTMLInputElement).value })} placeholder="Shown in search & social cards" />
+						</label>
+						<label class="field"><span>Social image</span>
+							<input value={activePage.meta?.image ?? ""} oninput={(e) => setMeta(activePage.id, { image: (e.target as HTMLInputElement).value })} placeholder="/api/assets/… or https://…" />
+						</label>
+						<label class="field"><span>Favicon</span>
+							<input value={activePage.meta?.favicon ?? ""} oninput={(e) => setMeta(activePage.id, { favicon: (e.target as HTMLInputElement).value })} placeholder="/favicon.ico" />
+						</label>
+						<label class="field"><span>Language</span>
+							<input value={activePage.meta?.lang ?? ""} oninput={(e) => setMeta(activePage.id, { lang: (e.target as HTMLInputElement).value })} placeholder="en" />
+						</label>
 					</div>
 				{/if}
+				{#if acct}
+					<div class="history">
+						<div class="hist-head"><span>Version history</span><button class="mini" disabled={historyBusy} onclick={saveSnapshot}>+ Save</button></div>
+						{#if snapshots.length}
+							{#each snapshots as s (s.id)}
+								<div class="hist-row">
+									<div class="hist-meta">
+										<span class="hist-label" title={s.label}>{s.label}</span>
+										<span class="hist-time">{relTime(s.created_at)}</span>
+									</div>
+									<button class="hist-act" disabled={historyBusy} onclick={() => restoreSnapshot(s.id)}>Restore</button>
+									<button class="hist-del" aria-label="Delete snapshot {s.label}" disabled={historyBusy} onclick={() => removeSnapshot(s.id)}>✕</button>
+								</div>
+							{/each}
+						{:else}
+							<p class="hist-empty">No saved versions yet — use + Save to capture a restore point.</p>
+						{/if}
+					</div>
+				{/if}
+				<details class="datasrc">
+					<summary>Data sources</summary>
+					<p class="ds-note">Define variables/collections as JSON, then bind a node’s content to a path from the inspector.</p>
+						<div class="ds-url">
+							<input placeholder="CMS / API URL (optional)" value={dataUrl} oninput={(e) => (dataUrl = (e.target as HTMLInputElement).value)} />
+							<button class="mini" disabled={!dataUrl.trim() || dataLoading} onclick={loadDataUrl}>{dataLoading ? "…" : "Load"}</button>
+						</div>
+						{#if dataUrl.trim()}<p class="ds-note">Live: the published page fetches this URL at runtime; “Load” previews it here.</p>{/if}
+					<textarea class="ds-json" spellcheck="false" value={dataText} oninput={(e) => setDataText((e.target as HTMLTextAreaElement).value)}></textarea>
+					{#if dataError}<p class="ds-err">{dataError}</p>{/if}
+				</details>
 			</div>
 			{/if}
 
@@ -2449,6 +2825,17 @@
 					<input type="number" placeholder="0 = full" value={selected.style.width} oninput={(e) => setStyle(selected.key, { width: Number((e.target as HTMLInputElement).value) })} />
 				</label>
 				{@render styleGroup(selected)}
+			{:else if selected && isRepeat(selected)}
+				<div class="insp-head"><h2>Repeater</h2><button class="mini danger" onclick={() => removeSection(selected.key)}>Delete</button></div>
+				<p class="muted">Renders the components dropped inside it once per item of a data array. Bind inner content to the item’s fields.</p>
+				<label class="field">
+					<span>Repeat over{arrayPathOptions.length ? '' : ' (add a JSON array in Data sources)'}</span>
+					<select value={selected.source ?? ''} disabled={!arrayPathOptions.length} onchange={(e) => setSource(selected.key, (e.target as HTMLSelectElement).value)}>
+						<option value="">(choose an array)</option>
+						{#each arrayPathOptions as p (p)}<option value={p}>{p}</option>{/each}
+					</select>
+				</label>
+				{@render styleGroup(selected)}
 			{:else if selected && isComp(selected)}
 				<div class="insp-head"><h2>{labelOf(selected)}</h2><span class="insp-actions"><button class="mini" title="Turn this into a reusable component" onclick={createComponentFromSelection}>Make component</button><button class="mini danger" onclick={() => removeSection(selected.key)}>Delete</button></span></div>
 				<p class="muted">{identOf(selected.comp)} — raw Parascape component</p>
@@ -2457,7 +2844,14 @@
 					<h3>Content</h3>
 					<label class="field">
 						<span>children</span>
-						<input value={selected.content ?? ''} oninput={(e) => setContent(selected.key, (e.target as HTMLInputElement).value)} />
+						<input value={selected.content ?? ''} disabled={!!selected.bind} placeholder={selected.bind ? 'bound to data' : ''} oninput={(e) => setContent(selected.key, (e.target as HTMLInputElement).value)} />
+					</label>
+					<label class="field">
+						<span>Bind to data{bindOptions.length ? (repeatAncestorFields(selected.key) ? ' (item field)' : '') : ' (add data sources first)'}</span>
+						<select value={selected.bind ?? ''} disabled={!bindOptions.length} onchange={(e) => setBind(selected.key, (e.target as HTMLSelectElement).value)}>
+							<option value="">(static text)</option>
+							{#each bindOptions as p (p)}<option value={p}>{p}</option>{/each}
+						</select>
 					</label>
 				{/if}
 
@@ -2495,6 +2889,12 @@
 							/>
 						{/if}
 					</label>
+					{#if bindOptions.length}
+						<select class="propbind" value={selected.propBind?.[p.name] ?? ""} onchange={(e) => setPropBind(selected.key, p.name, (e.target as HTMLSelectElement).value)}>
+							<option value="">— bind {p.name} to data…</option>
+							{#each bindOptions as o (o)}<option value={o}>{o}</option>{/each}
+						</select>
+					{/if}
 				{/each}
 
 				<h3>Section style</h3>
@@ -2753,7 +3153,34 @@
 	.page-settings { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
 	.page-settings .field { margin-bottom: 6px; }
 	.page-settings .field > span { display: block; font-size: 11px; color: var(--fg-muted); margin-bottom: 2px; }
+	.page-settings .seo-head { margin-top: 10px; margin-bottom: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-subtle); }
 	.page-settings input { width: 100%; box-sizing: border-box; padding: 4px 7px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--fg-body); font: 12px inherit; }
+	/* version history (LYK-943) */
+	.history { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); }
+	.hist-head { display: flex; align-items: center; justify-content: space-between; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); margin-bottom: 6px; }
+	.hist-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--border-soft); }
+	.hist-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+	.hist-label { font-size: 12px; color: var(--fg-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.hist-time { font-size: 10px; color: var(--fg-subtle); }
+	.hist-act { flex: 0 0 auto; font-size: 11px; padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--bg-elev); color: var(--fg-body); cursor: pointer; }
+	.hist-act:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+	.hist-del { flex: 0 0 auto; border: none; background: none; color: var(--fg-subtle); cursor: pointer; font-size: 12px; padding: 2px 4px; }
+	.hist-del:hover:not(:disabled) { color: var(--bad); }
+	.hist-empty { font-size: 11px; color: var(--fg-subtle); line-height: 1.4; margin: 2px 0 0; }
+	/* data sources (LYK-945) */
+	.datasrc { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); }
+	.datasrc > summary { cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); user-select: none; }
+	.ds-note { font-size: 11px; color: var(--fg-subtle); line-height: 1.4; margin: 6px 0; }
+	.ds-json { width: 100%; box-sizing: border-box; min-height: 120px; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--fg-body); resize: vertical; }
+	.ds-err { font-size: 11px; color: var(--bad); margin: 4px 0 0; }
+	.ds-url { display: flex; gap: 6px; margin-bottom: 6px; }
+	.ds-url input { flex: 1; min-width: 0; box-sizing: border-box; padding: 4px 7px; font-size: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--fg-body); }
+	.ds-url button { flex: 0 0 auto; }
+	.pf-bound { background: var(--bg-accent-subtle); color: var(--accent); border-radius: 3px; padding: 0 4px; outline: 1px dashed var(--accent-ring); }
+	/* repeater (LYK-945) */
+	.repeat-zone { position: relative; outline: 1px dashed var(--accent-ring); outline-offset: 3px; border-radius: var(--radius-sm); }
+	.repeat-badge { position: absolute; top: -10px; inset-inline-end: 6px; font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: var(--radius-pill); background: var(--accent); color: var(--fg-on-accent); pointer-events: none; }
+	.propbind { width: 100%; box-sizing: border-box; margin: -4px 0 8px; font-size: 11px; color: var(--accent); border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-page); padding: 3px 6px; }
 	.layers { margin-bottom: 14px; max-height: 38vh; overflow: auto; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
 	.layers-head { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); margin: 0 0 6px; }
 	.layers-empty { font-size: 12px; color: var(--fg-subtle); }
@@ -2809,6 +3236,11 @@
 	.style-group .bg-row { display: flex; gap: 6px; align-items: center; }
 	.style-group .bg-row input { flex: 1; min-width: 0; }
 	.style-group .bg-row select { flex: 0 0 auto; max-width: 92px; }
+	/* LYK-946: theme colour-token swatches (read from theme.css) */
+	.style-group .swatches { display: flex; flex-wrap: wrap; gap: 4px; margin: -2px 0 8px; }
+	.style-group .swatch { width: 18px; height: 18px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15); }
+	.style-group .swatch:hover { transform: scale(1.12); border-color: var(--fg-muted); }
+	.style-group .swatch.on { outline: 2px solid var(--accent); outline-offset: 1px; }
 	.bp-note { font-size: 11px; color: var(--accent); margin: 0 0 8px; }
 	.layer-row { display: flex; align-items: center; gap: 4px; padding: 2px 6px 2px 8px; border-radius: var(--radius-sm); }
 	.layer-row:hover { background: var(--bg-hover); }

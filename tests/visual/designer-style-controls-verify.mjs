@@ -37,15 +37,16 @@ try {
   await page.locator(".canvas .sec").first().click();
   await page.waitForSelector(".inspector .style-group");
   await page.locator(".inspector .style-group > summary").click();
-  // token picker populates from theme.css
-  const tokenOpts = await field(page, "Text colour").locator("select option").allInnerTexts();
-  ok(
-    "colour token picker is populated from theme tokens",
-    tokenOpts.some(t => t.includes("var(--accent)")),
-  );
+  // colour token swatches populate from theme.css (LYK-946)
+  const swatchTitles = await page
+    .locator(".inspector .style-group .swatches")
+    .first()
+    .locator(".swatch")
+    .evaluateAll(els => els.map(e => e.title));
+  ok("colour token swatches populated from theme tokens", swatchTitles.includes("--accent"));
 
   await field(page, "Padding").locator("input").fill("32px");
-  await field(page, "Text colour").locator("select").selectOption("var(--accent)");
+  await page.locator(".inspector .style-group .swatches").first().locator('.swatch[title="--accent"]').click();
   await field(page, "Border").locator("input").fill("1px solid var(--border)");
   await page.waitForTimeout(400);
 
