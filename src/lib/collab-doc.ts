@@ -59,14 +59,69 @@ function findPage(arr: Y.Array<Y.Map<unknown>>, id: number): Y.Map<unknown> | nu
   for (let i = 0; i < arr.length; i++) if (Number(arr.get(i).get("id")) === id) return arr.get(i);
   return null;
 }
-function writePage(m: Y.Map<unknown>, pg: CollabPage): void {
+function writePageScalars(m: Y.Map<unknown>, pg: CollabPage): void {
   setIfChanged(m, "id", pg.id);
   setIfChanged(m, "name", pg.name);
   setIfChanged(m, "route", pg.route);
   setIfChanged(m, "params", pg.params);
   setIfChanged(m, "meta", stableStringify(pg.meta ?? null));
-  setIfChanged(m, "sections", stableStringify(pg.doc?.sections ?? []));
   setIfChanged(m, "codeOverride", pg.doc?.codeOverride ?? null);
+}
+
+// ── per-node section storage (LYK-952) ──
+// A page's section tree is stored as a flat key→node map (`nodes`) plus a small
+// skeleton (`structure`: keys + nesting + order). Editors touching different
+// nodes then merge conflict-free; same-node edits are LWW per field; concurrent
+// structural changes are LWW on the skeleton. (Was: one `sections` JSON string.)
+const NODES = "nodes";
+const STRUCT = "structure";
+type Skel = { k: number; c?: Skel[] };
+
+function flattenSections(sections: unknown[]): { flat: Map<string, unknown>; skel: Skel[] } {
+  const flat = new Map<string, unknown>();
+  const walk = (list: unknown[]): Skel[] =>
+    list.map(n => {
+      const node = n as Record<string, unknown>;
+      const key = Number(node.key);
+      const hasChildren = Array.isArray(node.children);
+      const { children, ...own } = node; // store a node's own fields without its children
+      flat.set(String(key), own);
+      const s: Skel = { k: key };
+      if (hasChildren) s.c = walk(children as unknown[]);
+      return s;
+    });
+  return { flat, skel: walk(sections) };
+}
+
+function rebuildSections(skel: Skel[], nodes: Y.Map<unknown>): unknown[] {
+  return skel.map(s => {
+    const own = safeParse(nodes.get(String(s.k)), {}) as Record<string, unknown>;
+    const node: Record<string, unknown> = { ...own, key: s.k };
+    if (s.c) node.children = rebuildSections(s.c, nodes);
+    return node;
+  });
+}
+
+function writeSections(pageMap: Y.Map<unknown>, sections: unknown[]): void {
+  let nm = pageMap.get(NODES);
+  if (!(nm instanceof Y.Map)) {
+    nm = new Y.Map<unknown>();
+    pageMap.set(NODES, nm); // pageMap must already be integrated (see projectToYDoc)
+  }
+  const ynodes = nm as Y.Map<unknown>;
+  const { flat, skel } = flattenSections(sections);
+  for (const [k, node] of flat) setIfChanged(ynodes, k, stableStringify(node));
+  for (const k of [...ynodes.keys()]) if (!flat.has(k)) ynodes.delete(k);
+  setIfChanged(pageMap, STRUCT, stableStringify(skel));
+  if (pageMap.has("sections")) pageMap.delete("sections"); // migrate off the old single-string format
+}
+
+function readSections(pageMap: Y.Map<unknown>): unknown[] {
+  const struct = pageMap.get(STRUCT);
+  const nm = pageMap.get(NODES);
+  if (typeof struct === "string" && nm instanceof Y.Map) return rebuildSections(safeParse(struct, []) as Skel[], nm);
+  // backward-compat: a room created before per-node merge still has `sections`
+  return safeParse(pageMap.get("sections"), []) as unknown[];
 }
 
 /** Reconcile a project into the Y.Doc, mutating only what differs. Counters
@@ -86,16 +141,17 @@ export function projectToYDoc(doc: Y.Doc, p: CollabProject): void {
   for (let i = arr.length - 1; i >= 0; i--) {
     if (!wantIds.includes(Number(arr.get(i).get("id")))) arr.delete(i, 1);
   }
-  // upsert; new pages append (manual reorder is a follow-up)
+  // upsert; new pages append (manual reorder is a follow-up). New page maps are
+  // pushed (integrated) BEFORE writeSections, so its nested `nodes` Y.Map attaches
+  // to an integrated parent.
   p.pages.forEach(pg => {
-    const m = findPage(arr, pg.id);
-    if (m) {
-      writePage(m, pg);
-    } else {
-      const nm = new Y.Map<unknown>();
-      writePage(nm, pg);
-      arr.push([nm]);
+    let m = findPage(arr, pg.id);
+    if (!m) {
+      m = new Y.Map<unknown>();
+      arr.push([m]); // integrate first, so writes (incl. the nested nodes map) attach cleanly
     }
+    writePageScalars(m, pg);
+    writeSections(m, pg.doc?.sections ?? []);
   });
 }
 
@@ -112,7 +168,7 @@ export function ydocToProject(doc: Y.Doc): CollabProject {
       params: String(m.get("params") ?? ""),
       meta: safeParse(m.get("meta"), null) ?? undefined,
       doc: {
-        sections: safeParse(m.get("sections"), []) as unknown[],
+        sections: readSections(m),
         codeOverride: (m.get("codeOverride") as string | null) ?? null,
       },
     });
