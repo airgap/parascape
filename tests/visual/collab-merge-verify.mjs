@@ -94,9 +94,38 @@ projectToYDoc(d3, nested);
 const rt = ydocToProject(d3).pages[0].doc.sections;
 ok("nested children round-trip", rt[0]?.children?.[0]?.content === "nested" && rt[0]?.children?.[0]?.key === 21, rt);
 
+// ── LYK-953: concurrent STRUCTURAL edits (each adds a node) both survive ──
+const s1 = new Y.Doc();
+const s2 = new Y.Doc();
+projectToYDoc(s1, baseProject); // [10, 11]
+Y.applyUpdate(s2, Y.encodeStateAsUpdate(s1));
+const ssv1 = Y.encodeStateVector(s1);
+const ssv2 = Y.encodeStateVector(s2);
+
+const a = ydocToProject(s1);
+a.pages[0].doc.sections.push({ key: 30, type: "component", comp: "box", content: "added-by-1", style: {} });
+projectToYDoc(s1, a);
+
+const b = ydocToProject(s2);
+b.pages[0].doc.sections.push({ key: 31, type: "component", comp: "box", content: "added-by-2", style: {} });
+projectToYDoc(s2, b);
+
+Y.applyUpdate(s2, Y.encodeStateAsUpdate(s1, ssv2));
+Y.applyUpdate(s1, Y.encodeStateAsUpdate(s2, ssv1));
+
+for (const [name, d] of [
+  ["doc1", s1],
+  ["doc2", s2],
+]) {
+  const keys = ydocToProject(d).pages[0].doc.sections.map(s => s.key);
+  ok(`${name}: both concurrently-added nodes survive`, keys.includes(30) && keys.includes(31), keys);
+  ok(`${name}: original nodes still present`, keys.includes(10) && keys.includes(11), keys);
+}
+ok("structural docs converge", JSON.stringify(ydocToProject(s1)) === JSON.stringify(ydocToProject(s2)));
+
 console.log(
   fail
     ? `\nFAIL: ${fail} issue(s)`
-    : "\nOK: per-node CRDT merge — concurrent edits to different nodes both survive + nested round-trip.",
+    : "\nOK: per-node + structural CRDT merge — concurrent node + structural edits survive, nested round-trip, converge.",
 );
 process.exit(fail ? 1 : 0);

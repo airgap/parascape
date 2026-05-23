@@ -68,38 +68,56 @@ function writePageScalars(m: Y.Map<unknown>, pg: CollabPage): void {
   setIfChanged(m, "codeOverride", pg.doc?.codeOverride ?? null);
 }
 
-// ── per-node section storage (LYK-952) ──
-// A page's section tree is stored as a flat key→node map (`nodes`) plus a small
-// skeleton (`structure`: keys + nesting + order). Editors touching different
-// nodes then merge conflict-free; same-node edits are LWW per field; concurrent
-// structural changes are LWW on the skeleton. (Was: one `sections` JSON string.)
+// ── per-node section storage (LYK-952) + structural CRDT (LYK-953) ──
+// A page's section tree is stored as:
+//   `nodes`  — a Y.Map of key → that node's own fields (children excluded), so
+//              edits to different nodes merge; same-node edits are LWW per field.
+//   `order`  — a Y.Map of parentKey → Y.Array<childKey> ("root" = top level; every
+//              node with a children array gets an entry, empty for empty containers).
+//              Yjs sequence CRDT → concurrent add/remove both survive, reorder
+//              merges deterministically. (Was: one `structure` JSON string in 952,
+//              one `sections` JSON string before that — both still read as fallback.)
 const NODES = "nodes";
-const STRUCT = "structure";
+const ORDER = "order";
+const STRUCT = "structure"; // legacy (LYK-952), read-only fallback
+const ROOT = "root";
 type Skel = { k: number; c?: Skel[] };
 
-function flattenSections(sections: unknown[]): { flat: Map<string, unknown>; skel: Skel[] } {
+// Split a tree into a flat key→own-fields map and a parentKey→childKeys map.
+function decompose(sections: unknown[]): { flat: Map<string, unknown>; childrenOf: Map<string, number[]> } {
   const flat = new Map<string, unknown>();
-  const walk = (list: unknown[]): Skel[] =>
-    list.map(n => {
+  const childrenOf = new Map<string, number[]>();
+  const walk = (list: unknown[]): number[] => {
+    const ids: number[] = [];
+    for (const n of list) {
       const node = n as Record<string, unknown>;
       const key = Number(node.key);
-      const hasChildren = Array.isArray(node.children);
-      const { children, ...own } = node; // store a node's own fields without its children
+      const { children, ...own } = node;
       flat.set(String(key), own);
-      const s: Skel = { k: key };
-      if (hasChildren) s.c = walk(children as unknown[]);
-      return s;
-    });
-  return { flat, skel: walk(sections) };
+      ids.push(key);
+      if (Array.isArray(children)) childrenOf.set(String(key), walk(children as unknown[]));
+    }
+    return ids;
+  };
+  childrenOf.set(ROOT, walk(sections));
+  return { flat, childrenOf };
 }
 
-function rebuildSections(skel: Skel[], nodes: Y.Map<unknown>): unknown[] {
-  return skel.map(s => {
-    const own = safeParse(nodes.get(String(s.k)), {}) as Record<string, unknown>;
-    const node: Record<string, unknown> = { ...own, key: s.k };
-    if (s.c) node.children = rebuildSections(s.c, nodes);
-    return node;
-  });
+const sameSeq = (a: number[], b: number[]): boolean => a.length === b.length && a.every((v, i) => v === b[i]);
+
+// Converge a Y.Array to `desired` with minimal ops, so concurrent edits from
+// another client merge instead of being replaced wholesale.
+function reconcileArray(yarr: Y.Array<number>, desired: number[]): void {
+  if (sameSeq(yarr.toArray(), desired)) return;
+  for (let i = yarr.length - 1; i >= 0; i--) if (!desired.includes(yarr.get(i))) yarr.delete(i, 1);
+  for (let i = 0; i < desired.length; i++) {
+    const cur = yarr.toArray();
+    if (cur[i] === desired[i]) continue;
+    const at = cur.indexOf(desired[i]);
+    if (at !== -1) yarr.delete(at, 1);
+    yarr.insert(i, [desired[i]]);
+  }
+  while (yarr.length > desired.length) yarr.delete(yarr.length - 1, 1);
 }
 
 function writeSections(pageMap: Y.Map<unknown>, sections: unknown[]): void {
@@ -108,19 +126,66 @@ function writeSections(pageMap: Y.Map<unknown>, sections: unknown[]): void {
     nm = new Y.Map<unknown>();
     pageMap.set(NODES, nm); // pageMap must already be integrated (see projectToYDoc)
   }
+  let om = pageMap.get(ORDER);
+  if (!(om instanceof Y.Map)) {
+    om = new Y.Map<unknown>();
+    pageMap.set(ORDER, om);
+  }
   const ynodes = nm as Y.Map<unknown>;
-  const { flat, skel } = flattenSections(sections);
+  const yorder = om as Y.Map<unknown>;
+  const { flat, childrenOf } = decompose(sections);
+  // node fields
   for (const [k, node] of flat) setIfChanged(ynodes, k, stableStringify(node));
   for (const k of [...ynodes.keys()]) if (!flat.has(k)) ynodes.delete(k);
-  setIfChanged(pageMap, STRUCT, stableStringify(skel));
-  if (pageMap.has("sections")) pageMap.delete("sections"); // migrate off the old single-string format
+  // structure: one Y.Array per parent
+  for (const [parent, ids] of childrenOf) {
+    let arr = yorder.get(parent);
+    if (!(arr instanceof Y.Array)) {
+      arr = new Y.Array<number>();
+      yorder.set(parent, arr);
+    }
+    reconcileArray(arr as Y.Array<number>, ids);
+  }
+  for (const k of [...yorder.keys()]) if (!childrenOf.has(k)) yorder.delete(k);
+  // migrate off older formats
+  if (pageMap.has(STRUCT)) pageMap.delete(STRUCT);
+  if (pageMap.has("sections")) pageMap.delete("sections");
 }
 
 function readSections(pageMap: Y.Map<unknown>): unknown[] {
-  const struct = pageMap.get(STRUCT);
   const nm = pageMap.get(NODES);
-  if (typeof struct === "string" && nm instanceof Y.Map) return rebuildSections(safeParse(struct, []) as Skel[], nm);
-  // backward-compat: a room created before per-node merge still has `sections`
+  const om = pageMap.get(ORDER);
+  if (nm instanceof Y.Map && om instanceof Y.Map) {
+    const seen = new Set<string>();
+    const build = (parent: string): unknown[] => {
+      const arr = om.get(parent);
+      if (!(arr instanceof Y.Array)) return [];
+      const out: unknown[] = [];
+      for (const key of (arr as Y.Array<number>).toArray()) {
+        const ks = String(key);
+        if (seen.has(ks)) continue; // a concurrent reparent can list a key under two parents; first wins
+        seen.add(ks);
+        const own = safeParse(nm.get(ks), {}) as Record<string, unknown>;
+        const node: Record<string, unknown> = { ...own, key };
+        if (om.get(ks) instanceof Y.Array) node.children = build(ks);
+        out.push(node);
+      }
+      return out;
+    };
+    return build(ROOT);
+  }
+  // legacy fallback: LYK-952 `structure` string, then pre-952 `sections` string
+  const struct = pageMap.get(STRUCT);
+  if (typeof struct === "string" && nm instanceof Y.Map) {
+    const rebuild = (skel: Skel[]): unknown[] =>
+      skel.map(s => {
+        const own = safeParse((nm as Y.Map<unknown>).get(String(s.k)), {}) as Record<string, unknown>;
+        const node: Record<string, unknown> = { ...own, key: s.k };
+        if (s.c) node.children = rebuild(s.c);
+        return node;
+      });
+    return rebuild(safeParse(struct, []) as Skel[]);
+  }
   return safeParse(pageMap.get("sections"), []) as unknown[];
 }
 
