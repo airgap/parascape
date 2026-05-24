@@ -28,12 +28,14 @@ try {
   await page.locator(".dtoolbar button", { hasText: "Code" }).click();
   await page.waitForSelector(".code-ta");
 
-  // --- diagnostics: a syntax error is reported with its line ---
+  // --- diagnostics: a syntax error is reported with its line (LYK-964: the
+  // compile error now appears in the Problems list as a severity-1 entry) ---
   await page.fill(".code-ta", '<script lang="pts">\nlet broken = ;\n</script>\n\n<div>hi</div>');
-  await page.waitForTimeout(600);
-  const errText = await page.$eval(".code-err", el => el.textContent || "").catch(() => "");
+  await page.waitForSelector(".code-problems .prob", { timeout: 4000 });
+  await page.waitForTimeout(400);
+  const errText = await page.$eval(".code-problems", el => el.textContent || "").catch(() => "");
   ok(`a syntax error is surfaced (${errText.slice(0, 50).replace(/\n/g, " ")})`, errText.length > 0);
-  ok("the error names a line number", /Line \d+/.test(errText));
+  ok("the error names a line number", /Ln \d+/.test(errText));
 
   // --- autocomplete: typing a tag suggests components ---
   await page.fill(".code-ta", '<script lang="pts">\n</script>\n\n<Co');

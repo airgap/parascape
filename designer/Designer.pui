@@ -26,6 +26,7 @@
 	import type { Template } from './templates';
 	import { reactSourceFor } from './react-export';
 	import { openPullRequest } from './github-pr';
+	import { PuiLsp, type Diagnostic as LspDiag } from './lsp/lsp-client';
 	import {
 		allComponents,
 		displayName,
@@ -488,6 +489,15 @@
 	// Code Mode diagnostics + autocomplete (LYK-939)
 	signal codeErrLine: number | null = null;
 	signal codeCaret = 0;
+	// LYK-964: browser LSP — severity diagnostics + hover, run off-thread in a
+	// worker (same reactive/escape engine as the desktop VS Code LSP). Squiggles +
+	// a Problems list + hover cards are driven from these.
+	signal lspDiags: LspDiag[] = [];
+	signal codeScrollX = 0;
+	signal charW = 7.2;
+	signal lineH = 18.6;
+	signal hoverCard: { md: string; x: number; y: number } | null = null;
+	const lsp = typeof window !== 'undefined' ? new PuiLsp() : null;
 	// LYK-958: bumped whenever coded components are (re)registered in the live-compile
 	// module registry, so the canvas recompiles sections that instance them.
 	signal moduleEpoch = 0;
@@ -502,6 +512,21 @@
 		return highlightSync(codeDraft, 'pui');
 	}
 	derived codeLineNos = codeDraft.split('\n').map((_, i) => i + 1).join('\n');
+	// LYK-964: PascalCase tags the LSP should treat as known (Parascape/Cloudscape
+	// components + this project's own named components), so it only flags real typos.
+	derived knownComps {
+		const set = new Set<string>();
+		for (const c of allComponents) set.add(c.name);
+		for (const id of Object.values(identByComp)) set.add(id);
+		return [...set];
+	}
+	// the unified Problems list: the live-compile parse error (if any) plus the
+	// worker's severity-tiered diagnostics, ordered top-to-bottom.
+	derived problems {
+		const list: LspDiag[] = [...lspDiags];
+		if (codeErr) list.unshift({ severity: 1, message: codeErr, line: (codeErrLine ?? 1) - 1, col: 0, endCol: 0, source: 'compile' });
+		return list.sort((a, b) => a.line - b.line || a.col - b.col);
+	}
 	// add-panel tab: 'sections' | 'components'
 	signal addTab = 'sections';
 	signal compSearch = '';
@@ -2319,6 +2344,8 @@
 			codeErr = null;
 			showExport = false;
 			selectedKey = null;
+			queueMicrotask(measureEditor);
+			runDiagnostics();
 		}
 	}
 	let codeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -2396,6 +2423,72 @@
 	function onCodeInput() {
 		clearTimeout(codeTimer);
 		codeTimer = setTimeout(applyCode, 300);
+		runDiagnostics();
+	}
+	// LYK-964: ask the worker for severity diagnostics (debounced, snappier than
+	// the 300ms compile so squiggles feel live). Falls back to inline on no worker.
+	let diagTimer: ReturnType<typeof setTimeout> | undefined;
+	function runDiagnostics() {
+		clearTimeout(diagTimer);
+		diagTimer = setTimeout(async () => {
+			const src = codeDraft;
+			const diags = (await lsp?.diagnostics(src, knownComps)) ?? [];
+			if (src === codeDraft) lspDiags = diags;
+		}, 150);
+	}
+	// measure the editor's monospace cell so squiggles + hover map line/col → px.
+	function measureEditor() {
+		const cvs = document.createElement('canvas');
+		const ctx = cvs.getContext('2d');
+		if (ctx) {
+			ctx.font = '12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+			charW = ctx.measureText('0123456789').width / 10 || 7.2;
+		}
+		lineH = 12 * 1.55;
+	}
+	// hover: map the pointer to a line/col in the source, ask the worker, show a card.
+	let hoverTimer: ReturnType<typeof setTimeout> | undefined;
+	function codeHover(e: MouseEvent) {
+		clearTimeout(hoverTimer);
+		const ta = e.currentTarget as HTMLTextAreaElement;
+		const rect = ta.getBoundingClientRect();
+		const x = e.clientX - rect.left - 52 + ta.scrollLeft;
+		const y = e.clientY - rect.top - 12 + ta.scrollTop;
+		const line = Math.floor(y / lineH);
+		const col = Math.max(0, Math.round(x / charW));
+		const cx = e.clientX;
+		const cy = e.clientY;
+		hoverTimer = setTimeout(async () => {
+			const card = await lsp?.hover(codeDraft, line, col);
+			hoverCard = card ? { md: card.md, x: cx, y: cy } : null;
+		}, 120);
+	}
+	function codeHoverOut() {
+		clearTimeout(hoverTimer);
+		hoverCard = null;
+	}
+	// tiny markdown → HTML for hover cards (our own doc strings; escape first).
+	function hoverMd(md: string): string {
+		const esc = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+		return esc
+			.replace(/```[a-z]*\n([\s\S]*?)```/g, (_m, c) => `<pre>${c.replace(/\n$/, '')}</pre>`)
+			.replace(/^### (.+)$/gm, '<h4>$1</h4>')
+			.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+			.replace(/`([^`]+)`/g, '<code>$1</code>')
+			.replace(/_(.+?)_/g, '<em>$1</em>')
+			.replace(/^- (.+)$/gm, '<div class="hm-li">• $1</div>')
+			.replace(/\n{2,}/g, '<br>')
+			.replace(/\n/g, '<br>');
+	}
+	// jump the caret to a Problems-list entry.
+	function gotoProblem(p: LspDiag) {
+		const ta = document.querySelector('.code-ta') as HTMLTextAreaElement | null;
+		if (!ta) return;
+		const offset = codeDraft.split('\n').slice(0, p.line).reduce((a, l) => a + l.length + 1, 0) + p.col;
+		ta.focus();
+		ta.selectionStart = ta.selectionEnd = offset;
+		ta.scrollTop = Math.max(0, p.line * lineH - ta.clientHeight / 2);
+		codeScrollY = ta.scrollTop;
 	}
 	function codeTab(e: KeyboardEvent) {
 		if (e.key !== 'Tab') return;
@@ -2414,6 +2507,7 @@
 			pre.scrollLeft = ta.scrollLeft;
 		}
 		codeScrollY = ta.scrollTop;
+		codeScrollX = ta.scrollLeft;
 	}
 	function revertToVisual() {
 		codeOverride = null;
@@ -3767,6 +3861,13 @@
 						<div class="code-gutter-inner" style="transform: translateY({-codeScrollY}px)">{codeLineNos}</div>
 					</div>
 					<pre class="code-hl">{@html codeHighlighted}</pre>
+					<div class="code-squiggles" aria-hidden="true">
+						<div class="sq-inner" style="transform: translate({-codeScrollX}px, {-codeScrollY}px)">
+							{#each lspDiags as d (d.severity + ':' + d.line + ':' + d.col + ':' + d.message)}
+								<span class="sq sev-{d.severity}" style="top: {d.line * lineH + lineH - 2}px; left: {d.col * charW}px; width: {Math.max(charW, (d.endCol - d.col) * charW)}px;"></span>
+							{/each}
+						</div>
+					</div>
 					<textarea
 						class="code-ta"
 						bind:value={codeDraft}
@@ -3775,6 +3876,8 @@
 						onclick={(e) => (codeCaret = (e.target as HTMLTextAreaElement).selectionStart)}
 						onkeydown={codeTab}
 						onscroll={codeSync}
+						onmousemove={codeHover}
+						onmouseleave={codeHoverOut}
 						spellcheck="false"
 						autocomplete="off"
 						autocapitalize="off"
@@ -3790,7 +3893,21 @@
 						{/each}
 					</div>
 				{/if}
-				{#if codeErr}<pre class="code-err">{codeErrLine !== null ? `Line ${codeErrLine}: ` : ''}{codeErr}</pre>{/if}
+				{#if problems.length}
+					<div class="code-problems">
+						<div class="cc-head">Problems · {problems.length}</div>
+						{#each problems as p (p.severity + ':' + p.line + ':' + p.col + ':' + p.message)}
+							<button class="prob sev-{p.severity}" onclick={() => gotoProblem(p)}>
+								<span class="prob-ic" aria-hidden="true">{p.severity === 1 ? '✕' : p.severity === 2 ? '⚠' : p.severity === 3 ? 'ℹ' : '◦'}</span>
+								<span class="prob-msg">{p.message}</span>
+								<span class="prob-loc">Ln {p.line + 1}</span>
+							</button>
+						{/each}
+					</div>
+				{/if}
+				{#if hoverCard}
+					<div class="code-hover" style="left: {hoverCard.x + 14}px; top: {hoverCard.y + 12}px;"><div class="hover-md">{@html hoverMd(hoverCard.md)}</div></div>
+				{/if}
 				<div class="code-actions">
 					<button class="primary" onclick={download}>Download Page.pui</button>
 					{#if codeOverride !== null}<button class="mini danger" onclick={revertToVisual}>Revert to visual</button>{/if}
@@ -4206,6 +4323,32 @@
 	:global([data-theme='dark'] .code-ed-wrap pre.shiki),
 	:global([data-theme='dark'] .code-ed-wrap pre.shiki span) { color: var(--shiki-dark, inherit); }
 	.code-err { margin: 8px 0 0; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--bg-sunken); color: var(--bad); border: 1px solid var(--bad); font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; max-height: 120px; overflow: auto; }
+	/* Browser LSP — squiggles + Problems list + hover cards (LYK-964) */
+	.code-squiggles { position: absolute; inset: 0; padding: 12px 14px 12px 52px; overflow: hidden; pointer-events: none; z-index: 2; }
+	.sq-inner { position: relative; width: 100%; height: 100%; }
+	.sq { position: absolute; height: 3px; border-radius: 2px;
+		background-image: repeating-linear-gradient(135deg, currentColor 0, currentColor 1px, transparent 1px, transparent 2px); }
+	.sq.sev-1 { color: var(--bad); }
+	.sq.sev-2 { color: var(--warn, #b7791f); }
+	.sq.sev-3 { color: var(--accent); }
+	.sq.sev-4 { color: var(--fg-subtle); }
+	.code-problems { margin: 8px 0 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-sunken); max-height: 200px; overflow: auto; }
+	.prob { display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--border); padding: 5px 10px; cursor: pointer; font: 11px/1.45 ui-monospace, monospace; color: var(--fg-body); }
+	.prob:first-of-type { border-top: 0; }
+	.prob:hover { background: var(--bg-elev); }
+	.prob-ic { flex: none; width: 12px; text-align: center; }
+	.prob.sev-1 .prob-ic { color: var(--bad); }
+	.prob.sev-2 .prob-ic { color: var(--warn, #b7791f); }
+	.prob.sev-3 .prob-ic { color: var(--accent); }
+	.prob.sev-4 .prob-ic { color: var(--fg-subtle); }
+	.prob-msg { flex: 1; white-space: normal; }
+	.prob-loc { flex: none; color: var(--fg-subtle); }
+	.code-hover { position: fixed; z-index: 50; max-width: 420px; background: var(--bg-elev); color: var(--fg-body); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,0.2)); padding: 8px 10px; pointer-events: none; }
+	.hover-md { font-size: 12px; line-height: 1.5; }
+	.hover-md h4 { margin: 0 0 4px; font-size: 12px; }
+	.hover-md pre { margin: 4px 0; padding: 6px 8px; background: var(--bg-sunken); border-radius: var(--radius-sm); font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; }
+	.hover-md code { background: var(--bg-num-pill); padding: 0 3px; border-radius: var(--radius-sm); }
+	.hover-md .hm-li { margin: 1px 0; }
 	/* Code Mode autocomplete (LYK-939) */
 	.code-complete { margin: 8px 0 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-sunken); max-height: 180px; overflow: auto; }
 	.cc-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--fg-muted); padding: 6px 10px 2px; }
