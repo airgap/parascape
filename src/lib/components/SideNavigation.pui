@@ -31,6 +31,7 @@
 	import Icon from './Icon.pui';
 	import ExpandableSection from './ExpandableSection.pui';
 	import styles from '../cloudscape/side-navigation.styles.js';
+	import testClasses from '../cloudscape/side-navigation.test-classes.js';
 	import '../cloudscape/side-navigation.scoped.css';
 
 	type Item =
@@ -68,6 +69,7 @@
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
+	const T = testClasses as Record<string, string>;
 	const snip = (v: unknown) => typeof v === 'function';
 	const has = (v: unknown) => v !== null && v !== undefined;
 	const isPlainLeft = (e: MouseEvent) =>
@@ -89,9 +91,9 @@
 			rel={item.external ? 'noopener noreferrer' : undefined}
 			aria-current={isActive ? 'page' : undefined}
 			onclick={(e: MouseEvent) => fireFollow(item, e)}
-			>{item.text}{#if has(item.info)}<span
+			>{item.text}{#if has(item.info)}<span class={T.info}
 					>{' '}{#if snip(item.info)}{@render (item.info as import('svelte').Snippet)()}{:else}{item.info}{/if}</span
-				>{/if}{#if item.external}{' '}<Icon name="external" />{/if}</a
+				>{/if}{#if item.external}{' '}<Icon name="external" ariaLabel={item.externalIconAriaLabel} />{/if}</a
 		>
 	{:else if item.type === 'link-group'}
 		{@const isActive = item.href === activeHref}
@@ -113,6 +115,8 @@
 			variant="footer"
 			headerText={item.text}
 			defaultExpanded={item.defaultExpanded ?? true}
+			onChange={(e: { expanded: boolean }) =>
+				onChange?.({ detail: { item, expanded: e.expanded, expandableParents: [] } })}
 		>
 			{@render renderList(item.items, 'section')}
 		</ExpandableSection>
