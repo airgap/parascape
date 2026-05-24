@@ -135,7 +135,7 @@
 					>{item.label}</RadioButton>
 				</div>
 				{#if item.image}<div class={cx(S.image, item.disabled && S.disabled)}
-					>{@render item.image()}</div
+					>{#if typeof item.image === 'function'}{@render item.image()}{:else}{item.image}{/if}</div
 					>{/if}
 			</div>
 		{/each}
