@@ -31,6 +31,7 @@
   documented-omitted (not the default/tested path).
 -->
 <script lang="pts">
+	import { flushSync } from 'svelte';
 	import styles from '../cloudscape/tabs.styles.js';
 	import '../cloudscape/tabs.scoped.css';
 
@@ -78,9 +79,37 @@
 		// Self-assign so `bind:activeTabId` reflects the selection; still
 		// fire onChange for the controlled Cloudscape API.
 		activeTabId = t.id;
-		onChange?.({ activeTabId: t.id });
+		flushSync(); // the test-utils click then read the active tab synchronously
+		onChange?.({ detail: { activeTabId: t.id } });
 	}
 	const isActive = (t: Tab) => effectiveTabId === t.id && !t.disabled;
+	const linkId = (id: string) => `parascape-tab-link-${id}`;
+	function moveTo(t: Tab | undefined) {
+		if (!t || t.id === effectiveTabId) return;
+		select(t);
+		document.getElementById(linkId(t.id))?.focus();
+	}
+	// Roving arrow nav: Left/Right move to the prev/next enabled tab (wrapping),
+	// Home/End to the first/last; each activates + focuses. KeyCode 37/39/36/35.
+	function handleKey(e: KeyboardEvent) {
+		if (e.ctrlKey || e.shiftKey || e.altKey || e.metaKey) return;
+		const en = tabs.filter((t) => !t.disabled);
+		if (!en.length) return;
+		const i = en.findIndex((t) => t.id === effectiveTabId);
+		if (e.keyCode === 39) {
+			e.preventDefault();
+			moveTo(en[(i + 1) % en.length]);
+		} else if (e.keyCode === 37) {
+			e.preventDefault();
+			moveTo(en[(i - 1 + en.length) % en.length]);
+		} else if (e.keyCode === 36) {
+			e.preventDefault();
+			moveTo(en[0]);
+		} else if (e.keyCode === 35) {
+			e.preventDefault();
+			moveTo(en[en.length - 1]);
+		}
+	}
 </script>
 
 <div
@@ -108,10 +137,12 @@
 							)}
 							type="button"
 							role="tab"
+							id={linkId(tab.id)}
 							data-testid={tab.id}
 							aria-selected={isActive(tab) ? 'true' : 'false'}
 							disabled={tab.disabled}
-							onclick={() => select(tab)}
+							onclick={(e: MouseEvent) => { if (!(e.ctrlKey || e.shiftKey || e.altKey || e.metaKey)) select(tab); }}
+							onkeydown={handleKey}
 						><span class={S['tabs-tab-label']}><span
 									>{#if snip(tab.label)}{@render (tab.label as import('svelte').Snippet)()}{:else}{tab.label}{/if}</span
 								></span></button></div></li>
