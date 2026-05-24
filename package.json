@@ -26,8 +26,6 @@
     "vendor:gen": "bun tests/visual/gen-tokens.mjs",
     "vendor:verify": "bun tests/visual/gen-tokens.mjs --check",
     "conformance:score": "node tests/conformance/scoreboard.mjs",
-    "builder:ai": "parabun builder/llm-server.ts",
-    "account:server": "bun server/account-server.ts",
     "tauri": "tauri",
     "tauri:prep": "bun scripts/tauri-prep.mjs",
     "tauri:dev": "bun run tauri:prep && tauri dev",

@@ -18,7 +18,6 @@
 		{ id: 'home', label: 'Home', href: '/' },
 		{ id: 'demos', label: 'Demos', href: '/demos/' },
 		{ id: 'components', label: 'Components', href: '/components/' },
-		{ id: 'designer', label: 'Designer', href: '/designer/' },
 	];
 
 	signal theme: Theme = 'auto';

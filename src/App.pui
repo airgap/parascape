@@ -25,8 +25,8 @@
 			b: 'Fine-grained reactivity with signal / derived / effect. No virtual DOM, no dependency arrays, no re-render churn.',
 		},
 		{
-			t: 'Compose it visually',
-			b: 'Stack or freeform-place components in the Designer, style per breakpoint, drop in images, and export real .pui.',
+			t: 'Drops into your app',
+			b: 'Import a component and go — `@parascape-design/components`. Light/dark theming via the Cloudscape design tokens, no setup.',
 		},
 	];
 	const stats = [
@@ -46,11 +46,10 @@
 				<Header variant="h1">The Cloudscape design system, rebuilt on signals.</Header>
 				<Box variant="p" fontSize="heading-s" color="text-body-secondary">
 					Parascape is a 1:1 port of AWS Cloudscape to Para-UI — the components you already know, with
-					fine-grained reactivity instead of React hooks, and a visual builder that exports real .pui.
+					fine-grained reactivity instead of React hooks.
 				</Box>
 				<div class="cta-row">
-					<Button variant="primary" href="/designer/">Open the Designer</Button>
-					<Button href="/components/">Browse components</Button>
+					<Button variant="primary" href="/components/">Browse components</Button>
 					<Button variant="link" href="/demos/">See the demos</Button>
 				</div>
 			</SpaceBetween>
@@ -88,8 +87,8 @@
 	<section class="band cta">
 		<div class="inner awsui-dark-mode">
 			<SpaceBetween size="m">
-				<Header variant="h2">Build a page in minutes.</Header>
-				<div><Button variant="primary" href="/designer/">Open the Designer</Button></div>
+				<Header variant="h2">Explore the library.</Header>
+				<div><Button variant="primary" href="/components/">Browse components</Button></div>
 			</SpaceBetween>
 		</div>
 	</section>
