@@ -171,6 +171,7 @@
 	disableContentPaddings
 	disableFooterPaddings
 	disableFooterDivider
+	footer={footerProp}
 	class={cx(extraClass, T.root)}
 	{...rest}
 >
@@ -269,7 +270,10 @@
 										/></label><span class={SEL.stud} aria-hidden="true"
 									>&nbsp;</span></div></td>{/if}
 						{#each cols as col, ci (col.id ?? ci)}
-							<td
+							{@const isRH = col.isRowHeader || (ci === 0 && !cols.some((c: any) => c.isRowHeader))}
+							<svelte:element
+								this={isRH ? 'th' : 'td'}
+								scope={isRH ? 'row' : undefined}
 								class={cx(
 									BC['body-cell'],
 									first && BC['body-cell-first-row'],
@@ -280,7 +284,7 @@
 								)}
 							><div class={BC['body-cell-content']}
 									>{#if isCellSnippet(col.cell)}{@render col.cell(item)}{:else}{col.cell?.(item) ?? ''}{/if}</div
-								></td>
+								></svelte:element>
 						{/each}
 					</tr>
 				{/each}
