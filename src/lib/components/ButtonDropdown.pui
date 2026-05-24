@@ -48,6 +48,8 @@
 		loadingText = undefined,
 		fullWidth = false,
 		ariaLabel = undefined,
+		mainAction = undefined,
+		showMainActionOnly = false,
 		items = [],
 		children = undefined,
 		onItemClick = undefined,
@@ -61,6 +63,22 @@
 		loadingText?: string;
 		fullWidth?: boolean;
 		ariaLabel?: string;
+		mainAction?: {
+			text?: string;
+			ariaLabel?: string;
+			onClick?: (e: unknown) => void;
+			onFollow?: (e: unknown) => void;
+			href?: string;
+			external?: boolean;
+			externalIconAriaLabel?: string;
+			disabled?: boolean;
+			disabledReason?: string;
+			loading?: boolean;
+			loadingText?: string;
+			iconName?: string;
+			iconAlt?: string;
+		};
+		showMainActionOnly?: boolean;
 		items?: BDItem[];
 		children?: import('svelte').Snippet | string;
 		onItemClick?: (e: { detail: { id: string } }) => void;
@@ -112,6 +130,14 @@
 	derived canBeFullWidth = !!fullWidth && (variant === 'primary' || variant === 'normal');
 	derived triggerIcon = variant === 'icon' || variant === 'inline-icon' ? 'ellipsis' : 'caret-down-filled';
 	derived hasText = variant !== 'icon' && variant !== 'inline-icon';
+	// Main action (split button): only for primary/normal variants.
+	derived hasMainAction = !!mainAction && (variant === 'primary' || variant === 'normal');
+	// External main action folds the external-icon label into the accessible name.
+	derived mainActionAriaLabel = mainAction
+		? mainAction.external && mainAction.externalIconAriaLabel
+			? `${mainAction.ariaLabel ?? mainAction.text ?? ''} ${mainAction.externalIconAriaLabel}`
+			: mainAction.ariaLabel
+		: undefined;
 </script>
 
 <div
@@ -123,7 +149,35 @@
 	)}
 	{...rest}
 >
-	<div
+	{#if hasMainAction}<div class={S['split-trigger-wrapper']} role="group" aria-label={ariaLabel}><div class={S['split-trigger']} onclick={() => { if (open) { open = false; flushSync(); } }}><Button
+				variant={variant}
+				href={mainAction!.href}
+				external={mainAction!.external}
+				i18nStrings={{ externalIconAriaLabel: mainAction!.externalIconAriaLabel }}
+				rel={mainAction!.external ? 'noopener noreferrer' : undefined}
+				disabled={mainAction!.disabled}
+				disabledReason={mainAction!.disabledReason}
+				loading={mainAction!.loading}
+				loadingText={mainAction!.loadingText}
+				iconName={mainAction!.iconName}
+				iconAlt={mainAction!.iconAlt}
+				ariaLabel={mainActionAriaLabel}
+				formAction="none"
+				onClick={mainAction!.onClick}
+				onFollow={mainAction!.onFollow}
+			>{mainAction!.text ?? ''}</Button></div>{#if !showMainActionOnly}<div
+				class={cx(S['trigger-item'], S['dropdown-trigger'], isVisualRefresh && S['visual-refresh'], S[`variant-${variant}`], loading && S.loading)}
+			><Button
+					class={cx(S['trigger-button'], S['test-utils-button-trigger'])}
+					variant={triggerVariant}
+					iconName="caret-down-filled"
+					{disabled}
+					{disabledReason}
+					{loading}
+					{loadingText}
+					{ariaLabel}
+					onClick={toggleOpen}
+				/></div>{/if}</div>{:else}<div
 		class={cx(
 			S['trigger-item'],
 			S['dropdown-trigger'],
@@ -144,6 +198,6 @@
 			{ariaLabel}
 			onClick={toggleOpen}
 		>{#if hasText}{#if snip(children)}{@render (children as import('svelte').Snippet)()}{:else}{children}{/if}{/if}</Button>
-	</div>
+	</div>{/if}
 	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true"><ul role="menu">{#each flatItems as row, ri (ri)}{#if row.category}<li role="presentation"><span>{row.text ?? ''}</span></li>{:else}<li class={cx(IE['item-element'], row.item.disabled && IE.disabled)} data-testid={row.item.id} role="menuitem" aria-disabled={row.item.disabled ? 'true' : undefined} onclick={() => onItem(row.item)}>{#if row.item.href}<a href={row.item.href}>{row.item.text}</a>{:else}<span>{row.item.text}</span>{/if}</li>{/if}{/each}</ul></div></div>{/if}
 </div>
