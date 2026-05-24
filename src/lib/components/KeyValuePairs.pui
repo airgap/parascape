@@ -98,13 +98,13 @@
 							variant="h3"
 							padding="n">{pair.title}</Box></dt>{/if}<dd class={S.detail}><dl
 						class={S['group-list']}
-						>{#each pair.items as gp, gi (idOf(gp, gi))}<dt class={S.term}><div
+						>{#each pair.items as gp, gi (idOf(gp, gi))}<div class={S['group-list-item']}><dt class={S.term}><div
 									class={S['key-label']}
 									id={idOf(gp, gi)}
 								>{#if r(gp.label)}{@render gp.label()}{:else}{gp.label}{/if}</div></dt><dd
 									class={S.detail}
 								>{#if r(gp.value)}{@render gp.value()}{:else}{gp.value}{/if}</dd
-								>{/each}</dl></dd>{:else}<dt class={S.term}><div
+								></div>{/each}</dl></dd>{:else}<dt class={S.term}><div
 							class={S['key-label']}
 							id={idOf(pair, i)}
 						>{#if r(pair.label)}{@render pair.label()}{:else}{pair.label}{/if}</div>{#if pair.info}<span
