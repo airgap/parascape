@@ -73,7 +73,7 @@
 	const isPlainLeft = (e: MouseEvent) =>
 		e.button === 0 && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey;
 	const fireFollow = (item: Item, e: MouseEvent) => {
-		if (isPlainLeft(e)) onFollow?.({ detail: item });
+		if (isPlainLeft(e)) onFollow?.({ detail: item, preventDefault: () => e.preventDefault() });
 	};
 </script>
 
@@ -102,21 +102,30 @@
 			onclick={(e: MouseEvent) => fireFollow(item, e)}
 			>{item.text}</a
 		>{@render renderList(item.items, 'link-group')}
-	{:else if item.type === 'section' || item.type === 'expandable-link-group'}
+	{:else if item.type === 'section'}
 		<!--
 		  Cloudscape's side-navigation/parts.js defaults sections to
 		  EXPANDED when the consumer doesn't set defaultExpanded
-		  (`definition.defaultExpanded ?? true`). Mirror that here so
-		  a bare `{ type: 'section', text: 'X', items: [...] }` opens
-		  the same way on both sides — without this `?? true` the
-		  Para nav rendered its sections collapsed.
+		  (`definition.defaultExpanded ?? true`).
 		-->
 		<ExpandableSection
+			class={S.section}
 			variant="footer"
 			headerText={item.text}
 			defaultExpanded={item.defaultExpanded ?? true}
 		>
 			{@render renderList(item.items, 'section')}
+		</ExpandableSection>
+	{:else if item.type === 'section-group'}
+		<div class={S['section-group']}><h3 class={S['section-group-title']}>{item.title ?? item.text}</h3>{@render renderList(item.items, 'section-group')}</div>
+	{:else if item.type === 'expandable-link-group'}
+		<ExpandableSection
+			class={S['expandable-link-group']}
+			variant="footer"
+			headerText={item.text}
+			defaultExpanded={item.defaultExpanded ?? false}
+		>
+			{@render renderList(item.items, 'expandable-link-group')}
 		</ExpandableSection>
 	{/if}
 {/snippet}
@@ -124,7 +133,7 @@
 {#snippet renderList(list: Item[], variant: string)}
 	<ul class={cx(S.list, S[`list-variant-${variant}`])}>
 		{#each list as it, i (i)}
-			<li class={S['list-item']}>{@render renderItem(it)}</li>
+			<li class={S['list-item']} data-itemid={`item-${i + 1}`}>{@render renderItem(it)}</li>
 		{/each}
 	</ul>
 {/snippet}
@@ -134,7 +143,7 @@
 				class={cx(S['header-link'], has(header!.logo) && S['header-link--has-logo'])}
 				href={header!.href}
 				aria-current={header!.href === activeHref ? 'page' : undefined}
-				onclick={(e: MouseEvent) => fireFollow({ type: 'link', text: header!.text, href: header!.href } as Item, e)}
+				onclick={(e: MouseEvent) => fireFollow(header as unknown as Item, e)}
 				>{#if has(header!.logo)}<img class={S['header-logo']} src={header!.logo!.src} alt={header!.logo!.alt || ''} />{/if}{header!.text}</a
 			></h2>
 		<hr class={cx(S.divider, S['divider-header'])} role="presentation" />{/if}
