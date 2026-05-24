@@ -17,7 +17,7 @@
 	import type { Presence } from '../src/lib/collab';
 	import { stableStringify } from '../src/lib/collab-doc';
 	import SiteNav from '../src/lib/SiteNav.pui';
-	import { compileParascape, mountSvelte } from '../demos/live-compile';
+	import { compileParascape, mountSvelte, registerUserModule, clearUserModules } from '../demos/live-compile';
 	import { highlight, highlightSync, ready as shikiReady } from '../demos/pui-shiki';
 	import { SECTIONS, SECTION_BY_ID, sectionSource, markupOf, importLine, esc } from './sections';
 	import type { SectionStyle } from './sections';
@@ -178,7 +178,7 @@
 	// A reusable named component (symbol, LYK-949). `def` is a node tree edited in
 	// one place; page nodes reference it by id as instances (`Section.ref`). Lives
 	// on the project (shared across pages), not on any one page.
-	type NamedComponent = { id: string; name: string; def: Section[] };
+	type NamedComponent = { id: string; name: string; def: Section[]; codeOverride?: string | null };
 	// `data` (LYK-945): inline data sources — named variables/collections bound
 	// into node content (Section.bind) + emitted as a `const data = …` in export.
 	type Project = { pages: Page[]; activePageId: number; nextKey: number; components: NamedComponent[]; nextCompId: number; data?: Record<string, unknown>; dataUrl?: string };
@@ -273,6 +273,7 @@
 							id: c.id,
 							name: typeof c.name === 'string' && c.name ? c.name : 'Component',
 							def: fixNesting(scrub({ sections: Array.isArray(c.def) ? c.def : [] })).sections,
+							codeOverride: typeof c.codeOverride === 'string' ? c.codeOverride : null,
 						}))
 				: [];
 		if (Array.isArray(x?.pages)) {
@@ -403,6 +404,9 @@
 	// Code Mode diagnostics + autocomplete (LYK-939)
 	signal codeErrLine: number | null = null;
 	signal codeCaret = 0;
+	// LYK-958: bumped whenever coded components are (re)registered in the live-compile
+	// module registry, so the canvas recompiles sections that instance them.
+	signal moduleEpoch = 0;
 	// syntax-highlighted editor overlay (textarea over a Shiki <pre>)
 	signal codeScrollY = 0;
 	signal hlReady = false;
@@ -528,7 +532,9 @@
 	// `components`. When not editing, behaves as before.
 	const pageSecsNow = (): Section[] => (editingComponentId ? pageSectionsStash ?? [] : sections);
 	const componentsNow = (): NamedComponent[] =>
-		editingComponentId ? components.map((c) => (c.id === editingComponentId ? { ...c, def: clone(sections) } : c)) : components;
+		editingComponentId
+			? components.map((c) => (c.id === editingComponentId ? { ...c, def: clone(sections), codeOverride } : c))
+			: components;
 	const activeDoc = (): Doc => ({ sections: clone(pageSecsNow()), codeOverride: editingComponentId ? pageCodeStash : codeOverride });
 	function currentProject(): Project {
 		return {
@@ -739,7 +745,7 @@
 		pageCodeStash = codeOverride;
 		editingComponentId = id;
 		sections = clone(c.def);
-		codeOverride = null;
+		codeOverride = c.codeOverride ?? null; // LYK-958: edit the component's own code, if any
 		selectedKey = null;
 		showExport = false;
 		showA11y = false;
@@ -750,7 +756,8 @@
 		if (!editingComponentId) return;
 		const id = editingComponentId;
 		const def = clone(sections);
-		components = components.map((c) => (c.id === id ? { ...c, def } : c));
+		const compCode = codeOverride; // LYK-958: the component's own code (if authored)
+		components = components.map((c) => (c.id === id ? { ...c, def, codeOverride: compCode } : c));
 		editingComponentId = null;
 		sections = pageSectionsStash ?? [];
 		codeOverride = pageCodeStash;
@@ -1487,7 +1494,8 @@
 				const cls = hasResponsive(n) ? ` class="pn-${n.key}"` : '';
 				return sty || cls ? `<div${cls} style="${sty}">${t}</div>` : t;
 			}
-			const inner = c.def.map((d) => nodeBody(d, false)).join('\n');
+			// coded component (LYK-958): render its registered module; visual: inline the def
+			const inner = c.codeOverride != null ? `<${identByComp[n.ref!]} />` : c.def.map((d) => nodeBody(d, false)).join('\n');
 			return `<div data-pk="${n.key}" data-instance="${n.ref}" style="${cssOf(n, true) || 'display:contents'}">${inner}</div>`;
 		}
 		// free canvas → a relative box with absolutely-positioned children
@@ -1561,9 +1569,11 @@
 	function nodeImports(n: Section, forExport = false): string[] {
 		if (isInstance(n)) {
 			// export references the module (import added at page/module level); preview
-			// inlines the def, so it needs the def's own component imports.
+			// inlines a VISUAL def (so it needs the def's own imports), but a CODED
+			// component (LYK-958) renders via its registered module — imported by srcOf.
 			if (forExport) return [];
 			const c = compById(n.ref);
+			if (c?.codeOverride != null) return [];
 			return c ? c.def.flatMap((d) => nodeImports(d, false)) : [];
 		}
 		if (isFree(n)) return (n.children ?? []).flatMap((c) => nodeImports(c, forExport));
@@ -1573,10 +1583,25 @@
 		if (n.children) for (const c of n.children) ids.push(...nodeImports(c, forExport));
 		return ids;
 	}
-	// Preview source: imports for the whole subtree (instances inlined) + nodeBody.
+	// component ids instanced at any depth whose component is hand-coded (LYK-958)
+	function codedInstanceRefsIn(list: Section[]): string[] {
+		const out: string[] = [];
+		for (const n of list) {
+			if (isInstance(n) && n.ref && compById(n.ref)?.codeOverride != null) out.push(n.ref);
+			if (n.children) out.push(...codedInstanceRefsIn(n.children));
+		}
+		return out;
+	}
+	// Preview source: imports for the subtree (visual instances inlined) + nodeBody.
+	// Coded instances render via their registered module, so import them + tag the
+	// source with the registry epoch so it recompiles once they're registered.
 	const srcOf = (s: Section) => {
-		const imps = [...new Set(nodeImports(s))].map(importLine).join('\n');
-		return `<script lang="pts">\n${imps}\n<\/script>\n\n${nodeBody(s, true)}\n`;
+		const imps = [...new Set(nodeImports(s))].map(importLine);
+		const coded = [...new Set(codedInstanceRefsIn([s]))];
+		const codedMods = coded.map((id) => `import ${identByComp[id]} from './${identByComp[id]}.pui';`);
+		const all = [...imps, ...codedMods].filter(Boolean).join('\n');
+		const epoch = coded.length ? `\n<!-- registry:${moduleEpoch} -->` : '';
+		return `<script lang="pts">\n${all}\n<\/script>\n\n${nodeBody(s, true)}${epoch}\n`;
 	};
 	const sectionImports = (s: Section): string[] => [...new Set(nodeImports(s, true))];
 	// component ids instanced anywhere in a node list (page or a def), at any depth.
@@ -1641,6 +1666,48 @@
 		return `\t<Section ${attrs}>\n${body}\n\t</Section>`;
 	};
 	derived pageSegments = sections.map((s) => ({ key: s.key, label: labelOf(s), code: segmentOf(s) }));
+	// A component's compilable .pui source: its hand-authored code (LYK-958) when
+	// set, else generated from its visual def. Used for export modules, the live
+	// module registry (so coded instances render), and publish.
+	function componentSource(c: NamedComponent): string {
+		if (c.codeOverride != null) return c.codeOverride;
+		const meta = [...new Set(c.def.flatMap((d) => nodeImports(d, true)))].map(importLine);
+		const mods = [...new Set(instanceRefsIn(c.def))]
+			.filter((id) => compById(id))
+			.map((id) => `import ${identByComp[id]} from './${identByComp[id]}.pui';`);
+		const imps = [...meta, ...mods].filter(Boolean).join('\n');
+		const body = c.def.map((d) => nodeBody(d, false)).join('\n');
+		return `<script lang="pts">\n${imps}\n<\/script>\n\n${body}\n`;
+	}
+	// LYK-958: keep the live-compile module registry in sync with the project's
+	// components, so a coded (or visual) component resolves when instanced. Compiled
+	// to a fixed point (a component may import another); one that errors / isn't
+	// ready is skipped and retried. Bumps moduleEpoch → the canvas recompiles.
+	effect {
+		const cs = components; // re-register on any component change
+		untrack(() => {
+			clearUserModules();
+			const pending = new Map(cs.map((c) => [identByComp[c.id], c] as const));
+			let progress = true;
+			while (pending.size && progress) {
+				progress = false;
+				for (const [ident, c] of [...pending]) {
+					if (!ident) {
+						pending.delete(ident);
+						continue;
+					}
+					try {
+						registerUserModule(ident, { default: compileParascape(componentSource(c)) as unknown as Record<string, unknown> });
+						pending.delete(ident);
+						progress = true;
+					} catch {
+						/* a dependency isn't registered yet, or the code has an error → retry / leave */
+					}
+				}
+			}
+			moduleEpoch++;
+		});
+	}
 	// Components reachable from this page (instanced on it, plus any they reference
 	// transitively) — each exported as its own reusable .pui module.
 	derived pageModules {
@@ -1658,13 +1725,7 @@
 			.filter((c) => want.has(c.id))
 			.map((c) => {
 				const ident = identByComp[c.id];
-				const meta = [...new Set(c.def.flatMap((d) => nodeImports(d, true)))].map(importLine);
-				const mods = [...new Set(instanceRefsIn(c.def))]
-					.filter((id) => compById(id))
-					.map((id) => `import ${identByComp[id]} from './${identByComp[id]}.pui';`);
-				const imps = [...meta, ...mods].filter(Boolean).join('\n');
-				const body = c.def.map((d) => nodeBody(d, false)).join('\n');
-				return { id: c.id, name: c.name, ident, filename: `${ident}.pui`, source: `<script lang="pts">\n${imps}\n<\/script>\n\n${body}\n` };
+				return { id: c.id, name: c.name, ident, filename: `${ident}.pui`, source: componentSource(c) };
 			});
 	}
 	// `section` is the band wrapper every segment uses, plus each section's own
@@ -1824,6 +1885,14 @@
 		const pgs = pages.map((p) => (p.id === activePageId ? { ...p, doc: activeDoc() } : p));
 		return pgs.map((p) => ({ name: p.name, route: p.route || '/', params: p.params || '', source: pageToSource(p) }));
 	}
+	// The project's components as compilable modules, so the published router can
+	// register them and instances (visual or coded) resolve (LYK-958; also closes
+	// the LYK-957 gap where custom components didn't resolve in published apps).
+	function projectComponents(): { ident: string; source: string }[] {
+		return componentsNow()
+			.filter((c) => identByComp[c.id])
+			.map((c) => ({ ident: identByComp[c.id], source: componentSource(c) }));
+	}
 
 	// Shiki-highlight a code string into `el` (async; re-runs on update). Tab
 	// indentation in the exported source renders at 2 spaces via CSS tab-size.
@@ -1869,7 +1938,11 @@
 	function toggleCode() {
 		codeMode = !codeMode;
 		if (codeMode) {
-			codeDraft = codeOverride ?? blockSource;
+			// editing a component → seed from its code (or its def-generated source);
+			// otherwise the page's code (or the blocks' generated source).
+			codeDraft = editingComponentId
+				? codeOverride ?? componentSource({ id: editingComponentId, name: editingComponent?.name ?? 'Component', def: clone(sections) })
+				: codeOverride ?? blockSource;
 			codeErr = null;
 			showExport = false;
 			selectedKey = null;
@@ -2043,12 +2116,15 @@
 			// its route + source, so the preview routes by path and feeds URL params to
 			// page code. Image assets resolve via the dev server's /api/assets URLs.
 			const projName = projects.find((p) => p.id === projectId)?.name || activePage?.name || 'site';
+			// Scope the slug to the owner so two users' "My site" don't collide (the
+			// publish endpoint 409s a slug owned by someone else). Stable per user+project.
+			const owner = acct?.username || 'guest';
 			const slug =
-				projName
+				`${projName}-${owner}`
 					.toLowerCase()
 					.replace(/[^a-z0-9-]+/g, '-')
 					.replace(/^-+|-+$/g, '') || 'site';
-			const r = await account.publish(slug, { name: projName, pages: projectPages() });
+			const r = await account.publish(slug, { name: projName, pages: projectPages(), components: projectComponents() });
 			publishUrl = `/preview/?slug=${encodeURIComponent(r.slug)}`;
 		} catch (e: unknown) {
 			alert((e as { message?: string })?.message ?? 'Publish failed — needs the account server (sign in or guest mode).');

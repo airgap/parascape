@@ -234,6 +234,19 @@ import * as SvelteInternalDiscloseVersion from "svelte/internal/disclose-version
 import * as SvelteInternalFlagsLegacy from "svelte/internal/flags/legacy";
 import * as Svelte from "svelte";
 
+// User-defined modules (LYK-958/959): the Designer compiles each project
+// component / shared module and registers it here by its bare name, so a page or
+// component that does `import Card from './Card.pui'` resolves to the compiled
+// module — the same mechanism the published router uses.
+const userModules: Record<string, Record<string, unknown>> = {};
+/** Register a compiled user module under a bare name (e.g. "Card" for ./Card.pui). */
+export function registerUserModule(name: string, mod: Record<string, unknown>): void {
+  userModules[name] = mod;
+}
+export function clearUserModules(): void {
+  for (const k of Object.keys(userModules)) delete userModules[k];
+}
+
 /**
  * Build the per-pane require-map. Returns a fn that resolves an
  * import specifier (`"react"`, `"@cloudscape-design/components/button"`,
@@ -286,6 +299,9 @@ function makeRequires(side: "cs" | "ps"): (id: string) => Record<string, unknown
       if (mod) return mod as unknown as Record<string, unknown>;
       throw new Error(`[live-compile/${side}] unresolved @parascape-design import: ${id} (looked up ${key})`);
     }
+    // user component / shared module: `./Card.pui`, `Card`, `./util.ts` → registry
+    const bare = id.replace(/^\.\//, "").replace(/\.(pui|ts|js)$/, "");
+    if (userModules[bare]) return userModules[bare];
     throw new Error(`[live-compile/${side}] unresolved import: ${id}`);
   };
 }

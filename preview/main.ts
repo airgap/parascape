@@ -9,10 +9,34 @@ import "@cloudscape-design/global-styles/index.css";
 import "../src/lib/tokens/cloudscape-tokens.css";
 import "../src/lib/tokens/cloudscape-tokens-dark.css";
 import "../src/lib/site.css";
-import { compileParascape, mountSvelte } from "../demos/live-compile";
+import { compileParascape, mountSvelte, registerUserModule, clearUserModules } from "../demos/live-compile";
 
 type PublishedPage = { name: string; route: string; params?: string; source: string };
-type PublishedDoc = { name?: string; source?: string; pages?: PublishedPage[] };
+type PublishedComponent = { ident: string; source: string };
+type PublishedDoc = { name?: string; source?: string; pages?: PublishedPage[]; components?: PublishedComponent[] };
+
+// Register the project's components (LYK-958) so pages/instances that import them
+// resolve. Fixed-point: a component may import another; compile what we can each
+// pass until no more progress (an erroring one is left unresolved).
+function registerComponents(components: PublishedComponent[] | undefined) {
+  clearUserModules();
+  const pending = [...(components ?? [])];
+  let progress = true;
+  while (pending.length && progress) {
+    progress = false;
+    for (let i = pending.length - 1; i >= 0; i--) {
+      try {
+        registerUserModule(pending[i].ident, {
+          default: compileParascape(pending[i].source) as unknown as Record<string, unknown>,
+        });
+        pending.splice(i, 1);
+        progress = true;
+      } catch {
+        /* dependency not registered yet, or an error → retry / leave unresolved */
+      }
+    }
+  }
+}
 
 const app = document.getElementById("app");
 const slug = new URLSearchParams(location.search).get("slug") ?? "";
@@ -108,6 +132,7 @@ async function run() {
     if (!res.ok) throw new Error("HTTP " + res.status);
     const { doc } = (await res.json()) as { doc: PublishedDoc };
     document.title = (doc?.name ?? "Preview") + " — Parascape";
+    registerComponents(doc.components);
     render(doc);
     // re-route on in-app navigation (hash links)
     addEventListener("hashchange", () => render(doc));
