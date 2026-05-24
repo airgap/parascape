@@ -174,7 +174,7 @@
 	// Per-page SEO / social metadata (LYK-947), emitted into the exported /
 	// published <svelte:head>.
 	type PageMeta = { title?: string; description?: string; image?: string; favicon?: string; lang?: string };
-	type Page = { id: number; name: string; route: string; params: string; doc: Doc; meta?: PageMeta };
+	type Page = { id: number; name: string; route: string; params: string; doc: Doc; meta?: PageMeta; parentId?: number | null };
 	// A reusable named component (symbol, LYK-949). `def` is a node tree edited in
 	// one place; page nodes reference it by id as instances (`Section.ref`). Lives
 	// on the project (shared across pages), not on any one page.
@@ -284,6 +284,7 @@
 				params: p.params ?? '',
 				doc: cleanDoc(p.doc),
 					meta: p.meta && typeof p.meta === 'object' ? (p.meta as PageMeta) : undefined,
+					parentId: typeof p.parentId === 'number' ? p.parentId : null,
 			}));
 			if (!pages.length) return starterProject();
 			const activePageId = pages.some((p) => p.id === x.activePageId) ? (x.activePageId as number) : pages[0].id;
@@ -645,12 +646,60 @@
 	}
 	function deletePage(id: number) {
 		if (pages.length <= 1) return;
-		const remaining = pages.filter((p) => p.id !== id);
+		const gone = pages.find((p) => p.id === id);
+		// reparent the deleted page's children to its parent (no orphans)
+		const remaining = pages
+			.filter((p) => p.id !== id)
+			.map((p) => (p.parentId === id ? { ...p, parentId: gone?.parentId ?? null } : p));
 		pages = remaining;
 		if (activePageId === id) {
 			activePageId = remaining[0].id;
 			loadPageDoc(remaining[0].doc);
 		}
+	}
+	// --- nested page hierarchy (LYK-959) ---
+	const childrenOfPage = (pid: number | null): Page[] => pages.filter((p) => (p.parentId ?? null) === pid);
+	function pageDescendants(id: number): Set<number> {
+		const out = new Set<number>();
+		const walk = (pid: number) => {
+			for (const c of childrenOfPage(pid)) {
+				if (!out.has(c.id)) {
+					out.add(c.id);
+					walk(c.id);
+				}
+			}
+		};
+		walk(id);
+		return out;
+	}
+	// nesting a page under itself or a descendant would make a cycle — forbid it.
+	const canParent = (id: number, parentId: number | null): boolean =>
+		parentId === null || (parentId !== id && !pageDescendants(id).has(parentId) && pages.some((p) => p.id === parentId));
+	function setPageParent(id: number, parentId: number | null) {
+		if (!canParent(id, parentId)) return;
+		pages = pages.map((p) => (p.id === id ? { ...p, parentId } : p));
+	}
+	// pre-order flatten of the page tree with depth, for the indented Pages panel.
+	// Orphans (missing parent) fall back to the top level.
+	derived orderedPages {
+		const out: { page: Page; depth: number }[] = [];
+		const ids = new Set(pages.map((p) => p.id));
+		const seen = new Set<number>();
+		const walk = (pid: number | null, depth: number) => {
+			for (const p of pages.filter((x) => (x.parentId ?? null) === pid)) {
+				if (seen.has(p.id)) continue;
+				seen.add(p.id);
+				out.push({ page: p, depth });
+				walk(p.id, depth + 1);
+			}
+		};
+		walk(null, 0);
+		for (const p of pages) {
+			if (seen.has(p.id)) continue; // parent missing → show at top level
+			seen.add(p.id);
+			out.push({ page: p, depth: 0 });
+		}
+		return out;
 	}
 	const renamePage = (id: number, name: string) => (pages = pages.map((p) => (p.id === id ? { ...p, name } : p)));
 	const setRoute = (id: number, route: string) => (pages = pages.map((p) => (p.id === id ? { ...p, route } : p)));
@@ -2968,10 +3017,10 @@
 			</div>
 			<div class="pages">
 				<div class="pages-head"><span>Pages</span><button class="mini" onclick={addPage}>+ Page</button></div>
-				{#each pages as p (p.id)}
-					<div class="page-row" class:active={p.id === activePageId}>
+				{#each orderedPages as { page: p, depth } (p.id)}
+					<div class="page-row" class:active={p.id === activePageId} style="padding-left:{depth * 14}px">
 						<button class="page-pick" onclick={() => switchPage(p.id)} title={p.route}>
-							<span class="page-name">{p.name}</span>
+							<span class="page-name">{depth ? '↳ ' : ''}{p.name}</span>
 							<span class="page-route">{p.route}</span>
 						</button>
 						{#if pages.length > 1}
@@ -2983,6 +3032,14 @@
 					<div class="page-settings">
 						<label class="field"><span>Name</span>
 							<input value={activePage.name} oninput={(e) => renamePage(activePage.id, (e.target as HTMLInputElement).value)} />
+						</label>
+						<label class="field"><span>Parent page</span>
+							<select value={activePage.parentId ?? ''} onchange={(e) => setPageParent(activePage.id, (e.target as HTMLSelectElement).value ? Number((e.target as HTMLSelectElement).value) : null)}>
+								<option value="">— none (top level) —</option>
+								{#each pages.filter((p) => canParent(activePage.id, p.id)) as p (p.id)}
+									<option value={p.id} selected={p.id === activePage.parentId}>{p.name}</option>
+								{/each}
+							</select>
 						</label>
 						<label class="field"><span>Route</span>
 							<input value={activePage.route} oninput={(e) => setRoute(activePage.id, (e.target as HTMLInputElement).value)} placeholder="/blog/[slug]" />
@@ -3728,7 +3785,7 @@
 	.page-settings .field { margin-bottom: 6px; }
 	.page-settings .field > span { display: block; font-size: 11px; color: var(--fg-muted); margin-bottom: 2px; }
 	.page-settings .seo-head { margin-top: 10px; margin-bottom: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-subtle); }
-	.page-settings input { width: 100%; box-sizing: border-box; padding: 4px 7px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--fg-body); font: 12px inherit; }
+	.page-settings input, .page-settings select { width: 100%; box-sizing: border-box; padding: 4px 7px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--fg-body); font: 12px inherit; }
 	/* version history (LYK-943) */
 	.history { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); }
 	.hist-head { display: flex; align-items: center; justify-content: space-between; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); margin-bottom: 6px; }
