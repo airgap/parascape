@@ -32,6 +32,7 @@
 	import Icon from './Icon.pui';
 	import styles from '../cloudscape/token-group.styles.js';
 	import tokenStyles from '../cloudscape/token.styles.js';
+	import optStyles from '../cloudscape/option.styles.js';
 	import tokenListStyles from '../cloudscape/token-list.styles.js';
 	import '../cloudscape/token-group.scoped.css';
 	import '../cloudscape/token.scoped.css';
@@ -76,6 +77,7 @@
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
 	const TS = tokenStyles as Record<string, string>;
+	const OPT = optStyles as Record<string, string>;
 	const TL = tokenListStyles as Record<string, string>;
 	const has = (v: unknown) => v !== null && v !== undefined;
 </script>
@@ -95,12 +97,11 @@
 							item.disabled && TS['token-box-disabled'],
 						)}
 					>
-						<div>{#if has(item.iconName)}<Icon name={item.iconName!} />{' '}{/if}<span>{item.label ?? ''}</span>{#if item.labelTag}{' '}<span>{item.labelTag}</span>{/if}</div>
-						{#if has(item.description)}<div>{item.description}</div>{/if}
+						<div class={OPT.option}><div class={OPT.content}>{#if has(item.iconName)}<Icon name={item.iconName!} />{' '}{/if}<div class={OPT.label}>{item.label ?? ''}{#if item.labelTag}{' '}<span class={OPT['label-tag']}>{item.labelTag}</span>{/if}</div>{#if has(item.description)}<div class={OPT.description}>{item.description}</div>{/if}</div></div>
 					</div>
 					{#if !noDismiss}<button
 							type="button"
-							class={TS['dismiss-button']}
+							class={S['dismiss-button']}
 							aria-label={item.dismissLabel}
 							disabled={item.disabled}
 							onclick={() => onDismiss?.({ detail: { itemIndex: i } })}
