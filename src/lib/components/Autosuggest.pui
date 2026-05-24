@@ -24,7 +24,7 @@
 	import selItemStyles from '../cloudscape/selectable-item.styles.js';
 	import '../cloudscape/autosuggest.scoped.css';
 
-	type Option = { value: string; label?: string; description?: string; disabled?: boolean };
+	type Option = { value: string; label?: string; description?: string; disabled?: boolean; options?: Option[] };
 	let {
 		value = $bindable(''),
 		options = [],
@@ -88,7 +88,19 @@
 	function matchOpt(o: Option) {
 		return filteringType !== 'auto' || !value || `${o.label ?? o.value ?? ''}`.toLowerCase().includes(value.toLowerCase());
 	}
-	derived rows = options.filter(matchOpt).map((o, i) => ({ option: o, index: i + 1 }));
+	function buildRows() {
+		const out: { option: Option; index: number }[] = [];
+		let idx = 0;
+		const walk = (opts: Option[]) => {
+			for (const o of opts) {
+				if (o.options) walk(o.options);
+				else if (matchOpt(o)) out.push({ option: o, index: ++idx });
+			}
+		};
+		walk(options);
+		return out;
+	}
+	derived rows = buildRows();
 	function openIt() {
 		if (disabled || readOnly) return;
 		open = true;
@@ -98,9 +110,42 @@
 		if (o.disabled) return;
 		value = o.value;
 		open = false;
+		highlightedIndex = -1;
 		flushSync();
 		onChange?.({ detail: { value: o.value } });
 		onSelect?.({ detail: { value: o.value, selectedOption: o } });
+	}
+	signal highlightedIndex = -1;
+	// Shared dropdown keyboard nav: arrows open + move the highlight (wrapping),
+	// Enter picks the highlight, Escape closes. KeyCode: down 40 / up 38 / enter 13 / esc 27.
+	function handleKey(ev: { detail: { keyCode: number }; preventDefault: () => void }) {
+		const len = rows.length;
+		if (ev.detail.keyCode === 40) {
+			ev.preventDefault();
+			if (!open) {
+				open = true;
+				highlightedIndex = 0;
+			} else highlightedIndex = len ? (highlightedIndex + 1) % len : -1;
+			flushSync();
+		} else if (ev.detail.keyCode === 38) {
+			ev.preventDefault();
+			if (!open) {
+				open = true;
+				highlightedIndex = len - 1;
+			} else highlightedIndex = len ? (highlightedIndex - 1 + len) % len : -1;
+			flushSync();
+		} else if (ev.detail.keyCode === 13) {
+			if (open && highlightedIndex >= 0 && rows[highlightedIndex]) {
+				ev.preventDefault();
+				pick(rows[highlightedIndex].option);
+			}
+		} else if (ev.detail.keyCode === 27) {
+			if (open) {
+				open = false;
+				highlightedIndex = -1;
+				flushSync();
+			}
+		}
 	}
 
 	// Autosuggest closed-state input combobox-role aria surface
@@ -132,13 +177,14 @@
 		nativeAttributes={comboAttrs}
 		onChange={(e) => {
 			value = e.detail.value;
+			highlightedIndex = -1;
 			openIt();
 			onChange?.(e);
 		}}
 		{onBlur}
 		onFocus={(e) => { openIt(); onFocus?.(e); }}
-		{onKeyDown}
+		onKeyDown={(e) => { handleKey(e); onKeyDown?.(e); }}
 		{onKeyUp}
 	/>
-	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true"><ul class={SI['options-list']} role="listbox">{#each rows as row, ri (ri)}<li class={cx(SI['selectable-item'])} data-test-index={row.index} role="option"><div class={OPT.option} data-value={row.option.value} onmouseup={() => pick(row.option)} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div class={OPT.description}>{row.option.description}</div>{/if}</div></div></li>{/each}</ul></div></div>{/if}
+	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true"><ul class={SI['options-list']} role="listbox">{#each rows as row, ri (ri)}<li class={cx(SI['selectable-item'], highlightedIndex === ri && SI.highlighted)} data-test-index={row.index} role="option"><div class={OPT.option} data-value={row.option.value} onmouseup={() => pick(row.option)} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div class={OPT.description}>{row.option.description}</div>{/if}</div></div></li>{/each}</ul></div></div>{/if}
 </div>
