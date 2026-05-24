@@ -19,6 +19,7 @@
 -->
 <script lang="pts">
 	import Button from './Button.pui';
+	import StatusIndicator from './StatusIndicator.pui';
 	import styles from '../cloudscape/drawer.styles.js';
 	import testClasses from '../cloudscape/drawer.test-classes.js';
 	import '../cloudscape/drawer.scoped.css';
@@ -32,6 +33,8 @@
 		closeAriaLabel = 'Close',
 		disableContentPaddings = false,
 		footer = undefined,
+		loading = false,
+		i18nStrings = undefined,
 		onClose = undefined,
 		children = undefined,
 		class: extraClass = undefined,
@@ -45,6 +48,8 @@
 		closeAriaLabel?: string;
 		disableContentPaddings?: boolean;
 		footer?: import('svelte').Snippet | string;
+		loading?: boolean;
+		i18nStrings?: { loadingText?: string };
 		onClose?: (e: { detail: { reason: string } }) => void;
 		children?: import('svelte').Snippet | string;
 		class?: string;
@@ -75,11 +80,11 @@
 				ariaLabel={closeAriaLabel}
 				onClick={() => onClose?.({ detail: { reason: 'close-button' } })}
 			/></div>{/if}
-	<div
+	{#if loading}<StatusIndicator type="loading">{i18nStrings?.loadingText ?? ''}</StatusIndicator>{:else}<div
 		class={cx(S['test-utils-drawer-content'], S.content, !disableContentPaddings && S['content-with-paddings'])}
 		>{#if snip(children)}{@render (children as import('svelte').Snippet)()}{:else}{children}{/if}</div
-	>
-	{#if has(footer)}<div class={S.footer}
+	>{/if}
+	{#if has(footer) && !loading}<div class={S.footer}
 			>{#if snip(footer)}{@render (footer as import('svelte').Snippet)()}{:else}{footer}{/if}</div
 		>{/if}
 </div>
