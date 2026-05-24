@@ -35,7 +35,7 @@
 	import '../cloudscape/multiselect.scoped.css';
 	import '../cloudscape/button-trigger.scoped.css';
 
-	type Option = { value?: string; label?: string; description?: string; disabled?: boolean; options?: Option[] };
+	type Option = { value?: string; label?: string; description?: string; disabled?: boolean; lang?: string; labelTag?: string; tags?: string[]; options?: Option[] };
 	let {
 		options = [],
 		selectedOptions = $bindable([]),
@@ -62,6 +62,11 @@
 		finishedText = undefined,
 		recoveryText = undefined,
 		errorIconAriaLabel = undefined,
+		filteringResultsText = undefined,
+		noMatch = undefined,
+		empty = undefined,
+		inlineLabelText = undefined,
+		autoFocus = false,
 		onLoadItems = undefined,
 		i18nStrings = undefined,
 		onChange = undefined,
@@ -95,6 +100,11 @@
 		finishedText?: string;
 		recoveryText?: string;
 		errorIconAriaLabel?: string;
+		filteringResultsText?: (matchesCount: number, totalCount: number) => string;
+		noMatch?: string;
+		empty?: string;
+		inlineLabelText?: string;
+		autoFocus?: boolean;
 		onLoadItems?: (e: { detail: { filteringText: string; firstPage: boolean; samePage: boolean } }) => void;
 		i18nStrings?: { tokenLimitShowFewer?: string; tokenLimitShowMore?: string };
 		onChange?: (e: { detail: { selectedOptions: Option[] } }) => void;
@@ -123,9 +133,20 @@
 	const footerId = `parascape-multiselect-footer-${__msN}`;
 	const listboxId = `parascape-multiselect-listbox-${__msN}`;
 	const dialogId = `parascape-multiselect-dialog-${__msN}`;
+	const triggerButtonId = controlId ?? `parascape-multiselect-trigger-${__msN}`;
 	derived isFiltering = filteringType !== 'none';
-	derived hasStatus =
-		statusType === 'loading' || statusType === 'error' || (statusType === 'finished' && !!finishedText);
+	signal triggerEl: HTMLButtonElement | undefined = undefined;
+	signal rootEl: HTMLElement | undefined = undefined;
+	effect {
+		if (autoFocus) triggerEl?.focus();
+	}
+	function onRootBlur(e: FocusEvent) {
+		const next = e.relatedTarget as Node | null;
+		if (open && !(next && rootEl?.contains(next))) {
+			open = false;
+			flushSync();
+		}
+	}
 	derived hasRecovery = statusType === 'error' && !!recoveryText && !!onLoadItems;
 	derived statusAnnouncement =
 		statusType === 'loading'
@@ -146,8 +167,15 @@
 	}
 	signal open = false;
 	signal filterValue = '';
-	type Row = { group: true; label?: string } | { group?: false; option: Option; index: number };
+	type Row = { group: true; option: Option; mt: number } | { group?: false; option: Option; index: number; mt: number };
 	const isSelected = (o: Option) => selectedOptions.some((s) => s.value === o.value);
+	// Group checkbox tri-state: 'true' all enabled children selected, 'mixed' some,
+	// 'false' none.
+	function groupChecked(g: Option): 'true' | 'false' | 'mixed' {
+		const kids = (g.options ?? []).filter((k) => !k.disabled);
+		const sel = kids.filter(isSelected).length;
+		return sel === 0 ? 'false' : sel === kids.length ? 'true' : 'mixed';
+	}
 	function matchOpt(o: Option) {
 		return (
 			filteringType !== 'auto' ||
@@ -158,24 +186,44 @@
 	function buildRows(): Row[] {
 		const out: Row[] = [];
 		let idx = 0;
+		let mt = 0;
 		for (const o of options) {
 			if (o.options) {
 				const kids = o.options.filter(matchOpt);
 				if (kids.length) {
-					out.push({ group: true, label: o.label });
-					for (const k of kids) out.push({ option: k, index: ++idx });
+					out.push({ group: true, option: o, mt: mt++ });
+					for (const k of kids) out.push({ option: k, index: ++idx, mt: mt++ });
 				}
 			} else if (matchOpt(o)) {
-				out.push({ option: o, index: ++idx });
+				out.push({ option: o, index: ++idx, mt: mt++ });
 			}
 		}
 		return out;
 	}
 	derived rows = buildRows();
+	function countLeaves(opts: Option[]): number {
+		let n = 0;
+		for (const o of opts) n += o.options ? countLeaves(o.options) : 1;
+		return n;
+	}
+	derived totalCount = countLeaves(options);
+	derived matchesCount = rows.filter((r) => !r.group).length;
+	derived isNoMatch = isFiltering && !!filterValue && matchesCount === 0;
+	derived showFilteringResults = isFiltering && !!filterValue && matchesCount > 0 && !!filteringResultsText;
+	derived hasStatus =
+		statusType === 'loading' ||
+		statusType === 'error' ||
+		(isNoMatch && !!noMatch) ||
+		showFilteringResults ||
+		(statusType === 'finished' && !!finishedText);
 	function toggleOpen() {
 		if (disabled || readOnly) return;
 		open = !open;
 		flushSync();
+		if (open) {
+			triggerEl?.focus();
+			if (filteringType === 'manual') loadItems(true, false);
+		}
 	}
 	function onFilterInput(v: string) {
 		filterValue = v;
@@ -189,11 +237,29 @@
 		flushSync();
 		onChange?.({ detail: { selectedOptions } });
 	}
+	// Clicking a group toggles all its enabled children: deselect them all when
+	// every enabled child is selected, otherwise add the missing ones.
+	function pickGroup(g: Option) {
+		const kids = (g.options ?? []).filter((k) => !k.disabled);
+		if (!kids.length) return;
+		if (kids.every(isSelected)) {
+			const remove = new Set(kids.map((k) => k.value));
+			selectedOptions = selectedOptions.filter((s) => !remove.has(s.value));
+		} else {
+			const have = new Set(selectedOptions.map((s) => s.value));
+			selectedOptions = [...selectedOptions, ...kids.filter((k) => !have.has(k.value))];
+		}
+		if (!keepOpen) open = false;
+		flushSync();
+		onChange?.({ detail: { selectedOptions } });
+	}
 </script>
 
-<div class={cx(extraClass, S.root)} {...rest}>
+<div class={cx(extraClass, S.root)} bind:this={rootEl} onfocusout={onRootBlur} {...rest}>
+	{#if inlineLabelText}<label class={SP['inline-label']} for={triggerButtonId}>{inlineLabelText}</label>{/if}
 	<button
 		type="button"
+		bind:this={triggerEl}
 		class={cx(
 			BT['button-trigger'],
 			BT['has-caret'],
@@ -203,7 +269,7 @@
 			invalid && BT.invalid,
 			warning && !invalid && BT.warning,
 		)}
-		id={controlId}
+		id={triggerButtonId}
 		{disabled}
 		onmousedown={(e) => { e.preventDefault(); toggleOpen(); }}
 		onkeydown={(e: KeyboardEvent) => { if ((e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 40 || e.keyCode === 38) && !open) { e.preventDefault(); open = true; flushSync(); } else if (e.keyCode === 27 && open) { e.preventDefault(); open = false; flushSync(); } }}
@@ -215,7 +281,7 @@
 		aria-describedby={ariaDescribedby}
 		aria-required={ariaRequired ? 'true' : undefined}
 		aria-invalid={invalid ? 'true' : undefined}
-		>{triggerText}<span class={BT.arrow}><Icon
+		>{#if hasSelection}{triggerText}{:else}<span class={SP.placeholder}>{placeholder ?? ''}</span>{/if}<span class={BT.arrow}><Icon
 				name="caret-down-filled"
 				variant={disabled || readOnly ? 'disabled' : 'normal'}
 			/></span></button
@@ -227,5 +293,5 @@
 			{/each}
 		</div>
 	{/if}
-	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true"><div role={isFiltering ? 'dialog' : undefined} id={isFiltering ? dialogId : undefined} aria-label={isFiltering ? ariaLabel : undefined} aria-labelledby={isFiltering ? ariaLabelledby : undefined}>{#if filteringType !== 'none'}<Input value={filterValue} controlId={filterInputId} onChange={(e: { detail: { value: string } }) => onFilterInput(e.detail.value)} />{/if}<ul id={listboxId} class={SI['options-list']} role="listbox" aria-multiselectable="true" aria-required={ariaRequired ? 'true' : undefined} aria-describedby={hasStatus ? footerId : undefined} onscroll={onListScroll}>{#each rows as row, ri (ri)}{#if row.group}<li class={cx(SI['selectable-item'], SI.parent)} aria-disabled="true"><span class={OPT.label}>{row.label ?? ''}</span></li>{:else}<li class={cx(SI['selectable-item'], row.option.disabled && SI.disabled, isSelected(row.option) && SI.selected)} data-test-index={row.index} role="option" aria-selected={isSelected(row.option) ? 'true' : 'false'}><div class={OPT.option} data-value={row.option.value} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div class={OPT.description}>{row.option.description}</div>{/if}</div></div></li>{/if}{/each}</ul>{#if statusType === 'loading'}<div class={DS.root} id={footerId}><StatusIndicator type="loading">{loadingText ?? ''}</StatusIndicator></div>{:else if statusType === 'error'}<div class={DS.root} id={footerId}><span><StatusIndicator type="error" iconAriaLabel={errorIconAriaLabel}>{errorText ?? ''}</StatusIndicator>{#if hasRecovery}<button type="button" class={DS.recovery} onclick={retry}>{recoveryText}</button>{/if}</span></div>{:else if statusType === 'finished' && finishedText}<div class={SP['list-bottom']}><div class={DS.root} id={footerId}>{finishedText}</div></div>{/if}{#if hasStatus}<LiveRegion>{statusAnnouncement}</LiveRegion>{/if}</div></div></div>{/if}
+	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true"><div role={isFiltering ? 'dialog' : undefined} id={isFiltering ? dialogId : undefined} aria-label={isFiltering ? ariaLabel : undefined} aria-labelledby={isFiltering ? ariaLabelledby : undefined}>{#if filteringType !== 'none'}<Input value={filterValue} controlId={filterInputId} onChange={(e: { detail: { value: string } }) => onFilterInput(e.detail.value)} />{/if}<ul id={listboxId} class={SI['options-list']} role="listbox" aria-multiselectable="true" aria-required={ariaRequired ? 'true' : undefined} aria-describedby={hasStatus ? footerId : undefined} onscroll={onListScroll}>{#each rows as row, ri (ri)}{#if row.group}<li class={cx(SI['selectable-item'], SI.parent)} role="group"><div class={cx(OPT.option, OPT.parent)} data-value={row.option.value} data-mouse-target={row.mt} role="checkbox" aria-checked={groupChecked(row.option)} onmouseup={() => pickGroup(row.option)} onclick={() => pickGroup(row.option)}><div class={OPT.content}><div class={OPT['label-content']}><span class={OPT.label}>{row.option.label ?? row.option.value}</span>{#if row.option.labelTag}<span class={OPT['label-tag']}>{row.option.labelTag}</span>{/if}</div>{#if row.option.description}<span class={OPT.description}>{row.option.description}</span>{/if}{#if row.option.tags}<div>{#each row.option.tags as t}<span class={OPT.tag}>{t}</span>{/each}</div>{/if}</div></div></li>{:else}<li class={cx(SI['selectable-item'], row.option.disabled && SI.disabled, isSelected(row.option) && SI.selected)} data-test-index={row.index} role="option" aria-selected={isSelected(row.option) ? 'true' : 'false'}><div class={cx(OPT.option, row.option.disabled && OPT.disabled)} data-value={row.option.value} data-mouse-target={row.mt} lang={row.option.lang} role="checkbox" aria-checked={isSelected(row.option) ? 'true' : 'false'} aria-disabled={row.option.disabled ? 'true' : undefined} onmouseup={() => pick(row.option)} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT['label-content']}><span class={OPT.label}>{row.option.label ?? row.option.value}</span>{#if row.option.labelTag}<span class={OPT['label-tag']}>{row.option.labelTag}</span>{/if}</div>{#if row.option.description}<span class={OPT.description}>{row.option.description}</span>{/if}{#if row.option.tags}<div>{#each row.option.tags as t}<span class={OPT.tag}>{t}</span>{/each}</div>{/if}</div></div></li>{/if}{/each}</ul>{#if statusType === 'loading'}<div class={DS.root} id={footerId}><StatusIndicator type="loading">{loadingText ?? ''}</StatusIndicator></div>{:else if statusType === 'error'}<div class={DS.root} id={footerId}><span><StatusIndicator type="error" iconAriaLabel={errorIconAriaLabel}>{errorText ?? ''}</StatusIndicator>{#if hasRecovery}<button type="button" class={DS.recovery} onclick={retry}>{recoveryText}</button>{/if}</span></div>{:else if isNoMatch && noMatch}<div class={DS.root} id={footerId}>{noMatch}</div>{:else if showFilteringResults}<div class={DS.root} id={footerId}>{filteringResultsText!(matchesCount, totalCount)}</div>{:else if statusType === 'finished' && finishedText}<div class={SP['list-bottom']}><div class={DS.root} id={footerId}>{finishedText}</div></div>{/if}{#if hasStatus}<LiveRegion>{statusAnnouncement}</LiveRegion>{/if}</div></div></div>{/if}
 </div>
