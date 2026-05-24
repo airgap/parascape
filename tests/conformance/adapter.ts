@@ -36,6 +36,10 @@ import createWrapper from "@cloudscape-design/components/test-utils/dom";
 // resolve. These are framework-agnostic DOM queries keyed on the
 // vendored hashes — they work against the .pui DOM unchanged.
 export * from "@cloudscape-design/components/test-utils/dom";
+// AbstractSwitchWrapper (checkbox/toggle/radio base) lives in test-utils
+// internal/ and is blocked by the package's exports map, so import it by
+// direct file path; the switch common-tests import it from here.
+export { default as AbstractSwitchWrapper } from "../../node_modules/@cloudscape-design/components/test-utils/dom/internal/abstract-switch.js";
 import Harness from "./Harness.svelte";
 
 export { createWrapper };
