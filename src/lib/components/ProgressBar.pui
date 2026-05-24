@@ -112,7 +112,7 @@
 							class={S.percentage}
 							variant="small"
 							color={isInFlash ? 'inherit' : undefined}
-						>{progressValue}%</Box></span></div>{:else}<div
+						>{progressValue}%</Box></span></div>{:else if !isInFlash}<div
 					class={S[`result-container-${status}`]}
 				><span class={cx(resultButtonText && S['with-result-button'])}><StatusIndicator
 							type={status === 'success' ? 'success' : 'error'}
