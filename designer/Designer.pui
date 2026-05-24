@@ -1740,7 +1740,11 @@
 			return `\tsignal data = {};\n\teffect { fetch(${JSON.stringify(url)}).then((r) => r.json()).then((d) => (data = d)).catch(() => {}); }\n`;
 		return `\tconst data = ${JSON.stringify(siteData)};\n`;
 	}
-	derived exportHead = sections.length ? `${routeComment}${metaHead}<script lang="pts">\n${pageImports}\n${dataDecl}<\/script>\n\n<div class="page">` : '';
+	// Every exported page accepts the router's URL params/query as props (LYK-957),
+	// so page code can read `params.slug` / `query.tab`. (Code-Mode pages declare
+	// their own props; see pageToSource.)
+	const PROPS_LINE = '\tlet { params = {}, query = {} } = $props();\n';
+	derived exportHead = sections.length ? `${routeComment}${metaHead}<script lang="pts">\n${pageImports}\n${PROPS_LINE}${dataDecl}<\/script>\n\n<div class="page">` : '';
 	// Media-query rules from per-node responsive overrides (LYK-932): each node
 	// with cssMd/cssSm exports a `.pn-<key>` class targeted at ≤768 / ≤480.
 	derived responsiveCss {
@@ -1771,6 +1775,54 @@
 		if (!sections.length) return '<script lang="pts">\n<\/script>\n\n<div class="page"></div>\n';
 		const body = pageSegments.map((seg) => seg.code).join('\n');
 		return `${exportHead}\n${body}\n${exportFoot}`;
+	}
+	// LYK-957: any page's compilable .pui (for multi-page publish; the `pageSource`
+	// derived above only covers the active page). Code-Mode pages are verbatim — the
+	// author owns the <script>, incl. `let { params, query } = $props()`. Visual pages
+	// mirror exportHead/Foot: imports + the params/query props + (if bound) the data
+	// decl + sections + responsive CSS. NB: kept in sync with the export derived above.
+	function pageToSource(page: Page): string {
+		if (page.doc.codeOverride !== null) return page.doc.codeOverride;
+		const list = page.doc.sections;
+		if (!list.length) return `<script lang="pts">\n${PROPS_LINE}<\/script>\n\n<div class="page"></div>\n`;
+		const meta = [...new Set(['section', ...list.flatMap(sectionImports)])].map(importLine);
+		const mods = [...new Set(instanceRefsIn(list))]
+			.filter((id) => compById(id))
+			.map((id) => `import ${identByComp[id]} from './${identByComp[id]}.pui';`);
+		const imports = [...meta, ...mods].filter(Boolean).join('\n');
+		const rc = `<!-- route: ${page.route}${page.params.trim() ? `  params: ${page.params.trim()}` : ''} -->\n`;
+		const binds = (function chk(l: Section[]): boolean {
+			return l.some((n) => !!n.bind || (n.propBind && Object.keys(n.propBind).length > 0) || (isRepeat(n) && !!n.source) || (n.children ? chk(n.children) : false));
+		})(list);
+		let dd = '';
+		if (binds) {
+			const url = dataUrl.trim();
+			dd = url
+				? `\tsignal data = {};\n\teffect { fetch(${JSON.stringify(url)}).then((r) => r.json()).then((d) => (data = d)).catch(() => {}); }\n`
+				: `\tconst data = ${JSON.stringify(siteData)};\n`;
+		}
+		const rules: string[] = [];
+		const rwalk = (l: Section[]) => {
+			for (const n of l) {
+				const md = cssMap(n, 'cssMd');
+				const sm = cssMap(n, 'cssSm');
+				if (Object.keys(md).length) rules.push(`\t@media (max-width: ${BP_TABLET}px) { .pn-${n.key} { ${styleStr(md)} } }`);
+				if (Object.keys(sm).length) rules.push(`\t@media (max-width: ${BP_MOBILE}px) { .pn-${n.key} { ${styleStr(sm)} } }`);
+				if (n.children) rwalk(n.children);
+			}
+		};
+		rwalk(list);
+		const rcss = rules.join('\n');
+		const head = `${rc}<script lang="pts">\n${imports}\n${PROPS_LINE}${dd}<\/script>\n\n<div class="page">`;
+		const body = list.map(segmentOf).join('\n');
+		const foot = `</div>\n\n<style>\n\t.page { display: flex; flex-direction: column; }${rcss ? '\n' + rcss : ''}\n</style>\n`;
+		return `${head}\n${body}\n${foot}`;
+	}
+	// The whole project as a routable bundle: every page with its route + source.
+	function projectPages(): { name: string; route: string; params: string; source: string }[] {
+		// fold the live active-page edits back in before serialising
+		const pgs = pages.map((p) => (p.id === activePageId ? { ...p, doc: activeDoc() } : p));
+		return pgs.map((p) => ({ name: p.name, route: p.route || '/', params: p.params || '', source: pageToSource(p) }));
 	}
 
 	// Shiki-highlight a code string into `el` (async; re-runs on update). Tab
@@ -1987,14 +2039,16 @@
 		publishBusy = true;
 		publishUrl = null;
 		try {
+			// Publish the WHOLE project as a routable bundle (LYK-957): every page with
+			// its route + source, so the preview routes by path and feeds URL params to
+			// page code. Image assets resolve via the dev server's /api/assets URLs.
+			const projName = projects.find((p) => p.id === projectId)?.name || activePage?.name || 'site';
 			const slug =
-				(activePage?.name || 'page')
+				projName
 					.toLowerCase()
 					.replace(/[^a-z0-9-]+/g, '-')
-					.replace(/^-+|-+$/g, '') || 'page';
-			// Publish the current page's exported .pui; image assets resolve via the
-			// dev server's /api/assets URLs, so the preview is self-contained.
-			const r = await account.publish(slug, { name: activePage?.name ?? 'Page', source: pageSource });
+					.replace(/^-+|-+$/g, '') || 'site';
+			const r = await account.publish(slug, { name: projName, pages: projectPages() });
 			publishUrl = `/preview/?slug=${encodeURIComponent(r.slug)}`;
 		} catch (e: unknown) {
 			alert((e as { message?: string })?.message ?? 'Publish failed — needs the account server (sign in or guest mode).');

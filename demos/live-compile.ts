@@ -403,8 +403,13 @@ export function mountReact(component: ComponentType<Record<string, unknown>>, ta
   return () => queueMicrotask(() => root.unmount());
 }
 
-/** Mount a Svelte component into a target div. Returns a teardown fn. */
-export function mountSvelte(component: SvelteComponent, target: HTMLElement): () => void {
-  const instance = mount(component, { target });
+/** Mount a Svelte component into a target div, optionally with props. Returns a
+ *  teardown fn. Props back the router passing URL params/query to a page (LYK-957). */
+export function mountSvelte(
+  component: SvelteComponent,
+  target: HTMLElement,
+  props: Record<string, unknown> = {},
+): () => void {
+  const instance = mount(component, { target, props });
   return () => unmount(instance);
 }
