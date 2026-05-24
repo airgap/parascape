@@ -33,6 +33,7 @@
 	import StatusIndicator from './StatusIndicator.pui';
 	import LiveRegion from './LiveRegion.pui';
 	import TokenGroup from './TokenGroup.pui';
+	import tokenTestClasses from '../cloudscape/token.test-classes.js';
 	import '../cloudscape/multiselect.scoped.css';
 	import '../cloudscape/button-trigger.scoped.css';
 
@@ -133,6 +134,7 @@
 	const SI = selItemStyles as Record<string, string>;
 	const DS = dropdownStatusStyles as Record<string, string>;
 	const SP = selectPartsStyles as Record<string, string>;
+	const TC = tokenTestClasses as Record<string, string>;
 	let __msN = 0;
 	const filterInputId = `parascape-multiselect-filter-${(__msN += 1)}`;
 	const footerId = `parascape-multiselect-footer-${__msN}`;
@@ -227,13 +229,13 @@
 		flushSync();
 		if (open) {
 			triggerEl?.focus();
-			if (filteringType === 'manual') loadItems(true, false);
+			if (onLoadItems) loadItems(true, false);
 		}
 	}
 	function onFilterInput(v: string) {
 		filterValue = v;
 		flushSync();
-		if (filteringType === 'manual') loadItems(true, false);
+		if (onLoadItems) loadItems(true, false);
 	}
 	function pick(o: Option) {
 		if (o.disabled) return;
@@ -299,7 +301,7 @@
 		aria-describedby={ariaDescribedby}
 		aria-required={ariaRequired ? 'true' : undefined}
 		aria-invalid={invalid ? 'true' : undefined}
-		>{#if hasSelection}{triggerText}{:else}<span class={SP.placeholder}>{placeholder ?? ''}</span>{/if}<span class={BT.arrow}><Icon
+		>{#if hasSelection}{#if inlineTokens}<span class={SP['inline-token-list']}>{#each selectedOptions as opt, i (i)}<span class={TC.root}><span class={OPT.option}><span class={OPT.content}><span class={OPT.label}>{opt.label ?? opt.value}</span></span></span></span>{/each}</span><span class={SP['inline-token-counter']}>({selectedOptions.length})</span>{:else}{triggerText}{/if}{:else}<span class={SP.placeholder}>{placeholder ?? ''}</span>{/if}<span class={BT.arrow}><Icon
 				name="caret-down-filled"
 				variant={disabled || readOnly ? 'disabled' : 'normal'}
 			/></span></button

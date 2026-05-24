@@ -13,4 +13,7 @@ export default {
   "selected-icon": "awsui_selected-icon_dwuol_1nllu_189",
   "inline-label": "awsui_inline-label_dwuol_1nllu_229",
   "inline-label-disabled": "awsui_inline-label-disabled_dwuol_1nllu_258",
+  "inline-token-trigger": "awsui_inline-token-trigger_dwuol_1nllu_198",
+  "inline-token-list": "awsui_inline-token-list_dwuol_1nllu_205",
+  "inline-token-counter": "awsui_inline-token-counter_dwuol_1nllu_225",
 };
