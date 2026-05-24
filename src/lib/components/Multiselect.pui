@@ -20,13 +20,18 @@
   showCheckboxes = documented-omitted. Composes parity Icon✅.
 -->
 <script lang="pts">
+	import { flushSync } from 'svelte';
 	import Icon from './Icon.pui';
+	import Input from './Input.pui';
 	import styles from '../cloudscape/multiselect.styles.js';
 	import bt from '../cloudscape/button-trigger.styles.js';
+	import dropdownStyles from '../cloudscape/dropdown.styles.js';
+	import optStyles from '../cloudscape/option.styles.js';
+	import selItemStyles from '../cloudscape/selectable-item.styles.js';
 	import '../cloudscape/multiselect.scoped.css';
 	import '../cloudscape/button-trigger.scoped.css';
 
-	type Option = { value: string; label?: string; description?: string; disabled?: boolean };
+	type Option = { value?: string; label?: string; description?: string; disabled?: boolean; options?: Option[] };
 	let {
 		options = [],
 		selectedOptions = $bindable([]),
@@ -91,7 +96,54 @@
 			? (inlineTokens
 					? selectedOptions.map(o => o.label ?? o.value).join(', ')
 					: `${selectedOptions.length} selected`)
-			: (placeholder ?? ''),;
+			: (placeholder ?? '');
+	const D = dropdownStyles as Record<string, string>;
+	const OPT = optStyles as Record<string, string>;
+	const SI = selItemStyles as Record<string, string>;
+	signal open = false;
+	signal filterValue = '';
+	type Row = { group: true; label?: string } | { group?: false; option: Option; index: number };
+	const isSelected = (o: Option) => selectedOptions.some((s) => s.value === o.value);
+	function matchOpt(o: Option) {
+		return (
+			filteringType !== 'auto' ||
+			!filterValue ||
+			`${o.label ?? o.value ?? ''}`.toLowerCase().includes(filterValue.toLowerCase())
+		);
+	}
+	function buildRows(): Row[] {
+		const out: Row[] = [];
+		let idx = 0;
+		for (const o of options) {
+			if (o.options) {
+				const kids = o.options.filter(matchOpt);
+				if (kids.length) {
+					out.push({ group: true, label: o.label });
+					for (const k of kids) out.push({ option: k, index: ++idx });
+				}
+			} else if (matchOpt(o)) {
+				out.push({ option: o, index: ++idx });
+			}
+		}
+		return out;
+	}
+	derived rows = buildRows();
+	function toggleOpen() {
+		if (disabled || readOnly) return;
+		open = !open;
+		flushSync();
+	}
+	function onFilterInput(v: string) {
+		filterValue = v;
+		flushSync();
+	}
+	function pick(o: Option) {
+		if (o.disabled) return;
+		selectedOptions = isSelected(o) ? selectedOptions.filter((s) => s.value !== o.value) : [...selectedOptions, o];
+		if (!keepOpen) open = false;
+		flushSync();
+		onChange?.({ detail: { selectedOptions } });
+	}
 </script>
 
 <div class={cx(extraClass, S.root)} {...rest}>
@@ -108,8 +160,9 @@
 		)}
 		id={controlId}
 		{disabled}
+		onmousedown={(e) => { e.preventDefault(); toggleOpen(); }}
 		aria-haspopup="listbox"
-		aria-expanded="false"
+		aria-expanded={open ? 'true' : 'false'}
 		aria-label={ariaLabel}
 		aria-labelledby={ariaLabelledby}
 		aria-describedby={ariaDescribedby}
@@ -127,4 +180,5 @@
 			{/each}
 		</div>
 	{/if}
+	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true">{#if filteringType !== 'none'}<Input value={filterValue} onChange={(e: { detail: { value: string } }) => onFilterInput(e.detail.value)} />{/if}<ul class={SI['options-list']} role="listbox">{#each rows as row, ri (ri)}{#if row.group}<li class={cx(SI['selectable-item'], SI.parent)} aria-disabled="true"><span class={OPT.label}>{row.label ?? ''}</span></li>{:else}<li class={cx(SI['selectable-item'], row.option.disabled && SI.disabled, isSelected(row.option) && SI.selected)} data-test-index={row.index} role="option" aria-selected={isSelected(row.option) ? 'true' : 'false'}><div class={OPT.option} data-value={row.option.value} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div class={OPT.description}>{row.option.description}</div>{/if}</div></div></li>{/if}{/each}</ul></div></div>{/if}
 </div>
