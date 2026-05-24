@@ -106,9 +106,10 @@
 			class={buttonClass}
 			id={standaloneButtonId}
 			type="button"
-			{disabled}
+			aria-disabled={disabled ? 'true' : undefined}
+			aria-label={ariaLabel}
 			aria-labelledby={standaloneButtonLabelledBy}
-			onclick={() => onClick?.()}
+			onclick={() => { if (!disabled) onClick?.(); }}
 		></button>{/if}
 	<div class={S['inner-card']}>
 		{#if !headerRowEmpty}<div class={cx(S.header, disableHeaderPaddings && S['no-padding'])}
