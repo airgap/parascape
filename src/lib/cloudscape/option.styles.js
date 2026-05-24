@@ -11,4 +11,6 @@ export default {
   "label-content": "awsui_label-content_1p2cx_kx9n7_220",
   description: "awsui_description_1p2cx_kx9n7_239",
   icon: "awsui_icon_1p2cx_kx9n7_264",
+  disabled: "awsui_disabled_1p2cx_kx9n7_190",
+  parent: "awsui_parent_1p2cx_kx9n7_193",
 };

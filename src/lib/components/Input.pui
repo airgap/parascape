@@ -221,6 +221,7 @@
 		aria-required={ariaRequired ? 'true' : undefined}
 		aria-invalid={effInvalid ? 'true' : undefined}
 		oninput={(e: Event) => handleChange((e.currentTarget as HTMLInputElement).value)}
+		onchange={(e: Event) => handleChange((e.currentTarget as HTMLInputElement).value)}
 		autofocus={autoFocus ? true : undefined}
 		onfocus={() => onFocus?.(ce(undefined))}
 		onblur={() => onBlur?.(ce(undefined))}

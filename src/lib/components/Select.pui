@@ -33,7 +33,7 @@
 	import '../cloudscape/select.scoped.css';
 	import '../cloudscape/button-trigger.scoped.css';
 
-	type Option = { value?: string; label?: string; description?: string; disabled?: boolean; options?: Option[] };
+	type Option = { value?: string; label?: string; description?: string; disabled?: boolean; lang?: string; labelTag?: string; tags?: string[]; options?: Option[] };
 	let {
 		options = [],
 		selectedOption = $bindable(undefined),
@@ -51,12 +51,17 @@
 		finishedText = undefined,
 		recoveryText = undefined,
 		errorIconAriaLabel = undefined,
+		filteringResultsText = undefined,
+		noMatch = undefined,
+		empty = undefined,
 		onLoadItems = undefined,
 		controlId = undefined,
 		ariaLabel = undefined,
 		ariaLabelledby = undefined,
 		ariaDescribedby = undefined,
 		ariaRequired = false,
+		inlineLabelText = undefined,
+		autoFocus = false,
 		onChange = undefined,
 		class: extraClass = undefined,
 		...rest
@@ -77,12 +82,17 @@
 		finishedText?: string;
 		recoveryText?: string;
 		errorIconAriaLabel?: string;
+		filteringResultsText?: (matchesCount: number, totalCount: number) => string;
+		noMatch?: string;
+		empty?: string;
 		onLoadItems?: (e: { detail: { filteringText: string; firstPage: boolean; samePage: boolean } }) => void;
 		controlId?: string;
 		ariaLabel?: string;
 		ariaLabelledby?: string;
 		ariaDescribedby?: string;
 		ariaRequired?: boolean;
+		inlineLabelText?: string;
+		autoFocus?: boolean;
 		onChange?: (e: { detail: { selectedOption: Option } }) => void;
 		class?: string;
 		[k: string]: unknown;
@@ -101,16 +111,44 @@
 	const footerId = `parascape-select-footer-${__selN}`;
 	const listboxId = `parascape-select-listbox-${__selN}`;
 	const dialogId = `parascape-select-dialog-${__selN}`;
+	const triggerButtonId = controlId ?? `parascape-select-trigger-${__selN}`;
 	derived isFiltering = filteringType !== 'none';
-	derived hasStatus =
-		statusType === 'loading' || statusType === 'error' || (statusType === 'finished' && !!finishedText);
+	signal triggerEl: HTMLButtonElement | undefined = undefined;
+	signal rootEl: HTMLElement | undefined = undefined;
+	effect {
+		if (autoFocus) triggerEl?.focus();
+	}
+	// Close when focus leaves the whole component (the test-utils closeDropdown
+	// blurs the active element; click-away does the same in real use).
+	function onRootBlur(e: FocusEvent) {
+		const next = e.relatedTarget as Node | null;
+		if (open && !(next && rootEl?.contains(next))) {
+			open = false;
+			flushSync();
+		}
+	}
+	function countLeaves(opts: Option[]): number {
+		let n = 0;
+		for (const o of opts) n += o.options ? countLeaves(o.options) : 1;
+		return n;
+	}
+	derived totalCount = countLeaves(options);
+	derived matchesCount = rows.filter((r) => !r.group).length;
+	derived isNoMatch = isFiltering && !!filterValue && matchesCount === 0;
+	derived showFilteringResults = isFiltering && !!filterValue && matchesCount > 0 && !!filteringResultsText;
 	derived hasRecovery = statusType === 'error' && !!recoveryText && !!onLoadItems;
+	derived hasStatus =
+		statusType === 'loading' ||
+		statusType === 'error' ||
+		(isNoMatch && !!noMatch) ||
+		showFilteringResults ||
+		(statusType === 'finished' && !!finishedText);
 	derived hasSelection = !!selectedOption && !!selectedOption.label;
 	derived triggerText = hasSelection ? selectedOption!.label : placeholder;
 
 	signal open = false;
 	signal filterValue = '';
-	type Row = { group: true; label?: string } | { group?: false; option: Option; index: number };
+	type Row = { group: true; option: Option } | { group?: false; option: Option; index: number };
 	// Flatten groups into leaf options (1-based flat index for findOption), with
 	// a parent row per group; 'auto' filters leaves client-side by label/value.
 	function matchOpt(o: Option) {
@@ -127,7 +165,7 @@
 			if (o.options) {
 				const kids = o.options.filter(matchOpt);
 				if (kids.length) {
-					out.push({ group: true, label: o.label });
+					out.push({ group: true, option: o });
 					for (const k of kids) out.push({ option: k, index: ++idx });
 				}
 			} else if (matchOpt(o)) {
@@ -143,7 +181,10 @@
 		if (disabled || readOnly) return;
 		open = !open;
 		flushSync(); // sync DOM so the test-utils dropdown finders see the open state immediately
-		if (open && filteringType === 'manual') loadItems(true, false);
+		if (open) {
+			triggerEl?.focus(); // mousedown preventDefault suppressed native focus; restore it so blur-to-close works
+			if (filteringType === 'manual') loadItems(true, false);
+		}
 	}
 	function onFilterInput(v: string) {
 		filterValue = v;
@@ -166,9 +207,11 @@
 	}
 </script>
 
-<div class={cx(extraClass, S.root)} {...rest}>
+<div class={cx(extraClass, S.root)} bind:this={rootEl} onfocusout={onRootBlur} {...rest}>
+	{#if inlineLabelText}<label class={SP['inline-label']} for={triggerButtonId}>{inlineLabelText}</label>{/if}
 	<button
 		type="button"
+		bind:this={triggerEl}
 		class={cx(
 			BT['button-trigger'],
 			BT['has-caret'],
@@ -178,7 +221,7 @@
 			invalid && BT.invalid,
 			warning && !invalid && BT.warning,
 		)}
-		id={controlId}
+		id={triggerButtonId}
 		{disabled}
 		onmousedown={(e) => { e.preventDefault(); toggleOpen(); }}
 		onkeydown={(e: KeyboardEvent) => { if ((e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 40 || e.keyCode === 38) && !open) { e.preventDefault(); open = true; flushSync(); } else if (e.keyCode === 27 && open) { e.preventDefault(); open = false; flushSync(); } }}
@@ -190,7 +233,7 @@
 		aria-describedby={ariaDescribedby}
 		aria-required={ariaRequired ? 'true' : undefined}
 		aria-invalid={invalid ? 'true' : undefined}
-		>{triggerText}<span class={BT.arrow}><Icon
+		>{#if hasSelection}{triggerText}{:else}<span class={SP.placeholder}>{placeholder ?? ''}</span>{/if}<span class={BT.arrow}><Icon
 				name="caret-down-filled"
 				variant={disabled || readOnly ? 'disabled' : 'normal'}
 			/></span></button
@@ -213,13 +256,13 @@
 				aria-required={ariaRequired ? 'true' : undefined}
 				aria-describedby={hasStatus ? footerId : undefined}
 				onscroll={onListScroll}
-			>{#each rows as row, ri (ri)}{#if row.group}<li class={cx(SI['selectable-item'], SI.parent)} aria-disabled="true"><span class={OPT.label}>{row.label ?? ''}</span></li>{:else}<li
+			>{#each rows as row, ri (ri)}{#if row.group}<li class={cx(SI['selectable-item'], SI.parent)} aria-disabled="true"><div class={OPT.option} data-value={row.option.value}><div class={OPT.content}><div class={OPT['label-content']}><span class={OPT.label}>{row.option.label ?? row.option.value}</span>{#if row.option.labelTag}<span class={OPT['label-tag']}>{row.option.labelTag}</span>{/if}</div>{#if row.option.description}<span class={OPT.description}>{row.option.description}</span>{/if}{#if row.option.tags}<div>{#each row.option.tags as t}<span class={OPT.tag}>{t}</span>{/each}</div>{/if}</div></div></li>{:else}<li
 						class={cx(SI['selectable-item'], row.option.disabled && SI.disabled, selectedOption?.value === row.option.value && SI.selected)}
 						data-test-index={row.index}
 						role="option"
 						aria-selected={selectedOption?.value === row.option.value ? 'true' : 'false'}
-					><div class={OPT.option} data-value={row.option.value} onclick={() => pick(row.option)}
-						><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div
-									class={OPT.description}>{row.option.description}</div>{/if}</div></div></li
-					>{/if}{/each}</ul>{#if statusType === 'loading'}<div class={DS.root} id={footerId}><StatusIndicator type="loading">{loadingText ?? ''}</StatusIndicator></div>{:else if statusType === 'error'}<div class={DS.root} id={footerId}><span><StatusIndicator type="error" iconAriaLabel={errorIconAriaLabel}>{errorText ?? ''}</StatusIndicator>{#if hasRecovery}<button type="button" class={DS.recovery} onclick={retry}>{recoveryText}</button>{/if}</span></div>{:else if statusType === 'finished' && finishedText}<div class={SP['list-bottom']}><div class={DS.root} id={footerId}>{finishedText}</div></div>{/if}</div></div></div>{/if}
+					><div class={cx(OPT.option, row.option.disabled && OPT.disabled)} data-value={row.option.value} lang={row.option.lang} aria-disabled={row.option.disabled ? 'true' : undefined} onmouseup={() => pick(row.option)} onclick={() => pick(row.option)}
+						><div class={OPT.content}><div class={OPT['label-content']}><span class={OPT.label}>{row.option.label ?? row.option.value}</span>{#if row.option.labelTag}<span class={OPT['label-tag']}>{row.option.labelTag}</span>{/if}</div>{#if row.option.description}<span
+									class={OPT.description}>{row.option.description}</span>{/if}{#if row.option.tags}<div>{#each row.option.tags as t}<span class={OPT.tag}>{t}</span>{/each}</div>{/if}</div></div></li
+					>{/if}{/each}</ul>{#if statusType === 'loading'}<div class={DS.root} id={footerId}><StatusIndicator type="loading">{loadingText ?? ''}</StatusIndicator></div>{:else if statusType === 'error'}<div class={DS.root} id={footerId}><span><StatusIndicator type="error" iconAriaLabel={errorIconAriaLabel}>{errorText ?? ''}</StatusIndicator>{#if hasRecovery}<button type="button" class={DS.recovery} onclick={retry}>{recoveryText}</button>{/if}</span></div>{:else if isNoMatch && noMatch}<div class={DS.root} id={footerId}>{noMatch}</div>{:else if showFilteringResults}<div class={DS.root} id={footerId}>{filteringResultsText!(matchesCount, totalCount)}</div>{:else if statusType === 'finished' && finishedText}<div class={SP['list-bottom']}><div class={DS.root} id={footerId}>{finishedText}</div></div>{/if}</div></div></div>{/if}
 </div>
