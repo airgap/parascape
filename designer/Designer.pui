@@ -24,6 +24,7 @@
 	import { COLOR_TOKENS, RADIUS_TOKENS, SHADOW_TOKENS, SPACE_SCALE } from './theme-tokens';
 	import { TEMPLATES } from './templates';
 	import type { Template } from './templates';
+	import { reactSourceFor } from './react-export';
 	import {
 		allComponents,
 		displayName,
@@ -457,6 +458,8 @@
 	signal zoom = 1;
 	const setZoom = (z: number) => (zoom = Math.min(2, Math.max(0.25, Math.round(z * 20) / 20)));
 	signal showExport = false;
+	// LYK-965: export view format — 'pui' or 'react' (React/Cloudscape TSX)
+	signal exportFormat = 'pui';
 	// Code Mode (VS.NET-style): the raw .pui is canonical. While `codeOverride`
 	// is set, the canvas renders it (the visual is a representation of the code)
 	// and it's what exports; the visual blocks are paused until "Revert to visual"
@@ -2126,6 +2129,11 @@
 		const body = pageSegments.map((seg) => seg.code).join('\n');
 		return `${exportHead}\n${body}\n${exportFoot}`;
 	}
+	// --- React / Cloudscape (TSX) export (LYK-965) ---
+	// The codegen lives in ./react-export.ts (a plain .ts) so its JSX-in-template
+	// strings (<>, </div>, Columns→ColumnLayout) don't pass through para-preprocess.
+	// the active page as Cloudscape React/TSX (reflects live edits)
+	derived reactSource = activePage ? reactSourceFor({ ...activePage, doc: activeDoc() }, siteData, components) : '';
 	// LYK-957: any page's compilable .pui (for multi-page publish; the `pageSource`
 	// derived above only covers the active page). Code-Mode pages are verbatim — the
 	// author owns the <script>, incl. `let { params, query } = $props()`. Visual pages
@@ -2202,6 +2210,18 @@
 		return { update: run };
 	}
 	function download() {
+		// LYK-965: React/Cloudscape export downloads a .tsx
+		if (showExport && !codeMode && exportFormat === 'react') {
+			const fname = (activePage?.name?.replace(/[^A-Za-z0-9]/g, '') || 'Page') + '.tsx';
+			const blob = new Blob([reactSource], { type: 'text/plain' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = fname;
+			a.click();
+			URL.revokeObjectURL(url);
+			return;
+		}
 		let text = codeMode ? codeDraft : pageSource;
 		let name = 'Page.pui';
 		// With named components, one .pui can't hold every module — bundle the page
@@ -3714,6 +3734,15 @@
 				{#if !pageSource}
 					<p class="muted">Add sections to generate .pui.</p>
 				{:else}
+					<div class="export-tabs">
+						<button class:on={exportFormat === 'pui'} onclick={() => (exportFormat = 'pui')}>.pui</button>
+						<button class:on={exportFormat === 'react'} onclick={() => (exportFormat = 'react')}>React · Cloudscape</button>
+					</div>
+					{#if exportFormat === 'react'}
+						<p class="muted">Cloudscape React (TSX) — drop into your AWS app. Repeaters / actions / free-canvas are emitted as TODO notes.</p>
+						<button class="primary" onclick={download}>Download {activePage?.name ?? 'Page'}.tsx</button>
+						<div class="export-code"><div class="hl" use:hl={reactSource}></div></div>
+					{:else}
 					<p class="muted">Page.pui — hover a block to highlight its section in the canvas.</p>
 					<button class="primary" onclick={download}>Download Page.pui</button>
 					<div class="export-code">
@@ -3741,6 +3770,7 @@
 								<div class="hl" use:hl={m.source}></div>
 							</div>
 						{/each}
+					{/if}
 					{/if}
 				{/if}
 			{:else if selected && isInstance(selected)}
@@ -4207,6 +4237,10 @@
 	.act-del { flex: 0 0 auto; background: none; border: 0; color: var(--fg-subtle); cursor: pointer; padding: 2px 6px; }
 	.act-del:hover { color: var(--danger, #d33); }
 	.export-mods-head { margin-top: 16px; }
+	/* React/Cloudscape export toggle (LYK-965) */
+	.export-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+	.export-tabs button { font-size: 12px; padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--fg-body); cursor: pointer; }
+	.export-tabs button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 	/* AI generation (LYK-936) */
 	.ai-box { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
 	.ai-head { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); margin: 0 0 6px; }
