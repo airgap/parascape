@@ -252,10 +252,9 @@ export const hints: Record<string, Hints> = {
   "column-layout": {
     previewNote: "Column Layout splits its children into columns — see the code and properties below.",
   },
-  "split-panel": {
-    previewNote:
-      "Split Panel docks to the bottom (or side) of the App Layout shell, so it can't render standalone — see the code and properties below.",
-  },
+  // split-panel renders in an app-shell frame (see Configurator) since it docks
+  // to the App Layout, like Cloudscape's own demo — no previewNote needed.
+  "split-panel": { children: "Selected resource details appear in this panel." },
   "tag-editor": {
     previewNote:
       "Tag Editor needs key/value autosuggest handlers and i18n strings — see the code and properties below.",

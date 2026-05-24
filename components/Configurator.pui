@@ -73,7 +73,14 @@
 <div class="cfg">
 	<div class="cfg-main">
 		<div class="cfg-preview" data-testid="cfg-preview">
-			{#if previewNote}
+			{#if id === 'split-panel' && loaded}
+				{@const Comp = loaded}
+				{@const spProps = { header: 'Split panel header', ...liveProps }}
+				<div class="cfg-sp-shell">
+					<div class="cfg-sp-main">App content area</div>
+					<div class="cfg-sp-dock"><Comp {...spProps}>{childText}</Comp></div>
+				</div>
+			{:else if previewNote}
 				<div class="cfg-note">{previewNote}</div>
 			{:else if loadFailed}
 				<div class="cfg-fallback"><Examples {id} /></div>
@@ -164,6 +171,34 @@
 		font-size: 13px;
 		line-height: 1.5;
 		color: var(--fg-muted);
+	}
+	/* Split Panel docks to the App Layout shell (Cloudscape demos it the same
+	   way), so frame the live panel in a mock app shell with content above and
+	   the panel docked at the bottom. */
+	.cfg-sp-shell {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		min-height: 300px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		overflow: hidden;
+		background: var(--bg-elev);
+	}
+	.cfg-sp-main {
+		flex: 1;
+		padding: 20px;
+		color: var(--fg-muted);
+		font-size: 13px;
+	}
+	/* Our SplitPanel port is position:fixed (App Layout owns the docking,
+	   LYK-925); in the playground frame, pin it into the dock band instead. */
+	.cfg-sp-dock :global([class*='awsui_position-bottom']) {
+		position: relative !important;
+		inset: auto !important;
+		width: 100%;
+		box-sizing: border-box;
+		overflow-y: visible !important;
 	}
 	.cfg-code {
 		position: relative;
