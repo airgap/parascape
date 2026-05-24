@@ -33,6 +33,7 @@
 		rel = undefined,
 		ariaLabel = undefined,
 		onFollow = undefined,
+		externalIconAriaLabel = undefined,
 		children = undefined,
 		class: extraClass = undefined,
 		...rest
@@ -45,7 +46,8 @@
 		target?: string;
 		rel?: string;
 		ariaLabel?: string;
-		onFollow?: (e: Event) => void;
+		onFollow?: (e: { detail: { href?: string; external: boolean; target?: string } }) => void;
+		externalIconAriaLabel?: string;
 		children?: import('svelte').Snippet | string;
 		class?: string;
 		[k: string]: unknown;
@@ -90,6 +92,19 @@
 	);
 
 	derived anchorTarget = target ?? (external ? '_blank' : undefined);
+
+	// checkSafeUrl (link/index.js) — block dangerous protocols at render.
+	if (typeof href === 'string' && /^\s*javascript:/i.test(href)) {
+		console.warn(`[AwsUi] [Link] A javascript: URL was blocked as a security precaution. The URL was "${href}".`);
+		throw new Error('A javascript: URL was blocked as a security precaution.');
+	}
+
+	function handleFollow(e: MouseEvent) {
+		// anchors with a modifier / non-primary button: let the browser handle it.
+		if (href && (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0)) return;
+		e.preventDefault();
+		onFollow?.({ detail: { href, external, target: anchorTarget } });
+	}
 </script>
 
 <a
@@ -100,10 +115,10 @@
 	rel={isButton ? undefined : rel}
 	tabindex={isButton ? 0 : undefined}
 	aria-label={ariaLabel}
-	onclick={onFollow}
+	onclick={handleFollow}
 	{...rest}
 	>{#if typeof children === 'string'}{children}{:else}{@render children?.()}{/if}{#if external}<span
-			class={S['icon-wrapper']}>&nbsp;<span class={S.icon} role="img"><Icon
+			class={S['icon-wrapper']}>&nbsp;<span class={S.icon} role="img" aria-label={externalIconAriaLabel}><Icon
 					name="external"
 					size="inherit"
 				/></span></span
