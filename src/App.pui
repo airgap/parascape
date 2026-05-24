@@ -18,7 +18,7 @@
 	const features = [
 		{
 			t: 'The Cloudscape API you know',
-			b: 'Container, Table, Form, Wizard, charts — 70+ components ported 1:1. Same props, same behavior, no relearning.',
+			b: 'Container, Table, Form, Wizard, charts — 70+ Cloudscape components rebuilt on signals, with the prop API you already know.',
 		},
 		{
 			t: 'Signals, not hooks',
@@ -31,7 +31,7 @@
 	];
 	const stats = [
 		{ v: '74', l: 'components ported' },
-		{ v: '1:1', l: 'Cloudscape API' },
+		{ v: 'Cloudscape', l: 'API you know' },
 		{ v: '0', l: 'React hooks' },
 	];
 </script>
@@ -45,8 +45,8 @@
 				<div><Badge color="blue">Cloudscape, ported to .pui</Badge></div>
 				<Header variant="h1">The Cloudscape design system, rebuilt on signals.</Header>
 				<Box variant="p" fontSize="heading-s" color="text-body-secondary">
-					Parascape is a 1:1 port of AWS Cloudscape to Para-UI — the components you already know, with
-					fine-grained reactivity instead of React hooks.
+					Parascape is a growing port of AWS Cloudscape to Para-UI — the components you already know,
+					rebuilt on fine-grained reactivity instead of React hooks.
 				</Box>
 				<div class="cta-row">
 					<Button variant="primary" href="/components/">Browse components</Button>
