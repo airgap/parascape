@@ -17,7 +17,7 @@
 	import type { Presence } from '../src/lib/collab';
 	import { stableStringify } from '../src/lib/collab-doc';
 	import SiteNav from '../src/lib/SiteNav.pui';
-	import { compileParascape, mountSvelte, registerUserModule, clearUserModules } from '../demos/live-compile';
+	import { compileParascape, compileModule, mountSvelte, registerUserModule, clearUserModules } from '../demos/live-compile';
 	import { highlight, highlightSync, ready as shikiReady } from '../demos/pui-shiki';
 	import { SECTIONS, SECTION_BY_ID, sectionSource, markupOf, importLine, esc } from './sections';
 	import type { SectionStyle } from './sections';
@@ -179,9 +179,12 @@
 	// one place; page nodes reference it by id as instances (`Section.ref`). Lives
 	// on the project (shared across pages), not on any one page.
 	type NamedComponent = { id: string; name: string; def: Section[]; codeOverride?: string | null };
+	// Shared modules (LYK-959): user-created helper files (`util.ts`, `Shared.pui`)
+	// that pages/components import. `name` is the filename used in imports.
+	type SharedModule = { id: string; name: string; source: string };
 	// `data` (LYK-945): inline data sources — named variables/collections bound
 	// into node content (Section.bind) + emitted as a `const data = …` in export.
-	type Project = { pages: Page[]; activePageId: number; nextKey: number; components: NamedComponent[]; nextCompId: number; data?: Record<string, unknown>; dataUrl?: string };
+	type Project = { pages: Page[]; activePageId: number; nextKey: number; components: NamedComponent[]; nextCompId: number; data?: Record<string, unknown>; dataUrl?: string; modules?: SharedModule[] };
 	type Saved = { sections: Section[]; nextKey?: number; codeOverride?: string | null };
 	// Early Designer builds shipped an unprofessional footer default ("for-funzies
 	// … Not affiliated with AWS") and later a copyright line. Pages saved then keep
@@ -297,6 +300,11 @@
 				nextCompId: typeof x.nextCompId === 'number' ? x.nextCompId : components.length + 1,
 				data: x.data && typeof x.data === 'object' && !Array.isArray(x.data) ? (x.data as Record<string, unknown>) : {},
 				dataUrl: typeof x.dataUrl === 'string' ? x.dataUrl : '',
+				modules: Array.isArray(x.modules)
+					? (x.modules as SharedModule[])
+							.filter((m) => m && typeof m.id === 'string' && typeof m.name === 'string')
+							.map((m) => ({ id: m.id, name: m.name, source: typeof m.source === 'string' ? m.source : '' }))
+					: [],
 			};
 		}
 		if (Array.isArray(x?.sections)) {
@@ -378,6 +386,9 @@
 
 	// --- reusable named components / symbols (LYK-949) ---
 	signal components: NamedComponent[] = init.components;
+	// shared modules (LYK-959): user-created helper files importable from code
+	signal modules: SharedModule[] = init.modules ?? [];
+	let nextModuleId = 1;
 	let nextCompId = init.nextCompId;
 	const compById = (id?: string): NamedComponent | undefined => (id ? components.find((c) => c.id === id) : undefined);
 	// Internal editing: while a symbol is open, `sections` holds its def and the
@@ -387,6 +398,9 @@
 	let pageSectionsStash: Section[] | null = null;
 	let pageCodeStash: string | null = null;
 	derived editingComponent = editingComponentId ? compById(editingComponentId) : null;
+	// shared-module editing (LYK-959): a code-only file; the Code rail edits its source
+	signal editingModuleId: string | null = null;
+	derived editingModule = editingModuleId ? modules.find((m) => m.id === editingModuleId) : null;
 
 	signal selectedKey: number | null = null;
 	signal device = 'desktop';
@@ -546,6 +560,7 @@
 			nextCompId,
 			data: siteData,
 			dataUrl: dataUrl || undefined,
+			modules: clone(modules),
 		};
 	}
 	effect {
@@ -1716,8 +1731,8 @@
 	};
 	derived pageSegments = sections.map((s) => ({ key: s.key, label: labelOf(s), code: segmentOf(s) }));
 	// A component's compilable .pui source: its hand-authored code (LYK-958) when
-	// set, else generated from its visual def. Used for export modules, the live
-	// module registry (so coded instances render), and publish.
+	// set, else generated from its visual def. Used by the exported component files,
+	// the live registry (so coded instances render), and publish.
 	function componentSource(c: NamedComponent): string {
 		if (c.codeOverride != null) return c.codeOverride;
 		const meta = [...new Set(c.def.flatMap((d) => nodeImports(d, true)))].map(importLine);
@@ -1728,34 +1743,77 @@
 		const body = c.def.map((d) => nodeBody(d, false)).join('\n');
 		return `<script lang="pts">\n${imps}\n<\/script>\n\n${body}\n`;
 	}
-	// LYK-958: keep the live-compile module registry in sync with the project's
-	// components, so a coded (or visual) component resolves when instanced. Compiled
-	// to a fixed point (a component may import another); one that errors / isn't
+	const moduleBare = (name: string): string => name.replace(/\.(pui|ts|js|tsx|jsx)$/, '');
+	// LYK-958/959: compile the project's components AND shared modules into the
+	// live-compile registry, so a coded component or `import … from './util.ts'`
+	// resolves. Fixed-point (units may import each other); one that errors / isn't
 	// ready is skipped and retried. Bumps moduleEpoch → the canvas recompiles.
-	effect {
-		const cs = components; // re-register on any component change
-		untrack(() => {
-			clearUserModules();
-			const pending = new Map(cs.map((c) => [identByComp[c.id], c] as const));
-			let progress = true;
-			while (pending.size && progress) {
-				progress = false;
-				for (const [ident, c] of [...pending]) {
-					if (!ident) {
-						pending.delete(ident);
-						continue;
-					}
-					try {
-						registerUserModule(ident, { default: compileParascape(componentSource(c)) as unknown as Record<string, unknown> });
-						pending.delete(ident);
-						progress = true;
-					} catch {
-						/* a dependency isn't registered yet, or the code has an error → retry / leave */
-					}
+	function syncRegistry(cs: NamedComponent[], ms: SharedModule[]) {
+		clearUserModules();
+		// each unit: [key, source, isPuiComponentOrModule]
+		const units: [string, string, boolean][] = [];
+		for (const c of cs) if (identByComp[c.id]) units.push([identByComp[c.id], componentSource(c), true]);
+		for (const m of ms) units.push([moduleBare(m.name), m.source, /\.pui$/.test(m.name)]);
+		let left = units;
+		let progress = true;
+		while (left.length && progress) {
+			progress = false;
+			const next: [string, string, boolean][] = [];
+			for (const [key, src, pui] of left) {
+				if (!key) continue;
+				try {
+					registerUserModule(key, pui ? { default: compileParascape(src) } : compileModule(src));
+					progress = true;
+				} catch {
+					next.push([key, src, pui]); // dep not ready / error → retry next pass
 				}
 			}
-			moduleEpoch++;
-		});
+			left = next;
+		}
+		moduleEpoch++;
+	}
+	effect {
+		const cs = components;
+		const ms = modules; // re-register on any component/module change
+		untrack(() => syncRegistry(cs, ms));
+	}
+	// --- shared module CRUD + editing (LYK-959) ---
+	function addModule(kind: 'pui' | 'ts') {
+		const base = kind === 'pui' ? 'Shared' : 'util';
+		let n = modules.length + 1;
+		let name = `${base}${n}.${kind}`;
+		while (modules.some((m) => m.name === name)) name = `${base}${++n}.${kind}`;
+		const id = `m${nextModuleId++}`;
+		const puiSrc = '<div class="shared">\n\tShared component — edit this markup, then import it in Code mode.\n</div>\n';
+		const tsSrc =
+			'// Shared helpers. Import from a page/component in Code mode, e.g.\n//   import { hello } from "./' +
+			name +
+			'"\nexport function hello(who) {\n\treturn "Hello, " + who + "!";\n}\n';
+		const source = kind === 'pui' ? puiSrc : tsSrc;
+		modules = [...modules, { id, name, source }];
+		enterModuleEdit(id);
+	}
+	const setModuleSource = (id: string, source: string) => (modules = modules.map((m) => (m.id === id ? { ...m, source } : m)));
+	const renameModule = (id: string, name: string) => (modules = modules.map((m) => (m.id === id ? { ...m, name } : m)));
+	function deleteModule(id: string) {
+		if (editingModuleId === id) exitModuleEdit();
+		modules = modules.filter((m) => m.id !== id);
+	}
+	function enterModuleEdit(id: string) {
+		if (editingComponentId) exitComponentEdit();
+		const m = modules.find((x) => x.id === id);
+		if (!m) return;
+		editingModuleId = id;
+		codeMode = true;
+		codeDraft = m.source;
+		codeErr = null;
+		codeErrLine = null;
+		showExport = false;
+		selectedKey = null;
+	}
+	function exitModuleEdit() {
+		editingModuleId = null;
+		codeMode = false;
 	}
 	// Components reachable from this page (instanced on it, plus any they reference
 	// transitively) — each exported as its own reusable .pui module.
@@ -1942,6 +2000,11 @@
 			.filter((c) => identByComp[c.id])
 			.map((c) => ({ ident: identByComp[c.id], source: componentSource(c) }));
 	}
+	// Shared modules as { bare-name, source, pui? } so the published router can
+	// register them alongside components (LYK-959).
+	function projectModules(): { ident: string; source: string; pui: boolean }[] {
+		return modules.map((m) => ({ ident: moduleBare(m.name), source: m.source, pui: /\.pui$/.test(m.name) }));
+	}
 
 	// Shiki-highlight a code string into `el` (async; re-runs on update). Tab
 	// indentation in the exported source renders at 2 spaces via CSS tab-size.
@@ -1987,11 +2050,13 @@
 	function toggleCode() {
 		codeMode = !codeMode;
 		if (codeMode) {
-			// editing a component → seed from its code (or its def-generated source);
+			// editing a module → its source; a component → its code (or def-generated);
 			// otherwise the page's code (or the blocks' generated source).
-			codeDraft = editingComponentId
-				? codeOverride ?? componentSource({ id: editingComponentId, name: editingComponent?.name ?? 'Component', def: clone(sections) })
-				: codeOverride ?? blockSource;
+			codeDraft = editingModuleId
+				? editingModule?.source ?? ''
+				: editingComponentId
+					? codeOverride ?? componentSource({ id: editingComponentId, name: editingComponent?.name ?? 'Component', def: clone(sections) })
+					: codeOverride ?? blockSource;
 			codeErr = null;
 			showExport = false;
 			selectedKey = null;
@@ -2000,6 +2065,16 @@
 	let codeTimer: ReturnType<typeof setTimeout> | undefined;
 	function applyCode() {
 		try {
+			if (editingModuleId) {
+				// a shared module: validate by compiling it, then store its source
+				const m = modules.find((x) => x.id === editingModuleId);
+				if (m && /\.pui$/.test(m.name)) compileParascape(codeDraft);
+				else compileModule(codeDraft);
+				codeErr = null;
+				codeErrLine = null;
+				setModuleSource(editingModuleId, codeDraft);
+				return;
+			}
 			compileParascape(codeDraft); // validate
 			codeErr = null;
 			codeErrLine = null;
@@ -2173,7 +2248,12 @@
 					.toLowerCase()
 					.replace(/[^a-z0-9-]+/g, '-')
 					.replace(/^-+|-+$/g, '') || 'site';
-			const r = await account.publish(slug, { name: projName, pages: projectPages(), components: projectComponents() });
+			const r = await account.publish(slug, {
+				name: projName,
+				pages: projectPages(),
+				components: projectComponents(),
+				modules: projectModules(),
+			});
 			publishUrl = `/preview/?slug=${encodeURIComponent(r.slug)}`;
 		} catch (e: unknown) {
 			alert((e as { message?: string })?.message ?? 'Publish failed — needs the account server (sign in or guest mode).');
@@ -2241,9 +2321,12 @@
 		nextPageId = Math.max(nextPageId, ...proj.pages.map((p) => p.id)) + 1;
 		components = proj.components;
 		nextCompId = Math.max(nextCompId, proj.nextCompId);
+		modules = proj.modules ?? [];
+		nextModuleId = Math.max(nextModuleId, modules.length + 1);
 		siteData = proj.data ?? {};
 		dataText = JSON.stringify(siteData, null, 2);
 		dataUrl = proj.dataUrl ?? '';
+		editingModuleId = null;
 		editingComponentId = null;
 		pageSectionsStash = null;
 		const active = proj.pages.find((p) => p.id === proj.activePageId) ?? proj.pages[0];
@@ -2837,6 +2920,13 @@
 		</div>
 	{/if}
 
+	{#if editingModuleId}
+		<div class="comp-edit-banner">
+			<span>Editing module <strong>{editingModule?.name ?? ''}</strong> — import it from a page/component in Code mode.</span>
+			<button class="mini" onclick={exitModuleEdit}>Done</button>
+		</div>
+	{/if}
+
 	{#if readOnly}
 		<div class="comp-edit-banner readonly-banner">
 			<span>You're viewing <strong>{projects.find((p) => p.id === projectId)?.name ?? 'this project'}</strong> as a viewer — changes are read-only.</span>
@@ -3084,6 +3174,20 @@
 						{/if}
 					</div>
 				{/if}
+				<details class="modules">
+					<summary>Modules <span class="muted">({modules.length})</span></summary>
+					<p class="ds-note">Shared code files. Import them from any page/component in Code mode.</p>
+					{#each modules as m (m.id)}
+						<div class="mod-row" class:active={m.id === editingModuleId}>
+							<button class="mod-pick" onclick={() => enterModuleEdit(m.id)} title="Edit {m.name}">{m.name}</button>
+							<button class="mod-del" aria-label="Delete module {m.name}" onclick={() => deleteModule(m.id)}>✕</button>
+						</div>
+					{/each}
+					<div class="mod-add">
+						<button class="mini" onclick={() => addModule('pui')}>+ .pui</button>
+						<button class="mini" onclick={() => addModule('ts')}>+ .ts</button>
+					</div>
+				</details>
 				<details class="datasrc">
 					<summary>Data sources</summary>
 					<p class="ds-note">Define variables/collections as JSON, then bind a node’s content to a path from the inspector.</p>
@@ -3207,7 +3311,12 @@
 		{/if}
 
 		<main class="canvas" style="--zoom:{zoom}" onpointermove={onCanvasPointerMove}>
-			{#if codeOverride !== null}
+			{#if editingModuleId}
+				<div class="module-canvas">
+					<p><strong>{editingModule?.name}</strong></p>
+					<p class="muted">A shared module is code-only. Edit it in the panel on the right; import it from a page or component's Code mode — e.g. <code>import &#123; … &#125; from './{editingModule?.name}'</code>.</p>
+				</div>
+			{:else if codeOverride !== null}
 				<!-- Code Mode override is canonical: render the whole page from the code. -->
 				{#if !codeMode}
 					<div class="code-banner">
@@ -3799,6 +3908,17 @@
 	.hist-del:hover:not(:disabled) { color: var(--bad); }
 	.hist-empty { font-size: 11px; color: var(--fg-subtle); line-height: 1.4; margin: 2px 0 0; }
 	/* data sources (LYK-945) */
+	/* shared modules (LYK-959) */
+	.modules { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); }
+	.modules > summary { cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); user-select: none; }
+	.mod-row { display: flex; align-items: center; gap: 4px; border-radius: var(--radius-sm); }
+	.mod-row.active { background: var(--bg-accent-subtle); }
+	.mod-pick { flex: 1; text-align: left; background: none; border: 0; cursor: pointer; font: 12px ui-monospace, monospace; color: var(--fg-body); padding: 4px 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.mod-del { background: none; border: 0; color: var(--fg-subtle); cursor: pointer; padding: 2px 6px; }
+	.mod-del:hover { color: var(--danger, #d33); }
+	.mod-add { display: flex; gap: 6px; margin-top: 6px; }
+	.module-canvas { max-width: 640px; margin: 40px auto; padding: 24px; border: 1px dashed var(--border); border-radius: var(--radius-md); background: var(--bg-elev); }
+	.module-canvas code { font-family: ui-monospace, monospace; background: var(--bg-sunken); padding: 1px 5px; border-radius: 4px; }
 	.datasrc { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); }
 	.datasrc > summary { cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); user-select: none; }
 	.ds-note { font-size: 11px; color: var(--fg-subtle); line-height: 1.4; margin: 6px 0; }

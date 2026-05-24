@@ -412,6 +412,17 @@ export function compileParascape(src: string): SvelteComponent {
   return exports.default;
 }
 
+/** Compile a shared .ts/.js helper module to its exports (LYK-959), so pages and
+ *  components can `import { foo } from './util.ts'`. Uses sucrase's CommonJS
+ *  ("imports") transform and runs it with the same require-map (so a module can
+ *  itself import components / other modules). */
+export function compileModule(src: string): Record<string, unknown> {
+  const { code } = transform(src, { transforms: ["typescript", "imports"], production: true });
+  const mod = { exports: {} as Record<string, unknown> };
+  const fn = new Function("require", "exports", "module", `${code}\nreturn module.exports;`);
+  return (fn(makeRequires("ps"), mod.exports, mod) as Record<string, unknown>) ?? mod.exports;
+}
+
 /** Mount a React component into a target div. Returns a teardown fn. */
 export function mountReact(component: ComponentType<Record<string, unknown>>, target: HTMLElement): () => void {
   const root = createRoot(target);

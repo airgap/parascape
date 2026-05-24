@@ -9,26 +9,45 @@ import "@cloudscape-design/global-styles/index.css";
 import "../src/lib/tokens/cloudscape-tokens.css";
 import "../src/lib/tokens/cloudscape-tokens-dark.css";
 import "../src/lib/site.css";
-import { compileParascape, mountSvelte, registerUserModule, clearUserModules } from "../demos/live-compile";
+import {
+  compileParascape,
+  compileModule,
+  mountSvelte,
+  registerUserModule,
+  clearUserModules,
+} from "../demos/live-compile";
 
 type PublishedPage = { name: string; route: string; params?: string; source: string };
 type PublishedComponent = { ident: string; source: string };
-type PublishedDoc = { name?: string; source?: string; pages?: PublishedPage[]; components?: PublishedComponent[] };
+type PublishedModule = { ident: string; source: string; pui: boolean };
+type PublishedDoc = {
+  name?: string;
+  source?: string;
+  pages?: PublishedPage[];
+  components?: PublishedComponent[];
+  modules?: PublishedModule[];
+};
 
-// Register the project's components (LYK-958) so pages/instances that import them
-// resolve. Fixed-point: a component may import another; compile what we can each
-// pass until no more progress (an erroring one is left unresolved).
-function registerComponents(components: PublishedComponent[] | undefined) {
+// Register the project's components (LYK-958) and shared modules (LYK-959) so
+// pages/instances/imports resolve. Fixed-point: units may import each other;
+// compile what we can each pass until no more progress (an erroring one is left
+// unresolved). Components + .pui modules → { default: Component }; .ts modules →
+// their exports.
+function registerProjectModules(doc: PublishedDoc) {
   clearUserModules();
-  const pending = [...(components ?? [])];
+  const pending: { ident: string; compile: () => Record<string, unknown> }[] = [
+    ...(doc.components ?? []).map(c => ({ ident: c.ident, compile: () => ({ default: compileParascape(c.source) }) })),
+    ...(doc.modules ?? []).map(m => ({
+      ident: m.ident,
+      compile: () => (m.pui ? { default: compileParascape(m.source) } : compileModule(m.source)),
+    })),
+  ];
   let progress = true;
   while (pending.length && progress) {
     progress = false;
     for (let i = pending.length - 1; i >= 0; i--) {
       try {
-        registerUserModule(pending[i].ident, {
-          default: compileParascape(pending[i].source) as unknown as Record<string, unknown>,
-        });
+        registerUserModule(pending[i].ident, pending[i].compile());
         pending.splice(i, 1);
         progress = true;
       } catch {
@@ -132,7 +151,7 @@ async function run() {
     if (!res.ok) throw new Error("HTTP " + res.status);
     const { doc } = (await res.json()) as { doc: PublishedDoc };
     document.title = (doc?.name ?? "Preview") + " — Parascape";
-    registerComponents(doc.components);
+    registerProjectModules(doc);
     render(doc);
     // re-route on in-app navigation (hash links)
     addEventListener("hashchange", () => render(doc));
