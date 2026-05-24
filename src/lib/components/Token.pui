@@ -23,6 +23,7 @@
 <script lang="pts">
 	import Icon from './Icon.pui';
 	import styles from '../cloudscape/token.styles.js';
+	import optStyles from '../cloudscape/option.styles.js';
 	import testClasses from '../cloudscape/token.test-classes.js';
 	import '../cloudscape/token.scoped.css';
 	import '../cloudscape/token.test-classes.scoped.css';
@@ -59,6 +60,7 @@
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
+	const OPT = optStyles as Record<string, string>;
 	const T = testClasses as Record<string, string>;
 	const snip = (v: unknown) => typeof v === 'function';
 	const has = (v: unknown) => v !== null && v !== undefined;
@@ -67,6 +69,7 @@
 
 <svelte:element
 	this={isInline ? 'span' : 'div'}
+	role="group"
 	class={cx(extraClass, S.root, T.root, isInline ? S['token-inline'] : S['token-normal'])}
 	aria-label={ariaLabel}
 	aria-disabled={disabled ? 'true' : undefined}
@@ -84,8 +87,7 @@
 		{#if has(icon)}<span class={cx(S.icon, isInline && S['icon-inline'])}
 				>{#if snip(icon)}{@render (icon as import('svelte').Snippet)()}{:else}{icon}{/if}</span
 			>{/if}
-		<div>{label ?? ''}{#if has(labelTag)}{' '}<span>{labelTag}</span>{/if}</div>
-		{#if has(description)}<div>{description}</div>{/if}
+		<div class={OPT.option}><div class={OPT.content}><div class={OPT.label}>{label ?? ''}{#if has(labelTag)}{' '}<span class={OPT['label-tag']}>{labelTag}</span>{/if}</div>{#if has(description)}<div class={OPT.description}>{description}</div>{/if}</div></div>
 		{#if has(tags) && tags!.length > 0}<div>{#each tags! as t, i (i)}<span>{t}</span>{/each}</div>{/if}
 	</div>
 	{#if has(dismissLabel) && !readOnly}<button
