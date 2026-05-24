@@ -40,6 +40,7 @@
 		label: import('svelte').Snippet | string;
 		content?: import('svelte').Snippet | string;
 		disabled?: boolean;
+		disabledReason?: string;
 		href?: string;
 	};
 
@@ -84,6 +85,31 @@
 	}
 	const isActive = (t: Tab) => effectiveTabId === t.id && !t.disabled;
 	const linkId = (id: string) => `parascape-tab-link-${id}`;
+	const reasonId = (id: string) => `parascape-tab-reason-${id}`;
+	const isDisabledWithReason = (t: Tab) => !!t.disabled && !!t.disabledReason;
+	// Disabled-reason tooltip: focus/mouseenter open, blur/mouseleave/Esc close.
+	signal openTooltipId: string | null = null;
+	function showReason(t: Tab) {
+		if (isDisabledWithReason(t)) {
+			openTooltipId = t.id;
+			flushSync();
+		}
+	}
+	function hideReason() {
+		openTooltipId = null;
+		flushSync();
+	}
+	effect {
+		if (typeof window === 'undefined') return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				openTooltipId = null;
+				flushSync();
+			}
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}
 	function moveTo(t: Tab | undefined) {
 		if (!t || t.id === effectiveTabId) return;
 		select(t);
@@ -140,12 +166,18 @@
 							id={linkId(tab.id)}
 							data-testid={tab.id}
 							aria-selected={isActive(tab) ? 'true' : 'false'}
-							disabled={tab.disabled}
+							aria-disabled={isDisabledWithReason(tab) ? 'true' : undefined}
+							aria-describedby={isDisabledWithReason(tab) ? reasonId(tab.id) : undefined}
+							disabled={tab.disabled && !tab.disabledReason}
 							onclick={(e: MouseEvent) => { if (!(e.ctrlKey || e.shiftKey || e.altKey || e.metaKey)) select(tab); }}
 							onkeydown={handleKey}
+							onfocusin={() => showReason(tab)}
+							onfocusout={hideReason}
+							onmouseenter={() => showReason(tab)}
+							onmouseleave={hideReason}
 						><span class={S['tabs-tab-label']}><span
 									>{#if snip(tab.label)}{@render (tab.label as import('svelte').Snippet)()}{:else}{tab.label}{/if}</span
-								></span></button></div></li>
+								></span>{#if isDisabledWithReason(tab)}<span id={reasonId(tab.id)} hidden>{tab.disabledReason}</span>{/if}{#if openTooltipId === tab.id}<span class={S['disabled-reason-tooltip']} role="tooltip">{tab.disabledReason}</span>{/if}</button></div></li>
 			{/each}
 		</ul>
 	</div>
