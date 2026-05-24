@@ -32,6 +32,7 @@
 	import selectPartsStyles from '../cloudscape/select-parts.styles.js';
 	import StatusIndicator from './StatusIndicator.pui';
 	import LiveRegion from './LiveRegion.pui';
+	import TokenGroup from './TokenGroup.pui';
 	import '../cloudscape/multiselect.scoped.css';
 	import '../cloudscape/button-trigger.scoped.css';
 
@@ -54,6 +55,8 @@
 		hideTokens = false,
 		keepOpen = true,
 		tokenLimit = undefined,
+		tokenLimitShowMoreAriaLabel = undefined,
+		tokenLimitShowFewerAriaLabel = undefined,
 		inlineTokens = false,
 		expandToViewport = false,
 		statusType = 'finished',
@@ -92,6 +95,8 @@
 		hideTokens?: boolean;
 		keepOpen?: boolean;
 		tokenLimit?: number;
+		tokenLimitShowMoreAriaLabel?: string;
+		tokenLimitShowFewerAriaLabel?: string;
 		inlineTokens?: boolean;
 		expandToViewport?: boolean;
 		statusType?: 'pending' | 'loading' | 'finished' | 'error';
@@ -237,6 +242,19 @@
 		flushSync();
 		onChange?.({ detail: { selectedOptions } });
 	}
+	derived tokenItems = selectedOptions.map((o) => ({
+		label: o.label ?? o.value,
+		description: o.description,
+		labelTag: o.labelTag,
+		tags: o.tags,
+		disabled,
+		dismissLabel: deselectAriaLabel ? deselectAriaLabel(o) : '',
+	}));
+	function dismissToken(i: number) {
+		selectedOptions = selectedOptions.filter((_, idx) => idx !== i);
+		flushSync();
+		onChange?.({ detail: { selectedOptions } });
+	}
 	// Clicking a group toggles all its enabled children: deselect them all when
 	// every enabled child is selected, otherwise add the missing ones.
 	function pickGroup(g: Option) {
@@ -287,11 +305,15 @@
 			/></span></button
 	>
 	{#if hasSelection && !hideTokens && !inlineTokens}
-		<div class={S.tokens}>
-			{#each selectedOptions as opt, i (i)}
-				<span>{opt.label ?? opt.value}</span>
-			{/each}
-		</div>
+		<TokenGroup
+			items={tokenItems}
+			limit={tokenLimit}
+			{readOnly}
+			i18nStrings={{ limitShowMore: i18nStrings?.tokenLimitShowMore, limitShowFewer: i18nStrings?.tokenLimitShowFewer }}
+			showMoreAriaLabel={tokenLimitShowMoreAriaLabel}
+			showFewerAriaLabel={tokenLimitShowFewerAriaLabel}
+			onDismiss={(e: { detail: { itemIndex: number } }) => dismissToken(e.detail.itemIndex)}
+		/>
 	{/if}
 	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true"><div role={isFiltering ? 'dialog' : undefined} id={isFiltering ? dialogId : undefined} aria-label={isFiltering ? ariaLabel : undefined} aria-labelledby={isFiltering ? ariaLabelledby : undefined}>{#if filteringType !== 'none'}<Input value={filterValue} controlId={filterInputId} onChange={(e: { detail: { value: string } }) => onFilterInput(e.detail.value)} />{/if}<ul id={listboxId} class={SI['options-list']} role="listbox" aria-multiselectable="true" aria-required={ariaRequired ? 'true' : undefined} aria-describedby={hasStatus ? footerId : undefined} onscroll={onListScroll}>{#each rows as row, ri (ri)}{#if row.group}<li class={cx(SI['selectable-item'], SI.parent)} role="group"><div class={cx(OPT.option, OPT.parent)} data-value={row.option.value} data-mouse-target={row.mt} role="checkbox" aria-checked={groupChecked(row.option)} onmouseup={() => pickGroup(row.option)} onclick={() => pickGroup(row.option)}><div class={OPT.content}><div class={OPT['label-content']}><span class={OPT.label}>{row.option.label ?? row.option.value}</span>{#if row.option.labelTag}<span class={OPT['label-tag']}>{row.option.labelTag}</span>{/if}</div>{#if row.option.description}<span class={OPT.description}>{row.option.description}</span>{/if}{#if row.option.tags}<div>{#each row.option.tags as t}<span class={OPT.tag}>{t}</span>{/each}</div>{/if}</div></div></li>{:else}<li class={cx(SI['selectable-item'], row.option.disabled && SI.disabled, isSelected(row.option) && SI.selected)} data-test-index={row.index} role="option" aria-selected={isSelected(row.option) ? 'true' : 'false'}><div class={cx(OPT.option, row.option.disabled && OPT.disabled)} data-value={row.option.value} data-mouse-target={row.mt} lang={row.option.lang} role="checkbox" aria-checked={isSelected(row.option) ? 'true' : 'false'} aria-disabled={row.option.disabled ? 'true' : undefined} onmouseup={() => pick(row.option)} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT['label-content']}><span class={OPT.label}>{row.option.label ?? row.option.value}</span>{#if row.option.labelTag}<span class={OPT['label-tag']}>{row.option.labelTag}</span>{/if}</div>{#if row.option.description}<span class={OPT.description}>{row.option.description}</span>{/if}{#if row.option.tags}<div>{#each row.option.tags as t}<span class={OPT.tag}>{t}</span>{/each}</div>{/if}</div></div></li>{/if}{/each}</ul>{#if statusType === 'loading'}<div class={DS.root} id={footerId}><StatusIndicator type="loading">{loadingText ?? ''}</StatusIndicator></div>{:else if statusType === 'error'}<div class={DS.root} id={footerId}><span><StatusIndicator type="error" iconAriaLabel={errorIconAriaLabel}>{errorText ?? ''}</StatusIndicator>{#if hasRecovery}<button type="button" class={DS.recovery} onclick={retry}>{recoveryText}</button>{/if}</span></div>{:else if isNoMatch && noMatch}<div class={DS.root} id={footerId}>{noMatch}</div>{:else if showFilteringResults}<div class={DS.root} id={footerId}>{filteringResultsText!(matchesCount, totalCount)}</div>{:else if statusType === 'finished' && finishedText}<div class={SP['list-bottom']}><div class={DS.root} id={footerId}>{finishedText}</div></div>{/if}{#if hasStatus}<LiveRegion>{statusAnnouncement}</LiveRegion>{/if}</div></div></div>{/if}
 </div>

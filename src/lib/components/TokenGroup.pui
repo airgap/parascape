@@ -29,9 +29,11 @@
   classes. Composes parity Icon✅.
 -->
 <script lang="pts">
+	import { flushSync } from 'svelte';
 	import Icon from './Icon.pui';
 	import styles from '../cloudscape/token-group.styles.js';
 	import tokenStyles from '../cloudscape/token.styles.js';
+	import tokenTestClasses from '../cloudscape/token.test-classes.js';
 	import optStyles from '../cloudscape/option.styles.js';
 	import tokenListStyles from '../cloudscape/token-list.styles.js';
 	import '../cloudscape/token-group.scoped.css';
@@ -57,6 +59,8 @@
 		readOnly = false,
 		disableOuterPadding = false,
 		i18nStrings = undefined,
+		showMoreAriaLabel = undefined,
+		showFewerAriaLabel = undefined,
 		isItemReadOnly = undefined,
 		onDismiss = undefined,
 		class: extraClass = undefined,
@@ -68,6 +72,8 @@
 		readOnly?: boolean;
 		disableOuterPadding?: boolean;
 		i18nStrings?: { limitShowFewer?: string; limitShowMore?: string };
+		showMoreAriaLabel?: string;
+		showFewerAriaLabel?: string;
 		isItemReadOnly?: (item: TokenItem) => boolean;
 		onDismiss?: (e: { detail: { itemIndex: number } }) => void;
 		class?: string;
@@ -77,18 +83,33 @@
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
 	const TS = tokenStyles as Record<string, string>;
+	const TC = tokenTestClasses as Record<string, string>;
 	const OPT = optStyles as Record<string, string>;
 	const TL = tokenListStyles as Record<string, string>;
 	const has = (v: unknown) => v !== null && v !== undefined;
+	signal expanded = false;
+	// TokenList collapse: when limit < count, show the first `limit` and a
+	// show-more/show-fewer toggle.
+	derived hasToggle = has(limit) && items.length > (limit as number);
+	derived visibleItems = hasToggle && !expanded ? items.slice(0, limit as number) : items;
+	derived hiddenCount = has(limit) ? items.length - (limit as number) : 0;
+	derived toggleText = expanded
+		? (i18nStrings?.limitShowFewer ?? '')
+		: `${i18nStrings?.limitShowMore ?? ''} (+${hiddenCount})`;
+	derived toggleAriaLabel = expanded ? showFewerAriaLabel : showMoreAriaLabel;
+	function toggle() {
+		expanded = !expanded;
+		flushSync();
+	}
 </script>
 
 <div class={cx(extraClass, S.root, items.length && S['has-items'], disableOuterPadding && S['no-padding'])} {...rest}>
 	<ul class={cx(TL.list, TL[alignment])} role="list">
-		{#each items as item, i (i)}
+		{#each visibleItems as item, i (i)}
 			{@const itemRO = readOnly || (isItemReadOnly?.(item) ?? false)}
 			{@const noDismiss = itemRO || !has(item.dismissLabel)}
 			<li class={TL['list-item']}>
-				<div class={cx(TS.root, S.token, TS['token-normal'])}>
+				<div class={cx(TS.root, S.token, TS['token-normal'])} aria-disabled={item.disabled ? 'true' : undefined}>
 					<div
 						class={cx(
 							TS['token-box'],
@@ -101,7 +122,7 @@
 					</div>
 					{#if !noDismiss}<button
 							type="button"
-							class={S['dismiss-button']}
+							class={cx(S['dismiss-button'], TC['dismiss-button'])}
 							aria-label={item.dismissLabel}
 							disabled={item.disabled}
 							onclick={() => onDismiss?.({ detail: { itemIndex: i } })}
@@ -111,4 +132,5 @@
 			</li>
 		{/each}
 	</ul>
+	{#if hasToggle}<button type="button" class={TL.toggle} aria-label={toggleAriaLabel} onclick={toggle}>{toggleText}</button>{/if}
 </div>
