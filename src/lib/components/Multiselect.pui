@@ -28,6 +28,10 @@
 	import dropdownStyles from '../cloudscape/dropdown.styles.js';
 	import optStyles from '../cloudscape/option.styles.js';
 	import selItemStyles from '../cloudscape/selectable-item.styles.js';
+	import dropdownStatusStyles from '../cloudscape/dropdown-status.styles.js';
+	import selectPartsStyles from '../cloudscape/select-parts.styles.js';
+	import StatusIndicator from './StatusIndicator.pui';
+	import LiveRegion from './LiveRegion.pui';
 	import '../cloudscape/multiselect.scoped.css';
 	import '../cloudscape/button-trigger.scoped.css';
 
@@ -53,6 +57,12 @@
 		inlineTokens = false,
 		expandToViewport = false,
 		statusType = 'finished',
+		loadingText = undefined,
+		errorText = undefined,
+		finishedText = undefined,
+		recoveryText = undefined,
+		errorIconAriaLabel = undefined,
+		onLoadItems = undefined,
 		i18nStrings = undefined,
 		onChange = undefined,
 		onBlur = undefined,
@@ -80,6 +90,12 @@
 		inlineTokens?: boolean;
 		expandToViewport?: boolean;
 		statusType?: 'pending' | 'loading' | 'finished' | 'error';
+		loadingText?: string;
+		errorText?: string;
+		finishedText?: string;
+		recoveryText?: string;
+		errorIconAriaLabel?: string;
+		onLoadItems?: (e: { detail: { filteringText: string; firstPage: boolean; samePage: boolean } }) => void;
 		i18nStrings?: { tokenLimitShowFewer?: string; tokenLimitShowMore?: string };
 		onChange?: (e: { detail: { selectedOptions: Option[] } }) => void;
 		onBlur?: (e: { detail: null }) => void;
@@ -100,6 +116,31 @@
 	const D = dropdownStyles as Record<string, string>;
 	const OPT = optStyles as Record<string, string>;
 	const SI = selItemStyles as Record<string, string>;
+	const DS = dropdownStatusStyles as Record<string, string>;
+	const SP = selectPartsStyles as Record<string, string>;
+	let __msN = 0;
+	const filterInputId = `parascape-multiselect-filter-${(__msN += 1)}`;
+	const footerId = `parascape-multiselect-footer-${__msN}`;
+	derived hasStatus =
+		statusType === 'loading' || statusType === 'error' || (statusType === 'finished' && !!finishedText);
+	derived hasRecovery = statusType === 'error' && !!recoveryText && !!onLoadItems;
+	derived statusAnnouncement =
+		statusType === 'loading'
+			? (loadingText ?? '')
+			: statusType === 'error'
+				? (errorText ?? '')
+				: statusType === 'finished'
+					? (finishedText ?? '')
+					: '';
+	const loadItems = (firstPage: boolean, samePage: boolean) =>
+		onLoadItems?.({ detail: { filteringText: filterValue, firstPage, samePage } });
+	function retry() {
+		loadItems(false, true);
+		document.getElementById(filterInputId)?.focus();
+	}
+	function onListScroll() {
+		if (statusType === 'pending') loadItems(false, false);
+	}
 	signal open = false;
 	signal filterValue = '';
 	type Row = { group: true; label?: string } | { group?: false; option: Option; index: number };
@@ -136,6 +177,7 @@
 	function onFilterInput(v: string) {
 		filterValue = v;
 		flushSync();
+		if (filteringType === 'manual') loadItems(true, false);
 	}
 	function pick(o: Option) {
 		if (o.disabled) return;
@@ -181,5 +223,5 @@
 			{/each}
 		</div>
 	{/if}
-	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true">{#if filteringType !== 'none'}<Input value={filterValue} onChange={(e: { detail: { value: string } }) => onFilterInput(e.detail.value)} />{/if}<ul class={SI['options-list']} role="listbox">{#each rows as row, ri (ri)}{#if row.group}<li class={cx(SI['selectable-item'], SI.parent)} aria-disabled="true"><span class={OPT.label}>{row.label ?? ''}</span></li>{:else}<li class={cx(SI['selectable-item'], row.option.disabled && SI.disabled, isSelected(row.option) && SI.selected)} data-test-index={row.index} role="option" aria-selected={isSelected(row.option) ? 'true' : 'false'}><div class={OPT.option} data-value={row.option.value} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div class={OPT.description}>{row.option.description}</div>{/if}</div></div></li>{/if}{/each}</ul></div></div>{/if}
+	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true">{#if filteringType !== 'none'}<Input value={filterValue} controlId={filterInputId} onChange={(e: { detail: { value: string } }) => onFilterInput(e.detail.value)} />{/if}<ul class={SI['options-list']} role="listbox" aria-multiselectable="true" aria-describedby={hasStatus ? footerId : undefined} onscroll={onListScroll}>{#each rows as row, ri (ri)}{#if row.group}<li class={cx(SI['selectable-item'], SI.parent)} aria-disabled="true"><span class={OPT.label}>{row.label ?? ''}</span></li>{:else}<li class={cx(SI['selectable-item'], row.option.disabled && SI.disabled, isSelected(row.option) && SI.selected)} data-test-index={row.index} role="option" aria-selected={isSelected(row.option) ? 'true' : 'false'}><div class={OPT.option} data-value={row.option.value} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div class={OPT.description}>{row.option.description}</div>{/if}</div></div></li>{/if}{/each}</ul>{#if statusType === 'loading'}<div class={DS.root} id={footerId}><StatusIndicator type="loading">{loadingText ?? ''}</StatusIndicator></div>{:else if statusType === 'error'}<div class={DS.root} id={footerId}><span><StatusIndicator type="error" iconAriaLabel={errorIconAriaLabel}>{errorText ?? ''}</StatusIndicator>{#if hasRecovery}<button type="button" class={DS.recovery} onclick={retry}>{recoveryText}</button>{/if}</span></div>{:else if statusType === 'finished' && finishedText}<div class={SP['list-bottom']}><div class={DS.root} id={footerId}>{finishedText}</div></div>{/if}{#if hasStatus}<LiveRegion>{statusAnnouncement}</LiveRegion>{/if}</div></div>{/if}
 </div>

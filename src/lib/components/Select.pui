@@ -27,6 +27,9 @@
 	import dropdownStyles from '../cloudscape/dropdown.styles.js';
 	import optStyles from '../cloudscape/option.styles.js';
 	import selItemStyles from '../cloudscape/selectable-item.styles.js';
+	import dropdownStatusStyles from '../cloudscape/dropdown-status.styles.js';
+	import selectPartsStyles from '../cloudscape/select-parts.styles.js';
+	import StatusIndicator from './StatusIndicator.pui';
 	import '../cloudscape/select.scoped.css';
 	import '../cloudscape/button-trigger.scoped.css';
 
@@ -42,6 +45,12 @@
 		filteringType = 'none',
 		filteringPlaceholder = undefined,
 		filteringAriaLabel = undefined,
+		statusType = 'finished',
+		loadingText = undefined,
+		errorText = undefined,
+		finishedText = undefined,
+		recoveryText = undefined,
+		errorIconAriaLabel = undefined,
 		onLoadItems = undefined,
 		controlId = undefined,
 		ariaLabel = undefined,
@@ -62,6 +71,12 @@
 		filteringType?: 'none' | 'auto' | 'manual';
 		filteringPlaceholder?: string;
 		filteringAriaLabel?: string;
+		statusType?: 'finished' | 'pending' | 'loading' | 'error';
+		loadingText?: string;
+		errorText?: string;
+		finishedText?: string;
+		recoveryText?: string;
+		errorIconAriaLabel?: string;
 		onLoadItems?: (e: { detail: { filteringText: string; firstPage: boolean; samePage: boolean } }) => void;
 		controlId?: string;
 		ariaLabel?: string;
@@ -79,6 +94,14 @@
 	const D = dropdownStyles as Record<string, string>;
 	const OPT = optStyles as Record<string, string>;
 	const SI = selItemStyles as Record<string, string>;
+	const DS = dropdownStatusStyles as Record<string, string>;
+	const SP = selectPartsStyles as Record<string, string>;
+	let __selN = 0;
+	const filterInputId = `parascape-select-filter-${(__selN += 1)}`;
+	const footerId = `parascape-select-footer-${__selN}`;
+	derived hasStatus =
+		statusType === 'loading' || statusType === 'error' || (statusType === 'finished' && !!finishedText);
+	derived hasRecovery = statusType === 'error' && !!recoveryText && !!onLoadItems;
 	derived hasSelection = !!selectedOption && !!selectedOption.label;
 	derived triggerText = hasSelection ? selectedOption!.label : placeholder;
 
@@ -131,6 +154,13 @@
 		flushSync();
 		onChange?.({ detail: { selectedOption: o } });
 	}
+	function retry() {
+		loadItems(false, true);
+		document.getElementById(filterInputId)?.focus();
+	}
+	function onListScroll() {
+		if (statusType === 'pending') loadItems(false, false);
+	}
 </script>
 
 <div class={cx(extraClass, S.root)} {...rest}>
@@ -165,10 +195,13 @@
 				value={filterValue}
 				placeholder={filteringPlaceholder}
 				ariaLabel={filteringAriaLabel}
+				controlId={filterInputId}
 				onChange={(e: { detail: { value: string } }) => onFilterInput(e.detail.value)}
 			/>{/if}<ul
 				class={SI['options-list']}
 				role="listbox"
+				aria-describedby={hasStatus ? footerId : undefined}
+				onscroll={onListScroll}
 			>{#each rows as row, ri (ri)}{#if row.group}<li class={cx(SI['selectable-item'], SI.parent)} aria-disabled="true"><span class={OPT.label}>{row.label ?? ''}</span></li>{:else}<li
 						class={cx(SI['selectable-item'], row.option.disabled && SI.disabled, selectedOption?.value === row.option.value && SI.selected)}
 						data-test-index={row.index}
@@ -177,5 +210,5 @@
 					><div class={OPT.option} data-value={row.option.value} onclick={() => pick(row.option)}
 						><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div
 									class={OPT.description}>{row.option.description}</div>{/if}</div></div></li
-					>{/if}{/each}</ul></div></div>{/if}
+					>{/if}{/each}</ul>{#if statusType === 'loading'}<div class={DS.root} id={footerId}><StatusIndicator type="loading">{loadingText ?? ''}</StatusIndicator></div>{:else if statusType === 'error'}<div class={DS.root} id={footerId}><span><StatusIndicator type="error" iconAriaLabel={errorIconAriaLabel}>{errorText ?? ''}</StatusIndicator>{#if hasRecovery}<button type="button" class={DS.recovery} onclick={retry}>{recoveryText}</button>{/if}</span></div>{:else if statusType === 'finished' && finishedText}<div class={SP['list-bottom']}><div class={DS.root} id={footerId}>{finishedText}</div></div>{/if}</div></div>{/if}
 </div>

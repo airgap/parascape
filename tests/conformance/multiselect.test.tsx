@@ -10,58 +10,58 @@
 // collection, supplies NO fake data (every access is the stub itself,
 // so dependent value/DOM assertions fail honestly, never fake-pass).
 const __STUB: any = new Proxy(function () {}, {
-	get: (_t, k) =>
-		k === Symbol.iterator
-			? function* () {}
-			: k === Symbol.toPrimitive || k === 'toString' || k === 'valueOf'
-				? () => ''
-				: __STUB,
-	apply: () => __STUB,
-	construct: () => ({}),
+  get: (_t, k) =>
+    k === Symbol.iterator
+      ? function* () {}
+      : k === Symbol.toPrimitive || k === "toString" || k === "valueOf"
+        ? () => ""
+        : __STUB,
+  apply: () => __STUB,
+  construct: () => ({}),
 });
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-import { React } from '@conformance/adapter';
-import { act, fireEvent, render } from '@conformance/adapter';
+import { React } from "@conformance/adapter";
+import { act, fireEvent, render } from "@conformance/adapter";
 
-import { ContainerQueryEntry } from '@cloudscape-design/component-toolkit';
-import { useResizeObserver, warnOnce } from '@cloudscape-design/component-toolkit/internal';
-import { KeyCode } from '@cloudscape-design/test-utils-core/utils';
+import { ContainerQueryEntry } from "@cloudscape-design/component-toolkit";
+import { useResizeObserver, warnOnce } from "@cloudscape-design/component-toolkit/internal";
+import { KeyCode } from "@cloudscape-design/test-utils-core/utils";
 
-import '../../__a11y__/to-validate-a11y';
+import "../../__a11y__/to-validate-a11y";
 const TestI18nProvider = (({ children }: any) => children) as any;
 const getDropdownMinWidthModule = __STUB; // stub: ../../../lib/components/internal/utils/get-dropdown-min-width
-import Multiselect from '@components/Multiselect.pui';
-import { createWrapper } from '@conformance/adapter';
+import Multiselect from "@components/Multiselect.pui";
+import { createWrapper } from "@conformance/adapter";
 
-const selectPartsStyles = __STUB; // stub: ../../../lib/components/select/parts/styles.css.js
-import tokenGroupStyles from '@cloudscape/token-group.styles.js';
-import statusIconStyles from '@cloudscape/status-indicator.styles.js';
+import selectPartsStyles from "@cloudscape/select-parts.styles.js";
+import tokenGroupStyles from "@cloudscape/token-group.styles.js";
+import statusIconStyles from "@cloudscape/status-indicator.styles.js";
 
 const defaultOptions: any.Options = [
-  { label: 'First', value: '1' },
-  { label: 'Second', value: '2' },
-  { label: 'Third', value: '3', lang: 'es' },
-  { label: 'Fourth', value: '4' },
+  { label: "First", value: "1" },
+  { label: "Second", value: "2" },
+  { label: "Third", value: "3", lang: "es" },
+  { label: "Fourth", value: "4" },
 ];
 const groupOptions: any.Options = [
   {
-    label: 'First category',
-    value: 'group',
+    label: "First category",
+    value: "group",
     options: [
-      { label: 'First', value: '1' },
-      { label: 'Second', value: '2' },
-      { label: 'Third', value: '3' },
-      { label: 'Fourth', value: '4' },
+      { label: "First", value: "1" },
+      { label: "Second", value: "2" },
+      { label: "Third", value: "3" },
+      { label: "Fourth", value: "4" },
     ],
   },
-  { label: 'Fifth', value: '5' },
+  { label: "Fifth", value: "5" },
   {
-    label: 'Second category',
-    value: 'group2',
+    label: "Second category",
+    value: "group2",
     options: [
-      { label: 'sixth', value: '6' },
-      { label: 'seventh', value: '7', disabled: true },
+      { label: "sixth", value: "6" },
+      { label: "seventh", value: "7", disabled: true },
     ],
   },
 ];
@@ -78,8 +78,8 @@ function renderMultiselect(jsx: React.ReactElement) {
   return { container, wrapper, rerender, expectTokensToHaveText };
 }
 
-vi.mock('@cloudscape-design/component-toolkit/internal', async (importOriginal) => {
-  const originalModule = await vi.importActual('@cloudscape-design/component-toolkit/internal');
+vi.mock("@cloudscape-design/component-toolkit/internal", async importOriginal => {
+  const originalModule = await vi.importActual("@cloudscape-design/component-toolkit/internal");
 
   return {
     __esModule: true,
@@ -92,51 +92,51 @@ beforeEach(() => {
   (warnOnce as any).mockClear();
 });
 
-test('opens and closes dropdown', () => {
+test("opens and closes dropdown", () => {
   const { wrapper } = renderMultiselect(<Multiselect selectedOptions={[]} options={defaultOptions} />);
   wrapper.openDropdown();
-  expect(wrapper.findDropdown().findOptionByValue('1')).toBeTruthy();
+  expect(wrapper.findDropdown().findOptionByValue("1")).toBeTruthy();
   wrapper.closeDropdown();
-  expect(wrapper.findDropdown().findOptionByValue('1')).toBeFalsy();
+  expect(wrapper.findDropdown().findOptionByValue("1")).toBeFalsy();
 });
 
-test('keeps dropdown open after selecting an item by default', () => {
+test("keeps dropdown open after selecting an item by default", () => {
   const { wrapper } = renderMultiselect(<Multiselect selectedOptions={[]} options={defaultOptions} />);
   wrapper.openDropdown();
-  wrapper.selectOptionByValue('2');
-  expect(wrapper.findDropdown().findOptionByValue('2')).toBeTruthy();
+  wrapper.selectOptionByValue("2");
+  expect(wrapper.findDropdown().findOptionByValue("2")).toBeTruthy();
 });
 
-test('closes dropdown after selecting an option when keepOpen=false', () => {
+test("closes dropdown after selecting an option when keepOpen=false", () => {
   const { wrapper } = renderMultiselect(<Multiselect selectedOptions={[]} options={defaultOptions} keepOpen={false} />);
   wrapper.openDropdown();
-  wrapper.selectOptionByValue('2');
-  expect(wrapper.findDropdown().findOptionByValue('2')).toBeFalsy();
+  wrapper.selectOptionByValue("2");
+  expect(wrapper.findDropdown().findOptionByValue("2")).toBeFalsy();
 });
 
-test('does not open dropdown when disabled', () => {
+test("does not open dropdown when disabled", () => {
   const { wrapper } = renderMultiselect(<Multiselect selectedOptions={[]} options={defaultOptions} disabled={true} />);
   expect(wrapper.isDisabled()).toEqual(true);
   wrapper.openDropdown();
   expect(wrapper.findDropdown().findOpenDropdown()).toEqual(null);
 });
 
-test('does not open dropdown when readOnly', () => {
+test("does not open dropdown when readOnly", () => {
   const { wrapper } = renderMultiselect(<Multiselect selectedOptions={[]} options={defaultOptions} readOnly={true} />);
   wrapper.openDropdown();
   expect(wrapper.findDropdown().findOpenDropdown()).toEqual(null);
 });
 
-test('renders lang on options', () => {
+test("renders lang on options", () => {
   const { wrapper } = renderMultiselect(<Multiselect selectedOptions={[]} options={defaultOptions} />);
   wrapper.openDropdown();
-  expect(wrapper.findDropdown()!.findOptionByValue('3')!.getElement()).toHaveAttribute('lang', 'es');
+  expect(wrapper.findDropdown()!.findOptionByValue("3")!.getElement()).toHaveAttribute("lang", "es");
 });
 
-test('filtering state stays unchanged when an item is selected', () => {
-  const FILTER_VALUE = 'Second';
+test("filtering state stays unchanged when an item is selected", () => {
+  const FILTER_VALUE = "Second";
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[]} options={defaultOptions} filteringType="auto" />
+    <Multiselect selectedOptions={[]} options={defaultOptions} filteringType="auto" />,
   );
   wrapper.openDropdown();
   wrapper.findFilteringInput()!.setInputValue(FILTER_VALUE);
@@ -145,19 +145,19 @@ test('filtering state stays unchanged when an item is selected', () => {
   expect(wrapper.findFilteringInput()!.findNativeInput().getElement()).toHaveValue(FILTER_VALUE);
 });
 
-test('sets proper filtering text for the onLoadItems event', async () => {
+test("sets proper filtering text for the onLoadItems event", async () => {
   const onLoadItemsSpy = jest.fn();
-  const testValue = 'Some input value';
+  const testValue = "Some input value";
   const { wrapper } = renderMultiselect(
     <Multiselect
       selectedOptions={[]}
       filteringType="auto"
       options={defaultOptions}
       onLoadItems={event => onLoadItemsSpy(event.detail)}
-    />
+    />,
   );
   wrapper.openDropdown();
-  expect(onLoadItemsSpy).toHaveBeenCalledWith({ filteringText: '', firstPage: true, samePage: false });
+  expect(onLoadItemsSpy).toHaveBeenCalledWith({ filteringText: "", firstPage: true, samePage: false });
   onLoadItemsSpy.mockReset();
 
   wrapper.findFilteringInput()!.setInputValue(testValue);
@@ -167,88 +167,88 @@ test('sets proper filtering text for the onLoadItems event', async () => {
   expect(wrapper.findFilteringInput()!.findNativeInput().getElement()).toHaveValue(testValue);
 });
 
-test('renders selected options', () => {
+test("renders selected options", () => {
   const { expectTokensToHaveText } = renderMultiselect(
-    <Multiselect selectedOptions={[{ label: 'First', value: '1' }]} options={defaultOptions} />
+    <Multiselect selectedOptions={[{ label: "First", value: "1" }]} options={defaultOptions} />,
   );
-  expectTokensToHaveText(['First']);
+  expectTokensToHaveText(["First"]);
 });
 
-test('does not render tokens when no tokens are present', () => {
+test("does not render tokens when no tokens are present", () => {
   const { wrapper } = renderMultiselect(<Multiselect selectedOptions={[]} options={defaultOptions} />);
   expect(wrapper.findTokens()).toHaveLength(0);
 });
 
-test('renders inline label text when provided', () => {
+test("renders inline label text when provided", () => {
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[]} options={defaultOptions} inlineLabelText="Select items:" />
+    <Multiselect selectedOptions={[]} options={defaultOptions} inlineLabelText="Select items:" />,
   );
   const inlineLabel = wrapper.findInlineLabel();
   expect(inlineLabel).not.toBeNull();
-  expect(inlineLabel!.getElement()).toHaveTextContent('Select items:');
+  expect(inlineLabel!.getElement()).toHaveTextContent("Select items:");
 });
 
-test('does not render inline label when inlineLabelText is not provided', () => {
+test("does not render inline label when inlineLabelText is not provided", () => {
   const { wrapper } = renderMultiselect(<Multiselect selectedOptions={[]} options={defaultOptions} />);
   const inlineLabel = wrapper.findInlineLabel();
   expect(inlineLabel).toBeNull();
 });
 
-test('associate label with trigger button', () => {
+test("associate label with trigger button", () => {
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[]} options={defaultOptions} inlineLabelText="Select items:" />
+    <Multiselect selectedOptions={[]} options={defaultOptions} inlineLabelText="Select items:" />,
   );
-  const labelForAttribute = wrapper.findInlineLabel()!.getElement()!.getAttribute('for');
+  const labelForAttribute = wrapper.findInlineLabel()!.getElement()!.getAttribute("for");
   const triggerId = wrapper.findTrigger().getElement()!.id;
   expect(labelForAttribute).toBe(triggerId);
 });
 
-test('allows deselecting an option without object equality', () => {
+test("allows deselecting an option without object equality", () => {
   const onChange = jest.fn();
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[{ label: 'First', value: '1' }]} options={defaultOptions} onChange={onChange} />
+    <Multiselect selectedOptions={[{ label: "First", value: "1" }]} options={defaultOptions} onChange={onChange} />,
   );
   wrapper.openDropdown();
   wrapper.selectOption(1);
   expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ detail: { selectedOptions: [] } }));
 });
 
-test('allows deselecting options programmatically via empty array', () => {
+test("allows deselecting options programmatically via empty array", () => {
   const { rerender, wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[{ label: 'First', value: '1' }]} options={defaultOptions} />
+    <Multiselect selectedOptions={[{ label: "First", value: "1" }]} options={defaultOptions} />,
   );
   rerender(<Multiselect selectedOptions={[]} options={defaultOptions} />);
   expect(wrapper.findByClassName(tokenGroupStyles.root)).toBeNull();
 });
 
-test('allows deselecting options programmatically via undefined', () => {
+test("allows deselecting options programmatically via undefined", () => {
   const { rerender, wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[{ label: 'First', value: '1' }]} options={defaultOptions} />
+    <Multiselect selectedOptions={[{ label: "First", value: "1" }]} options={defaultOptions} />,
   );
   rerender(<Multiselect selectedOptions={[]} options={defaultOptions} />);
   expect(wrapper.findByClassName(tokenGroupStyles.root)).toBeNull();
 });
 
-test('fires change event when user selects an option', () => {
+test("fires change event when user selects an option", () => {
   const onChange = jest.fn();
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[]} options={defaultOptions} onChange={onChange} />
+    <Multiselect selectedOptions={[]} options={defaultOptions} onChange={onChange} />,
   );
   wrapper.openDropdown();
   wrapper.selectOption(1);
   expect(onChange).toHaveBeenCalledWith(
     expect.objectContaining({
       detail: {
-        selectedOptions: [{ label: 'First', value: '1' }],
+        selectedOptions: [{ label: "First", value: "1" }],
       },
-    })
+    }),
   );
 });
 
-test('fires a change event when user selects option and there were other options selected', () => {
+test("fires a change event when user selects option and there were other options selected", () => {
   const onChange = jest.fn();
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[{ label: 'Second', value: '2' }]} options={defaultOptions} onChange={onChange} />
+    <Multiselect selectedOptions={[{ label: "Second", value: "2" }]} options={defaultOptions} onChange={onChange} />,
   );
   wrapper.openDropdown();
   wrapper.selectOption(1);
@@ -256,98 +256,98 @@ test('fires a change event when user selects option and there were other options
     expect.objectContaining({
       detail: {
         selectedOptions: [
-          { label: 'Second', value: '2' },
-          { label: 'First', value: '1' },
+          { label: "Second", value: "2" },
+          { label: "First", value: "1" },
         ],
       },
-    })
+    }),
   );
 });
 
-test('fires a change event when user deselects an option from the dropdown', () => {
+test("fires a change event when user deselects an option from the dropdown", () => {
   const onChange = jest.fn();
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={defaultOptions.slice(0, 2)} options={defaultOptions} onChange={onChange} />
+    <Multiselect selectedOptions={defaultOptions.slice(0, 2)} options={defaultOptions} onChange={onChange} />,
   );
   wrapper.openDropdown();
   wrapper.selectOption(1);
   expect(onChange).toHaveBeenCalledWith(
     expect.objectContaining({
       detail: {
-        selectedOptions: [{ label: 'Second', value: '2' }],
+        selectedOptions: [{ label: "Second", value: "2" }],
       },
-    })
+    }),
   );
 });
 
-test('fires a change event when user dismisses an option from the token list', () => {
+test("fires a change event when user dismisses an option from the token list", () => {
   const onChange = jest.fn();
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={defaultOptions.slice(0, 2)} options={defaultOptions} onChange={onChange} />
+    <Multiselect selectedOptions={defaultOptions.slice(0, 2)} options={defaultOptions} onChange={onChange} />,
   );
   wrapper.openDropdown();
   wrapper.findToken(1)!.findDismiss().click();
   expect(onChange).toHaveBeenCalledWith(
     expect.objectContaining({
       detail: {
-        selectedOptions: [{ label: 'Second', value: '2' }],
+        selectedOptions: [{ label: "Second", value: "2" }],
       },
-    })
+    }),
   );
 });
 
-test('can hide tokens completely', () => {
+test("can hide tokens completely", () => {
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[{ label: 'First', value: '1' }]} options={defaultOptions} hideTokens={true} />
+    <Multiselect selectedOptions={[{ label: "First", value: "1" }]} options={defaultOptions} hideTokens={true} />,
   );
   expect(wrapper.findByClassName(tokenGroupStyles.root)).toBeNull();
 });
 
-test('disables tokens when multiselect is disabled', () => {
+test("disables tokens when multiselect is disabled", () => {
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[{ label: 'First', value: '1' }]} options={defaultOptions} disabled={true} />
+    <Multiselect selectedOptions={[{ label: "First", value: "1" }]} options={defaultOptions} disabled={true} />,
   );
 
-  expect(wrapper.findTokens()[0].getElement()).toHaveAttribute('aria-disabled', 'true');
+  expect(wrapper.findTokens()[0].getElement()).toHaveAttribute("aria-disabled", "true");
 });
 
-test('does not render token group when no tokens are present', () => {
+test("does not render token group when no tokens are present", () => {
   const { wrapper } = renderMultiselect(<Multiselect selectedOptions={[]} options={defaultOptions} />);
 
   expect(wrapper.findByClassName(tokenGroupStyles.root)).toBeNull();
 });
 
-describe('Token group', () => {
+describe("Token group", () => {
   const i18nStrings = {
-    tokenLimitShowFewer: 'Show fewer',
-    tokenLimitShowMore: 'Show more',
+    tokenLimitShowFewer: "Show fewer",
+    tokenLimitShowMore: "Show more",
   };
 
-  test('displays no show more button when tokenLimit is higher than selected token count', () => {
+  test("displays no show more button when tokenLimit is higher than selected token count", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
         selectedOptions={defaultOptions.slice(0, 2)}
         options={defaultOptions}
         i18nStrings={i18nStrings}
         tokenLimit={100}
-      />
+      />,
     );
     expect(wrapper.findTokenToggle()).toBeNull();
   });
 
-  test('displays show more button when tokenLimit is collapsed', () => {
+  test("displays show more button when tokenLimit is collapsed", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
         selectedOptions={defaultOptions.slice(0, 2)}
         options={defaultOptions}
         i18nStrings={i18nStrings}
         tokenLimit={1}
-      />
+      />,
     );
-    expect(wrapper.findTokenToggle()!.getElement()).toHaveTextContent('Show more (+1)');
+    expect(wrapper.findTokenToggle()!.getElement()).toHaveTextContent("Show more (+1)");
   });
 
-  test('displays show more button when tokenLimit is collapsed (readOnly state)', () => {
+  test("displays show more button when tokenLimit is collapsed (readOnly state)", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
         selectedOptions={defaultOptions.slice(0, 2)}
@@ -355,38 +355,38 @@ describe('Token group', () => {
         i18nStrings={i18nStrings}
         tokenLimit={1}
         readOnly={true}
-      />
+      />,
     );
-    expect(wrapper.findTokenToggle()!.getElement()).toHaveTextContent('Show more (+1)');
+    expect(wrapper.findTokenToggle()!.getElement()).toHaveTextContent("Show more (+1)");
   });
 
-  test('displays show fewer button when tokenlist is expanded', () => {
+  test("displays show fewer button when tokenlist is expanded", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
         selectedOptions={defaultOptions.slice(0, 2)}
         options={defaultOptions}
         i18nStrings={i18nStrings}
         tokenLimit={1}
-      />
+      />,
     );
     wrapper.findTokenToggle()!.click();
-    expect(wrapper.findTokenToggle()!.getElement()).toHaveTextContent('Show fewer');
+    expect(wrapper.findTokenToggle()!.getElement()).toHaveTextContent("Show fewer");
   });
 
-  test('sets no aria-label text on the expand button by default', () => {
+  test("sets no aria-label text on the expand button by default", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
         selectedOptions={defaultOptions.slice(0, 2)}
         options={defaultOptions}
         i18nStrings={i18nStrings}
         tokenLimit={1}
-      />
+      />,
     );
-    expect(wrapper.findTokenToggle()!.getElement()).toHaveTextContent('Show more (+1)');
-    expect(wrapper.findTokenToggle()!.getElement()).not.toHaveAttribute('aria-label');
+    expect(wrapper.findTokenToggle()!.getElement()).toHaveTextContent("Show more (+1)");
+    expect(wrapper.findTokenToggle()!.getElement()).not.toHaveAttribute("aria-label");
   });
 
-  test('sets aria-label text on the expand button when provided', () => {
+  test("sets aria-label text on the expand button when provided", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
         selectedOptions={defaultOptions.slice(0, 2)}
@@ -394,26 +394,26 @@ describe('Token group', () => {
         i18nStrings={i18nStrings}
         tokenLimit={1}
         tokenLimitShowMoreAriaLabel="Show more dummy token"
-      />
+      />,
     );
-    expect(wrapper.findTokenToggle()!.getElement()!.getAttribute('aria-label')).toBe('Show more dummy token');
+    expect(wrapper.findTokenToggle()!.getElement()!.getAttribute("aria-label")).toBe("Show more dummy token");
   });
 
-  test('sets no aria-label text on the collapse button by default', () => {
+  test("sets no aria-label text on the collapse button by default", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
         selectedOptions={defaultOptions.slice(0, 2)}
         options={defaultOptions}
         i18nStrings={i18nStrings}
         tokenLimit={1}
-      />
+      />,
     );
     wrapper.findTokenToggle()!.click();
-    expect(wrapper.findTokenToggle()!.getElement()).toHaveTextContent('Show fewer');
-    expect(wrapper.findTokenToggle()!.getElement()).not.toHaveAttribute('aria-label');
+    expect(wrapper.findTokenToggle()!.getElement()).toHaveTextContent("Show fewer");
+    expect(wrapper.findTokenToggle()!.getElement()).not.toHaveAttribute("aria-label");
   });
 
-  test('sets aria-label text on the collapse button when provided', () => {
+  test("sets aria-label text on the collapse button when provided", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
         selectedOptions={defaultOptions.slice(0, 2)}
@@ -421,44 +421,44 @@ describe('Token group', () => {
         i18nStrings={i18nStrings}
         tokenLimit={1}
         tokenLimitShowFewerAriaLabel="Show fewer dummy token"
-      />
+      />,
     );
     wrapper.findTokenToggle()!.click();
-    expect(wrapper.findTokenToggle()!.getElement()!.getAttribute('aria-label')).toBe('Show fewer dummy token');
+    expect(wrapper.findTokenToggle()!.getElement()!.getAttribute("aria-label")).toBe("Show fewer dummy token");
   });
 });
-describe('Dropdown states', () => {
+describe("Dropdown states", () => {
   [
-    ['loading', true],
-    ['error', true],
-    ['finished', false],
+    ["loading", true],
+    ["error", true],
+    ["finished", false],
   ].forEach(([statusType, isSticky]) => {
-    test(`should display ${statusType} status text as ${isSticky ? 'sticky' : 'non-sticky'} footer`, () => {
+    test(`should display ${statusType} status text as ${isSticky ? "sticky" : "non-sticky"} footer`, () => {
       const statusText = { [`${statusType}Text`]: `Test ${statusType} text` };
       const { wrapper } = renderMultiselect(
-        <Multiselect selectedOptions={[]} options={defaultOptions} statusType={statusType as any} {...statusText} />
+        <Multiselect selectedOptions={[]} options={defaultOptions} statusType={statusType as any} {...statusText} />,
       );
       wrapper.openDropdown();
       const statusIndicator = wrapper.findStatusIndicator()!;
       expect(statusIndicator.getElement()).toHaveTextContent(`Test ${statusType} text`);
       const dropdown = wrapper.findDropdown()!.findOpenDropdown()!;
-      expect(Boolean(dropdown.findByClassName(selectPartsStyles['list-bottom']))).toBe(!isSticky);
+      expect(Boolean(dropdown.findByClassName(selectPartsStyles["list-bottom"]))).toBe(!isSticky);
     });
 
     test(`should associate ${statusType} status text as ${
-      isSticky ? 'sticky' : 'non-sticky'
+      isSticky ? "sticky" : "non-sticky"
     } footer to the dropdown element`, () => {
       const statusText = { [`${statusType}Text`]: `Test ${statusType} text` };
       const { wrapper } = renderMultiselect(
-        <Multiselect selectedOptions={[]} options={defaultOptions} statusType={statusType as any} {...statusText} />
+        <Multiselect selectedOptions={[]} options={defaultOptions} statusType={statusType as any} {...statusText} />,
       );
       wrapper.openDropdown();
       expect(wrapper.findDropdown().findOptionsContainer()!.getElement()).toHaveAccessibleDescription(
-        `Test ${statusType} text`
+        `Test ${statusType} text`,
       );
     });
 
-    test(`check a11y for ${statusType} and ${isSticky ? 'sticky' : 'non-sticky'} footer`, async () => {
+    test(`check a11y for ${statusType} and ${isSticky ? "sticky" : "non-sticky"} footer`, async () => {
       const statusText = { [`${statusType}Text`]: `Test ${statusType} text` };
       const { container, wrapper } = renderMultiselect(
         <Multiselect
@@ -467,14 +467,14 @@ describe('Dropdown states', () => {
           statusType={statusType as any}
           ariaLabel="input"
           {...statusText}
-        />
+        />,
       );
       wrapper.openDropdown();
 
       await expect(container).toValidateA11y();
     });
   });
-  test('should display error status icon with provided aria label', () => {
+  test("should display error status icon with provided aria label", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
         selectedOptions={[]}
@@ -482,15 +482,15 @@ describe('Dropdown states', () => {
         statusType="error"
         errorText="Test error text"
         errorIconAriaLabel="Test error text"
-      />
+      />,
     );
     wrapper.openDropdown();
 
     const statusIcon = wrapper.findStatusIndicator()!.findByClassName(statusIconStyles.icon)!.getElement();
-    expect(statusIcon).toHaveAttribute('aria-label', 'Test error text');
-    expect(statusIcon).toHaveAttribute('role', 'img');
+    expect(statusIcon).toHaveAttribute("aria-label", "Test error text");
+    expect(statusIcon).toHaveAttribute("role", "img");
   });
-  it('should warn if recoveryText is provided without associated handler', () => {
+  it("should warn if recoveryText is provided without associated handler", () => {
     renderMultiselect(
       <Multiselect
         selectedOptions={[]}
@@ -499,18 +499,18 @@ describe('Dropdown states', () => {
         errorText="Test error text"
         errorIconAriaLabel="Test error text"
         recoveryText="Retry"
-      />
+      />,
     );
     expect(warnOnce).toHaveBeenCalledTimes(1);
     expect(warnOnce).toHaveBeenCalledWith(
-      'Multiselect',
-      '`onLoadItems` must be provided for `recoveryText` to be displayed.'
+      "Multiselect",
+      "`onLoadItems` must be provided for `recoveryText` to be displayed.",
     );
   });
 });
 
-describe.each([true, false])('footer live announcements [expandToViewport=%s]', (expandToViewport: boolean) => {
-  test('live announces footer text on initial dropdown render', () => {
+describe.each([true, false])("footer live announcements [expandToViewport=%s]", (expandToViewport: boolean) => {
+  test("live announces footer text on initial dropdown render", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
         selectedOptions={[]}
@@ -521,18 +521,18 @@ describe.each([true, false])('footer live announcements [expandToViewport=%s]', 
         recoveryText="Retry"
         expandToViewport={expandToViewport}
         keepOpen={false}
-      />
+      />,
     );
     expect(createWrapper().findLiveRegion()).toBeNull();
 
     wrapper.openDropdown();
     expect(wrapper.findDropdown({ expandToViewport }).findFooterRegion()!.getElement()).toHaveTextContent(
-      'Test error text'
+      "Test error text",
     );
-    expect(createWrapper().findLiveRegion()!.getElement()).toHaveTextContent('Test error text');
+    expect(createWrapper().findLiveRegion()!.getElement()).toHaveTextContent("Test error text");
   });
 
-  test('live announce footer text on dropdown toggle', () => {
+  test("live announce footer text on dropdown toggle", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
         selectedOptions={[]}
@@ -543,24 +543,24 @@ describe.each([true, false])('footer live announcements [expandToViewport=%s]', 
         recoveryText="Retry"
         expandToViewport={expandToViewport}
         keepOpen={false}
-      />
+      />,
     );
     expect(createWrapper().findLiveRegion()).toBeNull();
 
     wrapper.openDropdown();
-    expect(createWrapper().findLiveRegion()!.getElement()).toHaveTextContent('Test error text');
+    expect(createWrapper().findLiveRegion()!.getElement()).toHaveTextContent("Test error text");
 
     wrapper.closeDropdown({ expandToViewport });
     expect(createWrapper().findLiveRegion()).toBeNull();
 
     wrapper.openDropdown();
-    expect(createWrapper().findLiveRegion()!.getElement()).toHaveTextContent('Test error text');
+    expect(createWrapper().findLiveRegion()!.getElement()).toHaveTextContent("Test error text");
   });
 });
 
-test('Shifts focus to the filter on retry failed request', () => {
+test("Shifts focus to the filter on retry failed request", () => {
   const { wrapper } = renderMultiselect(
-    <TestI18nProvider messages={{ select: { recoveryText: 'Custom recovery text' } }}>
+    <TestI18nProvider messages={{ select: { recoveryText: "Custom recovery text" } }}>
       <Multiselect
         selectedOptions={[]}
         options={defaultOptions}
@@ -570,295 +570,295 @@ test('Shifts focus to the filter on retry failed request', () => {
         statusType="error"
         filteringType="auto"
       />
-    </TestI18nProvider>
+    </TestI18nProvider>,
   );
   wrapper.openDropdown();
   wrapper.findErrorRecoveryButton()!.click();
   expect(wrapper.findFilteringInput()!.findNativeInput()!.getElement()).toHaveFocus();
 });
 
-test('fires a change event when user selects a group option from the dropdown', () => {
+test("fires a change event when user selects a group option from the dropdown", () => {
   const onChange = jest.fn();
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[]} options={groupOptions} onChange={onChange} />
+    <Multiselect selectedOptions={[]} options={groupOptions} onChange={onChange} />,
   );
   wrapper.openDropdown();
-  wrapper.selectOptionByValue('group');
+  wrapper.selectOptionByValue("group");
   expect(onChange).toHaveBeenCalledWith(
     expect.objectContaining({
       detail: {
         selectedOptions: [
-          { label: 'First', value: '1' },
-          { label: 'Second', value: '2' },
-          { label: 'Third', value: '3' },
-          { label: 'Fourth', value: '4' },
+          { label: "First", value: "1" },
+          { label: "Second", value: "2" },
+          { label: "Third", value: "3" },
+          { label: "Fourth", value: "4" },
         ],
       },
-    })
+    }),
   );
 });
 
-test('deselects all options when a user clicks on a selected group option from the dropdown', () => {
+test("deselects all options when a user clicks on a selected group option from the dropdown", () => {
   const onChange = jest.fn();
   const { wrapper } = renderMultiselect(
     <Multiselect
       selectedOptions={[
-        { label: 'First', value: '1' },
-        { label: 'Second', value: '2' },
-        { label: 'Third', value: '3' },
-        { label: 'Fourth', value: '4' },
+        { label: "First", value: "1" },
+        { label: "Second", value: "2" },
+        { label: "Third", value: "3" },
+        { label: "Fourth", value: "4" },
       ]}
       options={groupOptions}
       onChange={onChange}
-    />
+    />,
   );
   wrapper.openDropdown();
-  wrapper.selectOptionByValue('group');
+  wrapper.selectOptionByValue("group");
   expect(onChange).toHaveBeenCalledWith(
     expect.objectContaining({
       detail: {
         selectedOptions: [],
       },
-    })
+    }),
   );
 });
-test('fires a change event when user selects group option and there were other options selected', () => {
+test("fires a change event when user selects group option and there were other options selected", () => {
   const onChange = jest.fn();
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[{ label: 'Fifth', value: '5' }]} options={groupOptions} onChange={onChange} />
+    <Multiselect selectedOptions={[{ label: "Fifth", value: "5" }]} options={groupOptions} onChange={onChange} />,
   );
   wrapper.openDropdown();
-  wrapper.selectOptionByValue('group');
+  wrapper.selectOptionByValue("group");
   expect(onChange).toHaveBeenCalledWith(
     expect.objectContaining({
       detail: {
         selectedOptions: [
-          { label: 'Fifth', value: '5' },
-          { label: 'First', value: '1' },
-          { label: 'Second', value: '2' },
-          { label: 'Third', value: '3' },
-          { label: 'Fourth', value: '4' },
+          { label: "Fifth", value: "5" },
+          { label: "First", value: "1" },
+          { label: "Second", value: "2" },
+          { label: "Third", value: "3" },
+          { label: "Fourth", value: "4" },
         ],
       },
-    })
+    }),
   );
 });
 
-test('deselecting a group option does not remove other selected options', () => {
+test("deselecting a group option does not remove other selected options", () => {
   const onChange = jest.fn();
   const { wrapper } = renderMultiselect(
     <Multiselect
       selectedOptions={[
-        { label: 'First', value: '1' },
-        { label: 'Second', value: '2' },
-        { label: 'Third', value: '3' },
-        { label: 'Fourth', value: '4' },
-        { label: 'Fifth', value: '5' },
+        { label: "First", value: "1" },
+        { label: "Second", value: "2" },
+        { label: "Third", value: "3" },
+        { label: "Fourth", value: "4" },
+        { label: "Fifth", value: "5" },
       ]}
       options={groupOptions}
       onChange={onChange}
-    />
+    />,
   );
   wrapper.openDropdown();
-  wrapper.selectOptionByValue('group');
+  wrapper.selectOptionByValue("group");
   expect(onChange).toHaveBeenCalledWith(
     expect.objectContaining({
       detail: {
-        selectedOptions: [{ label: 'Fifth', value: '5' }],
+        selectedOptions: [{ label: "Fifth", value: "5" }],
       },
-    })
+    }),
   );
 });
-test('group selection allows only the selection of enabled options', () => {
+test("group selection allows only the selection of enabled options", () => {
   const onChange = jest.fn();
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[]} options={groupOptions} onChange={onChange} />
+    <Multiselect selectedOptions={[]} options={groupOptions} onChange={onChange} />,
   );
   wrapper.openDropdown();
-  wrapper.selectOptionByValue('group2');
+  wrapper.selectOptionByValue("group2");
   expect(onChange).toHaveBeenCalledWith(
     expect.objectContaining({
       detail: {
-        selectedOptions: [{ label: 'sixth', value: '6' }],
+        selectedOptions: [{ label: "sixth", value: "6" }],
       },
-    })
+    }),
   );
 });
-test('keeps dropdown open after selecting a group option by default', () => {
+test("keeps dropdown open after selecting a group option by default", () => {
   const { wrapper } = renderMultiselect(<Multiselect selectedOptions={[]} options={groupOptions} />);
   wrapper.openDropdown();
-  wrapper.selectOptionByValue('group');
-  expect(wrapper.findDropdown().findOptionByValue('group')).toBeTruthy();
+  wrapper.selectOptionByValue("group");
+  expect(wrapper.findDropdown().findOptionByValue("group")).toBeTruthy();
 });
 
-test('closes dropdown after selecting a group option when keepOpen=false', () => {
+test("closes dropdown after selecting a group option when keepOpen=false", () => {
   const { wrapper } = renderMultiselect(<Multiselect selectedOptions={[]} options={groupOptions} keepOpen={false} />);
   wrapper.openDropdown();
-  wrapper.selectOptionByValue('group');
-  expect(wrapper.findDropdown().findOptionByValue('group')).toBeFalsy();
+  wrapper.selectOptionByValue("group");
+  expect(wrapper.findDropdown().findOptionByValue("group")).toBeFalsy();
 });
 
-test('Option should have aria-checked', () => {
+test("Option should have aria-checked", () => {
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[{ label: 'Second', value: '2' }]} options={groupOptions} />
+    <Multiselect selectedOptions={[{ label: "Second", value: "2" }]} options={groupOptions} />,
   );
   wrapper.openDropdown();
   expect(wrapper.findDropdown()!.find('[data-mouse-target="0"]')!.getElement()).toHaveAttribute(
-    'aria-checked',
-    'mixed'
+    "aria-checked",
+    "mixed",
   );
   expect(wrapper.findDropdown()!.find('[data-mouse-target="1"]')!.getElement()).toHaveAttribute(
-    'aria-checked',
-    'false'
+    "aria-checked",
+    "false",
   );
-  expect(wrapper.findDropdown()!.find('[data-mouse-target="2"]')!.getElement()).toHaveAttribute('aria-checked', 'true');
+  expect(wrapper.findDropdown()!.find('[data-mouse-target="2"]')!.getElement()).toHaveAttribute("aria-checked", "true");
 });
 
-test('Trigger should have refer to the element using aria-label value and placeholder', () => {
+test("Trigger should have refer to the element using aria-label value and placeholder", () => {
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[]} options={groupOptions} ariaLabel="multi select" placeholder="select options" />
+    <Multiselect selectedOptions={[]} options={groupOptions} ariaLabel="multi select" placeholder="select options" />,
   );
   const label = wrapper
     .findTrigger()
     .getElement()
-    .getAttribute('aria-labelledby')!
-    .split(' ')
+    .getAttribute("aria-labelledby")!
+    .split(" ")
     .map(labelId => wrapper.getElement().querySelector(`#${labelId}`)!.textContent)
-    .join(' ');
-  expect(label).toBe('multi select select options');
+    .join(" ");
+  expect(label).toBe("multi select select options");
 });
 
-describe('a11y properties', () => {
+describe("a11y properties", () => {
   test('trigger should aria-control the list (role="listbox") when filtering disabled', () => {
     const { wrapper } = renderMultiselect(<Multiselect selectedOptions={[]} options={defaultOptions} />);
-    const hasPopup = wrapper.findTrigger().getElement().getAttribute('aria-haspopup');
-    expect(hasPopup).toBe('listbox');
+    const hasPopup = wrapper.findTrigger().getElement().getAttribute("aria-haspopup");
+    expect(hasPopup).toBe("listbox");
     wrapper.openDropdown();
-    const controlledId = wrapper.findTrigger().getElement().getAttribute('aria-controls');
+    const controlledId = wrapper.findTrigger().getElement().getAttribute("aria-controls");
     expect(controlledId).toBeTruthy();
-    expect(wrapper.findDropdown().getElement().querySelector(`#${controlledId}`)!.getAttribute('role')).toBe('listbox');
+    expect(wrapper.findDropdown().getElement().querySelector(`#${controlledId}`)!.getAttribute("role")).toBe("listbox");
   });
   test('trigger should aria-control the dropdown (role="dialog") when filtering enabled', () => {
     const { wrapper } = renderMultiselect(
-      <Multiselect selectedOptions={[]} options={defaultOptions} filteringType="auto" />
+      <Multiselect selectedOptions={[]} options={defaultOptions} filteringType="auto" />,
     );
-    const hasPopup = wrapper.findTrigger().getElement().getAttribute('aria-haspopup');
-    expect(hasPopup).toBe('dialog');
+    const hasPopup = wrapper.findTrigger().getElement().getAttribute("aria-haspopup");
+    expect(hasPopup).toBe("dialog");
     wrapper.openDropdown();
-    const controlledId = wrapper.findTrigger().getElement().getAttribute('aria-controls');
+    const controlledId = wrapper.findTrigger().getElement().getAttribute("aria-controls");
     expect(controlledId).toBeTruthy();
     expect(
-      wrapper.findDropdown().getElement().parentNode!.querySelector(`#${controlledId}`)!.getAttribute('role')
-    ).toBe('dialog');
+      wrapper.findDropdown().getElement().parentNode!.querySelector(`#${controlledId}`)!.getAttribute("role"),
+    ).toBe("dialog");
   });
   test('dropdown (role="dialog") should receive a label when filtering enabled', () => {
     const { wrapper } = renderMultiselect(
-      <Multiselect selectedOptions={[]} options={defaultOptions} filteringType="auto" ariaLabel="multiselect-label" />
+      <Multiselect selectedOptions={[]} options={defaultOptions} filteringType="auto" ariaLabel="multiselect-label" />,
     );
     wrapper.openDropdown();
-    const controlledId = wrapper.findTrigger().getElement().getAttribute('aria-controls');
+    const controlledId = wrapper.findTrigger().getElement().getAttribute("aria-controls");
     expect(wrapper.findDropdown().getElement().parentNode!.querySelector(`#${controlledId}`)!).toHaveAccessibleName(
-      'multiselect-label'
+      "multiselect-label",
     );
   });
-  test('listbox should receive aria-required when that property is set', () => {
+  test("listbox should receive aria-required when that property is set", () => {
     const { wrapper } = renderMultiselect(
-      <Multiselect selectedOptions={[]} options={defaultOptions} ariaRequired={true} />
+      <Multiselect selectedOptions={[]} options={defaultOptions} ariaRequired={true} />,
     );
     wrapper.openDropdown();
     expect(
-      wrapper.findDropdown().getElement().parentNode!.querySelector(`[role=listbox]`)!.getAttribute('aria-required')
-    ).toBe('true');
+      wrapper.findDropdown().getElement().parentNode!.querySelector(`[role=listbox]`)!.getAttribute("aria-required"),
+    ).toBe("true");
   });
 });
 
-test('Trigger receives focus when autofocus is true', () => {
+test("Trigger receives focus when autofocus is true", () => {
   const { wrapper } = renderMultiselect(<Multiselect selectedOptions={[]} options={groupOptions} autoFocus={true} />);
   expect(document.activeElement).toBe(wrapper.findTrigger().getElement());
 });
 
-describe('With inline tokens', () => {
-  it('can render inline tokens', () => {
+describe("With inline tokens", () => {
+  it("can render inline tokens", () => {
     const { wrapper } = renderMultiselect(
-      <Multiselect inlineTokens={true} options={defaultOptions} selectedOptions={[defaultOptions[0]]} />
+      <Multiselect inlineTokens={true} options={defaultOptions} selectedOptions={[defaultOptions[0]]} />,
     );
 
     // Inline tokens are displayed in the trigger
     const inlineTokens = wrapper.findInlineTokens();
     expect(inlineTokens).toHaveLength(1);
-    expect(inlineTokens[0].findLabel().getElement()).toHaveTextContent('First');
+    expect(inlineTokens[0].findLabel().getElement()).toHaveTextContent("First");
 
     // Trigger contains the number of selected items
-    expect(wrapper.findTrigger().getElement()).toHaveTextContent('(1)');
+    expect(wrapper.findTrigger().getElement()).toHaveTextContent("(1)");
 
     // Default tokens below the trigger are not displayed
     expect(wrapper.findTokens()).toHaveLength(0);
   });
 
-  it('shows placeholder when no items are selected', () => {
+  it("shows placeholder when no items are selected", () => {
     const { wrapper } = renderMultiselect(
-      <Multiselect inlineTokens={true} selectedOptions={[]} placeholder="Choose something" />
+      <Multiselect inlineTokens={true} selectedOptions={[]} placeholder="Choose something" />,
     );
 
     expect(wrapper.findInlineTokens()).toHaveLength(0);
-    expect(wrapper.findTrigger().getElement()).toHaveTextContent('Choose something');
+    expect(wrapper.findTrigger().getElement()).toHaveTextContent("Choose something");
   });
 
-  it('does not display features like tags in the inline tokens', () => {
+  it("does not display features like tags in the inline tokens", () => {
     const extendedOptions = [
-      { value: '1', label: 'First', description: 'description', tags: ['tag'], labelTag: 'label' },
+      { value: "1", label: "First", description: "description", tags: ["tag"], labelTag: "label" },
     ];
     const { wrapper } = renderMultiselect(
-      <Multiselect inlineTokens={true} options={extendedOptions} selectedOptions={[extendedOptions[0]]} />
+      <Multiselect inlineTokens={true} options={extendedOptions} selectedOptions={[extendedOptions[0]]} />,
     );
 
     const inlineToken = wrapper.findInlineToken(1);
     expect(inlineToken).not.toBeNull();
-    expect(inlineToken!.findLabel().getElement()).toHaveTextContent('First');
-    expect(inlineToken!.findLabel().getElement()).not.toHaveTextContent('description');
-    expect(inlineToken!.findLabel().getElement()).not.toHaveTextContent('tag');
-    expect(inlineToken!.findLabel().getElement()).not.toHaveTextContent('label');
+    expect(inlineToken!.findLabel().getElement()).toHaveTextContent("First");
+    expect(inlineToken!.findLabel().getElement()).not.toHaveTextContent("description");
+    expect(inlineToken!.findLabel().getElement()).not.toHaveTextContent("tag");
+    expect(inlineToken!.findLabel().getElement()).not.toHaveTextContent("label");
   });
 
-  it('shows multiple selected options inline', () => {
+  it("shows multiple selected options inline", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
         inlineTokens={true}
         options={defaultOptions}
         selectedOptions={[defaultOptions[0], defaultOptions[1], defaultOptions[2]]}
-      />
+      />,
     );
 
     const inlineTokens = wrapper.findInlineTokens();
     expect(inlineTokens).toHaveLength(3);
-    expect(inlineTokens[0].findLabel().getElement()).toHaveTextContent('First');
-    expect(inlineTokens[1].findLabel().getElement()).toHaveTextContent('Second');
-    expect(inlineTokens[2].findLabel().getElement()).toHaveTextContent('Third');
+    expect(inlineTokens[0].findLabel().getElement()).toHaveTextContent("First");
+    expect(inlineTokens[1].findLabel().getElement()).toHaveTextContent("Second");
+    expect(inlineTokens[2].findLabel().getElement()).toHaveTextContent("Third");
 
     // Trigger contains the number of selected items
-    expect(wrapper.findTrigger().getElement()).toHaveTextContent('(3)');
+    expect(wrapper.findTrigger().getElement()).toHaveTextContent("(3)");
   });
 });
 
-describe('Disabled item with reason', () => {
-  test('has no tooltip open by default', () => {
+describe("Disabled item with reason", () => {
+  test("has no tooltip open by default", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
         options={[
-          { label: 'First', value: '1', disabled: false },
-          { label: 'Second', value: '2', disabled: true, disabledReason: 'disabled reason' },
+          { label: "First", value: "1", disabled: false },
+          { label: "Second", value: "2", disabled: true, disabledReason: "disabled reason" },
         ]}
         selectedOptions={[]}
-      />
+      />,
     );
     wrapper.openDropdown();
 
     expect(wrapper.findDropdown().findOption(1)!.findDisabledReason()).toBe(null);
   });
 
-  test('has no tooltip without disabledReason', () => {
+  test("has no tooltip without disabledReason", () => {
     const { wrapper } = renderMultiselect(
-      <Multiselect options={[{ label: 'First', value: '1', disabled: true }]} selectedOptions={[]} />
+      <Multiselect options={[{ label: "First", value: "1", disabled: true }]} selectedOptions={[]} />,
     );
     wrapper.openDropdown();
     wrapper.findTrigger()!.keydown(KeyCode.down);
@@ -866,102 +866,102 @@ describe('Disabled item with reason', () => {
     expect(wrapper.findDropdown().findOption(1)!.findDisabledReason()).toBe(null);
   });
 
-  test('open tooltip when the item is highlighted', () => {
+  test("open tooltip when the item is highlighted", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
         options={[
-          { label: 'First', value: '1', disabled: false },
-          { label: 'Second', value: '2', disabled: true, disabledReason: 'disabled reason' },
+          { label: "First", value: "1", disabled: false },
+          { label: "Second", value: "2", disabled: true, disabledReason: "disabled reason" },
         ]}
         selectedOptions={[]}
-      />
+      />,
     );
     wrapper.openDropdown();
     wrapper.findDropdown().findOptionsContainer()!.keydown(KeyCode.down);
 
     expect(wrapper.findDropdown().findOption(2)!.findDisabledReason()!.getElement()).toHaveTextContent(
-      'disabled reason'
+      "disabled reason",
     );
   });
 
-  test('has no disabledReason a11y attributes by default', () => {
+  test("has no disabledReason a11y attributes by default", () => {
     const { wrapper } = renderMultiselect(<Multiselect options={defaultOptions} selectedOptions={[]} />);
     wrapper.openDropdown();
 
-    expect(wrapper.findDropdown()!.find('[data-test-index="1"]')!.getElement()).not.toHaveAttribute('aria-describedby');
-    expect(wrapper.findDropdown()!.find('[data-test-index="1"]')!.find('span[hidden]')).toBe(null);
+    expect(wrapper.findDropdown()!.find('[data-test-index="1"]')!.getElement()).not.toHaveAttribute("aria-describedby");
+    expect(wrapper.findDropdown()!.find('[data-test-index="1"]')!.find("span[hidden]")).toBe(null);
   });
 
-  test('has disabledReason a11y attributes', () => {
+  test("has disabledReason a11y attributes", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
-        options={[{ label: 'First', value: '1', disabled: true, disabledReason: 'disabled reason' }]}
+        options={[{ label: "First", value: "1", disabled: true, disabledReason: "disabled reason" }]}
         selectedOptions={[]}
-      />
+      />,
     );
     wrapper.openDropdown();
 
-    expect(wrapper.findDropdown()!.find('[data-test-index="1"]')!.getElement()).toHaveAttribute('aria-describedby');
-    expect(wrapper.findDropdown()!.find('[data-test-index="1"]')!.find('span[hidden]')!.getElement()).toHaveTextContent(
-      'disabled reason'
+    expect(wrapper.findDropdown()!.find('[data-test-index="1"]')!.getElement()).toHaveAttribute("aria-describedby");
+    expect(wrapper.findDropdown()!.find('[data-test-index="1"]')!.find("span[hidden]")!.getElement()).toHaveTextContent(
+      "disabled reason",
     );
   });
 
-  test('can not select disabled with reason option', () => {
+  test("can not select disabled with reason option", () => {
     const onChange = jest.fn();
     const { wrapper } = renderMultiselect(
       <Multiselect
-        options={[{ label: 'First', value: '1', disabled: true, disabledReason: 'disabled reason' }]}
+        options={[{ label: "First", value: "1", disabled: true, disabledReason: "disabled reason" }]}
         selectedOptions={[]}
-      />
+      />,
     );
     wrapper.openDropdown();
-    wrapper.selectOptionByValue('1');
+    wrapper.selectOptionByValue("1");
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  test('closes tooltip when Esc is pressed but leaves dropdown open', () => {
+  test("closes tooltip when Esc is pressed but leaves dropdown open", () => {
     const { wrapper } = renderMultiselect(
       <Multiselect
-        options={[{ label: 'First', value: '1', disabled: true, disabledReason: 'disabled reason' }]}
+        options={[{ label: "First", value: "1", disabled: true, disabledReason: "disabled reason" }]}
         selectedOptions={[]}
-      />
+      />,
     );
     wrapper.openDropdown();
     wrapper.findTrigger().keydown(KeyCode.down);
     expect(wrapper.findDropdown().findOption(1)!.findDisabledReason()!.getElement()).toHaveTextContent(
-      'disabled reason'
+      "disabled reason",
     );
     fireEvent.keyDown(wrapper.findDropdown().findOptionsContainer()!.getElement(), {
-      key: 'Escape',
+      key: "Escape",
     });
     expect(wrapper.findDropdown().findOpenDropdown()).not.toBeNull();
     expect(wrapper.findDropdown().findOption(1)!.findDisabledReason()).toBeNull();
   });
 });
 
-test('group options can have description, label tag, tags, disabled reason', () => {
+test("group options can have description, label tag, tags, disabled reason", () => {
   const { wrapper } = renderMultiselect(
     <Multiselect
       options={[
         {
-          label: 'First category',
-          value: 'group1',
-          options: [{ value: '1.1' }],
+          label: "First category",
+          value: "group1",
+          options: [{ value: "1.1" }],
         },
         {
-          label: 'Second category',
-          value: 'group2',
-          description: 'Description',
-          labelTag: 'Label tag',
-          tags: ['Tag 1', 'Tag 2'],
+          label: "Second category",
+          value: "group2",
+          description: "Description",
+          labelTag: "Label tag",
+          tags: ["Tag 1", "Tag 2"],
           disabled: true,
-          disabledReason: 'Disabled reason',
-          options: [{ value: '2.1' }],
+          disabledReason: "Disabled reason",
+          options: [{ value: "2.1" }],
         },
       ]}
       selectedOptions={[]}
-    />
+    />,
   );
   wrapper.openDropdown();
 
@@ -970,48 +970,48 @@ test('group options can have description, label tag, tags, disabled reason', () 
   wrapper.findDropdown().findOptionsContainer()!.keydown(KeyCode.down);
   wrapper.findDropdown().findOptionsContainer()!.keydown(KeyCode.down);
 
-  const groupOption = wrapper.findDropdown().findOptionByValue('group2')!;
+  const groupOption = wrapper.findDropdown().findOptionByValue("group2")!;
 
-  expect(groupOption.findLabel()!.getElement().textContent).toBe('Second category');
-  expect(groupOption.findDescription()!.getElement().textContent).toBe('Description');
-  expect(groupOption.findLabelTag()!.getElement().textContent).toBe('Label tag');
-  expect(groupOption.findTags()![0].getElement().textContent).toBe('Tag 1');
-  expect(groupOption.findTags()![1].getElement().textContent).toBe('Tag 2');
-  expect(groupOption.findDisabledReason()!.getElement().textContent).toBe('Disabled reason');
+  expect(groupOption.findLabel()!.getElement().textContent).toBe("Second category");
+  expect(groupOption.findDescription()!.getElement().textContent).toBe("Description");
+  expect(groupOption.findLabelTag()!.getElement().textContent).toBe("Label tag");
+  expect(groupOption.findTags()![0].getElement().textContent).toBe("Tag 1");
+  expect(groupOption.findTags()![1].getElement().textContent).toBe("Tag 2");
+  expect(groupOption.findDisabledReason()!.getElement().textContent).toBe("Disabled reason");
 });
 
-test('tolerates options with { options: undefined }, and considers them to not be groups', () => {
+test("tolerates options with { options: undefined }, and considers them to not be groups", () => {
   const { wrapper } = renderMultiselect(
-    <Multiselect options={[{ value: 'option1', options: undefined }]} selectedOptions={[]} />
+    <Multiselect options={[{ value: "option1", options: undefined }]} selectedOptions={[]} />,
   );
   wrapper.openDropdown();
-  expect(wrapper.findDropdown().findOptionByValue('option1')).not.toBeNull();
+  expect(wrapper.findDropdown().findOptionByValue("option1")).not.toBeNull();
 });
 
 test('renders aria-multiselectable="true" on listbox', () => {
   const { wrapper } = renderMultiselect(<Multiselect selectedOptions={[]} options={defaultOptions} />);
   wrapper.openDropdown();
   const listbox = wrapper.findDropdown().find('[role="listbox"]');
-  expect(listbox!.getElement()).toHaveAttribute('aria-multiselectable', 'true');
+  expect(listbox!.getElement()).toHaveAttribute("aria-multiselectable", "true");
 });
 
 test('renders aria-multiselectable="true" on listbox with virtual scroll', () => {
   const { wrapper } = renderMultiselect(
-    <Multiselect selectedOptions={[]} options={defaultOptions} virtualScroll={true} />
+    <Multiselect selectedOptions={[]} options={defaultOptions} virtualScroll={true} />,
   );
   wrapper.openDropdown();
   const listbox = wrapper.findDropdown().find('[role="listbox"]');
-  expect(listbox!.getElement()).toHaveAttribute('aria-multiselectable', 'true');
+  expect(listbox!.getElement()).toHaveAttribute("aria-multiselectable", "true");
 });
 
-describe('resize observer', () => {
+describe("resize observer", () => {
   let getDropdownMinWidthSpy: jest.SpyInstance;
   let resizeCallbacks: Array<(entry: ContainerQueryEntry) => void>;
 
   beforeEach(() => {
     resizeCallbacks = [];
     jest.mocked(useResizeObserver).mockImplementation((_target, cb) => resizeCallbacks.push(cb));
-    getDropdownMinWidthSpy = jest.spyOn(getDropdownMinWidthModule, 'getDropdownMinWidth');
+    getDropdownMinWidthSpy = jest.spyOn(getDropdownMinWidthModule, "getDropdownMinWidth");
   });
 
   afterEach(() => {
@@ -1023,13 +1023,13 @@ describe('resize observer', () => {
     act(() => resizeCallbacks.forEach(cb => cb({ borderBoxWidth } as ContainerQueryEntry)));
   }
 
-  test('sets triggerWidth when borderBoxWidth is positive', () => {
+  test("sets triggerWidth when borderBoxWidth is positive", () => {
     renderMultiselect(<Multiselect selectedOptions={[]} options={defaultOptions} />);
     fireResize(300);
     expect(getDropdownMinWidthSpy).toHaveBeenCalledWith(expect.objectContaining({ triggerWidth: 300 }));
   });
 
-  test('does not set triggerWidth when borderBoxWidth is 0', () => {
+  test("does not set triggerWidth when borderBoxWidth is 0", () => {
     renderMultiselect(<Multiselect selectedOptions={[]} options={defaultOptions} />);
     getDropdownMinWidthSpy.mockClear();
     fireResize(0);
