@@ -161,6 +161,7 @@
 		id={controlId}
 		{disabled}
 		onmousedown={(e) => { e.preventDefault(); toggleOpen(); }}
+		onkeydown={(e: KeyboardEvent) => { if ((e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 40 || e.keyCode === 38) && !open) { e.preventDefault(); open = true; flushSync(); } else if (e.keyCode === 27 && open) { e.preventDefault(); open = false; flushSync(); } }}
 		aria-haspopup="listbox"
 		aria-expanded={open ? 'true' : 'false'}
 		aria-label={ariaLabel}
