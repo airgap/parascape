@@ -99,6 +99,15 @@ export const hints: Record<string, Hints> = {
       ],
     },
   },
+  select: {
+    samples: {
+      options: [
+        { value: "1", label: "Option one" },
+        { value: "2", label: "Option two", description: "With a description" },
+        { value: "3", label: "Option three" },
+      ],
+    },
+  },
   // ── list-shaped components: sample collections so the preview renders ──
   tabs: {
     samples: {
