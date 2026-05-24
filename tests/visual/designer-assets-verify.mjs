@@ -3,7 +3,7 @@
 //   needs: account server (PARASCAPE_GUEST=1) on :8788, Vite-with-proxy on :5274.
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const { chromium } = require("/raid/lyku/node_modules/.bun/playwright@1.60.0/node_modules/playwright");
+const { chromium } = require("playwright");
 
 const BASE = process.env.BASE || "http://localhost:5274";
 let fail = 0;

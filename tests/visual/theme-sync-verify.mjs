@@ -10,7 +10,7 @@
 // loads already dark (no toggle) — proves the no-flash script + shared key sync.
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const pw = "/raid/lyku/node_modules/.bun/playwright@1.60.0/node_modules";
+const pw = "/raid/Parascape/node_modules";
 const { chromium } = require(pw + "/playwright");
 
 const BASE = "http://localhost:5273";

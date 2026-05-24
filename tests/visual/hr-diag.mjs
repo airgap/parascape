@@ -7,7 +7,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 
 const require = createRequire(import.meta.url);
-const pw = '/raid/lyku/node_modules/.bun/playwright@1.60.0/node_modules';
+const pw = '/raid/Parascape/node_modules';
 const { chromium } = require(pw + '/playwright');
 const root = path.resolve(fileURLToPath(import.meta.url), '../../..');
 

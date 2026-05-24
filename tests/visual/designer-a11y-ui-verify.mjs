@@ -5,7 +5,7 @@
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 const require = createRequire(import.meta.url);
-const { chromium } = require("/raid/lyku/node_modules/.bun/playwright@1.60.0/node_modules/playwright");
+const { chromium } = require("playwright");
 const AXE = join(dirname(require.resolve("axe-core")), "axe.min.js");
 
 const BASE = "http://localhost:5273";

@@ -12,7 +12,7 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 
 const require = createRequire(import.meta.url);
-const pw = "/raid/lyku/node_modules/.bun/playwright@1.60.0/node_modules";
+const pw = "/raid/Parascape/node_modules";
 const { chromium } = require(pw + "/playwright");
 const pixelmatch =
   require(path.join(process.cwd(), "node_modules/pixelmatch")).default ??

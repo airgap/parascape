@@ -2,7 +2,7 @@
 // (LYK-927), and keyboard shortcuts + clipboard (LYK-928).
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const { chromium } = require("/raid/lyku/node_modules/.bun/playwright@1.60.0/node_modules/playwright");
+const { chromium } = require("playwright");
 
 const BASE = "http://localhost:5273";
 let fail = 0;

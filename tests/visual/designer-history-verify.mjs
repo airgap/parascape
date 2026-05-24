@@ -3,7 +3,7 @@
 // it lists, and Restore loads it back.
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const { chromium } = require("/raid/lyku/node_modules/.bun/playwright@1.60.0/node_modules/playwright");
+const { chromium } = require("playwright");
 const { createClient } = await import("/raid/Parascape/server/generated/client/index.js");
 
 const BASE = "http://127.0.0.1:8799";

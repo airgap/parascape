@@ -8,7 +8,7 @@
 //   bunx wrangler dev --port 8799        (BASE=http://localhost:8799)
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const { chromium } = require("/raid/lyku/node_modules/.bun/playwright@1.60.0/node_modules/playwright");
+const { chromium } = require("playwright");
 
 const BASE = process.env.BASE || "http://localhost:8799";
 const WS = BASE.replace(/^http/, "ws");
