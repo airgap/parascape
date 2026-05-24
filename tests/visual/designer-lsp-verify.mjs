@@ -18,13 +18,14 @@ const style = { bg: "transparent", fg: "inherit", padY: 40, align: "center", wid
 // A page authored in Code Mode with deliberate issues across severities.
 const code = [
   '<script lang="pts">',
+  "  import Section from '@parascape-design/components/section';",
   "  signal count = 0;",
   "  derived doubled = count + 1;",
   "  effect { console.log(count); }",
   "  let legacy = $state(5);",
   "</script>",
   "",
-  "<Box>{doubled}</Box>",
+  "<Section><Box>{doubled}</Box></Section>",
   "<Frobnicate />",
   "{#if count}",
   "  <Box>shown</Box>",
@@ -83,6 +84,7 @@ try {
     "flags the unknown component",
     probs.some(p => p.sev === "sev-1" && /Frobnicate/.test(p.msg)),
   );
+  ok("does NOT flag an imported component (<Section>)", !probs.some(p => /Section/.test(p.msg)));
   ok(
     "flags the unclosed block",
     probs.some(p => p.sev === "sev-1" && /#if|never closed/.test(p.msg)),
@@ -120,9 +122,9 @@ try {
     ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
     const cw = ctx.measureText("0123456789").width / 10;
     const lh = 12 * 1.55;
-    // "  signal count = 0;" is line index 1; `count` begins at col 9
+    // "  signal count = 0;" is line index 2 (after the import); `count` begins at col 9
     const col = 11; // mid of "count"
-    return { x: r.left + 52 + col * cw + 1, y: r.top + 12 + 1 * lh + lh / 2 };
+    return { x: r.left + 52 + col * cw + 1, y: r.top + 12 + 2 * lh + lh / 2 };
   });
   await page.mouse.move(pos.x - 20, pos.y);
   await page.mouse.move(pos.x, pos.y);

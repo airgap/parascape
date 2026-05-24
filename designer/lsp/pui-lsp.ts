@@ -71,6 +71,38 @@ function maskStringsAndComments(src: string): string {
   return out.join("");
 }
 
+// Identifiers brought into scope by `import` statements — default, namespace
+// (`* as X`), and named (`{ A, B as C }`). A `<Tag>` whose name is imported here
+// is known regardless of the palette (covers `Section`, component modules, and
+// any hand-import), so the unknown-component check only flags real typos.
+function importedIdents(masked: string): Set<string> {
+  const out = new Set<string>();
+  const re = /\bimport\s+([^;]+?)\s+from\b/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(masked)) !== null) {
+    let clause = m[1].trim();
+    const named = clause.match(/\{([^}]*)\}/);
+    if (named) {
+      for (const part of named[1].split(",")) {
+        const id = part
+          .trim()
+          .split(/\s+as\s+/)
+          .pop()
+          ?.trim();
+        if (id && /^[A-Za-z_$][\w$]*$/.test(id)) out.add(id);
+      }
+      clause = clause.slice(0, named.index).replace(/,\s*$/, "").trim();
+    }
+    const ns = clause.match(/\*\s+as\s+([A-Za-z_$][\w$]*)/);
+    if (ns) out.add(ns[1]);
+    else {
+      const def = clause.replace(/,.*$/, "").trim();
+      if (/^[A-Za-z_$][\w$]*$/.test(def)) out.add(def);
+    }
+  }
+  return out;
+}
+
 // All `signal NAME` declarations: name + the line/col of the name.
 function signalDecls(src: string): { name: string; line: number; col: number }[] {
   const out: { name: string; line: number; col: number }[] = [];
@@ -256,9 +288,11 @@ export function diagnostics(content: string, knownComponents: string[] = []): Di
       source: "pui",
     });
 
-  // unknown component tags (PascalCase opens not in the known set)
+  // unknown component tags (PascalCase opens not in the known set). "Known" =
+  // the palette/project set OR anything the source imports OR a `svelte:*` special.
   if (knownComponents.length) {
     const known = new Set(knownComponents);
+    for (const id of importedIdents(masked)) known.add(id);
     const tagRe = /<([A-Z][A-Za-z0-9]*)\b/g;
     for (let i = 0; i < maskedLines.length; i++) {
       tagRe.lastIndex = 0;
@@ -267,7 +301,7 @@ export function diagnostics(content: string, knownComponents: string[] = []): Di
         if (!known.has(t[1]))
           out.push({
             severity: 1,
-            message: `Unknown component \`<${t[1]}>\` — not a known Parascape/Cloudscape component or a component in this project.`,
+            message: `Unknown component \`<${t[1]}>\` — not imported, and not a known Parascape/Cloudscape or project component.`,
             line: i,
             col: t.index + 1,
             endCol: t.index + 1 + t[1].length,
