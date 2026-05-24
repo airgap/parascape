@@ -121,6 +121,9 @@
 	let __msN = 0;
 	const filterInputId = `parascape-multiselect-filter-${(__msN += 1)}`;
 	const footerId = `parascape-multiselect-footer-${__msN}`;
+	const listboxId = `parascape-multiselect-listbox-${__msN}`;
+	const dialogId = `parascape-multiselect-dialog-${__msN}`;
+	derived isFiltering = filteringType !== 'none';
 	derived hasStatus =
 		statusType === 'loading' || statusType === 'error' || (statusType === 'finished' && !!finishedText);
 	derived hasRecovery = statusType === 'error' && !!recoveryText && !!onLoadItems;
@@ -204,7 +207,8 @@
 		{disabled}
 		onmousedown={(e) => { e.preventDefault(); toggleOpen(); }}
 		onkeydown={(e: KeyboardEvent) => { if ((e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 40 || e.keyCode === 38) && !open) { e.preventDefault(); open = true; flushSync(); } else if (e.keyCode === 27 && open) { e.preventDefault(); open = false; flushSync(); } }}
-		aria-haspopup="listbox"
+		aria-haspopup={isFiltering ? 'dialog' : 'listbox'}
+		aria-controls={open ? (isFiltering ? dialogId : listboxId) : undefined}
 		aria-expanded={open ? 'true' : 'false'}
 		aria-label={ariaLabel}
 		aria-labelledby={ariaLabelledby}
@@ -223,5 +227,5 @@
 			{/each}
 		</div>
 	{/if}
-	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true">{#if filteringType !== 'none'}<Input value={filterValue} controlId={filterInputId} onChange={(e: { detail: { value: string } }) => onFilterInput(e.detail.value)} />{/if}<ul class={SI['options-list']} role="listbox" aria-multiselectable="true" aria-describedby={hasStatus ? footerId : undefined} onscroll={onListScroll}>{#each rows as row, ri (ri)}{#if row.group}<li class={cx(SI['selectable-item'], SI.parent)} aria-disabled="true"><span class={OPT.label}>{row.label ?? ''}</span></li>{:else}<li class={cx(SI['selectable-item'], row.option.disabled && SI.disabled, isSelected(row.option) && SI.selected)} data-test-index={row.index} role="option" aria-selected={isSelected(row.option) ? 'true' : 'false'}><div class={OPT.option} data-value={row.option.value} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div class={OPT.description}>{row.option.description}</div>{/if}</div></div></li>{/if}{/each}</ul>{#if statusType === 'loading'}<div class={DS.root} id={footerId}><StatusIndicator type="loading">{loadingText ?? ''}</StatusIndicator></div>{:else if statusType === 'error'}<div class={DS.root} id={footerId}><span><StatusIndicator type="error" iconAriaLabel={errorIconAriaLabel}>{errorText ?? ''}</StatusIndicator>{#if hasRecovery}<button type="button" class={DS.recovery} onclick={retry}>{recoveryText}</button>{/if}</span></div>{:else if statusType === 'finished' && finishedText}<div class={SP['list-bottom']}><div class={DS.root} id={footerId}>{finishedText}</div></div>{/if}{#if hasStatus}<LiveRegion>{statusAnnouncement}</LiveRegion>{/if}</div></div>{/if}
+	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true"><div role={isFiltering ? 'dialog' : undefined} id={isFiltering ? dialogId : undefined} aria-label={isFiltering ? ariaLabel : undefined} aria-labelledby={isFiltering ? ariaLabelledby : undefined}>{#if filteringType !== 'none'}<Input value={filterValue} controlId={filterInputId} onChange={(e: { detail: { value: string } }) => onFilterInput(e.detail.value)} />{/if}<ul id={listboxId} class={SI['options-list']} role="listbox" aria-multiselectable="true" aria-required={ariaRequired ? 'true' : undefined} aria-describedby={hasStatus ? footerId : undefined} onscroll={onListScroll}>{#each rows as row, ri (ri)}{#if row.group}<li class={cx(SI['selectable-item'], SI.parent)} aria-disabled="true"><span class={OPT.label}>{row.label ?? ''}</span></li>{:else}<li class={cx(SI['selectable-item'], row.option.disabled && SI.disabled, isSelected(row.option) && SI.selected)} data-test-index={row.index} role="option" aria-selected={isSelected(row.option) ? 'true' : 'false'}><div class={OPT.option} data-value={row.option.value} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div class={OPT.description}>{row.option.description}</div>{/if}</div></div></li>{/if}{/each}</ul>{#if statusType === 'loading'}<div class={DS.root} id={footerId}><StatusIndicator type="loading">{loadingText ?? ''}</StatusIndicator></div>{:else if statusType === 'error'}<div class={DS.root} id={footerId}><span><StatusIndicator type="error" iconAriaLabel={errorIconAriaLabel}>{errorText ?? ''}</StatusIndicator>{#if hasRecovery}<button type="button" class={DS.recovery} onclick={retry}>{recoveryText}</button>{/if}</span></div>{:else if statusType === 'finished' && finishedText}<div class={SP['list-bottom']}><div class={DS.root} id={footerId}>{finishedText}</div></div>{/if}{#if hasStatus}<LiveRegion>{statusAnnouncement}</LiveRegion>{/if}</div></div></div>{/if}
 </div>
