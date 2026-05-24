@@ -16,6 +16,7 @@
   WithNativeAttributes warning plumbing (attribute spread only).
 -->
 <script lang="pts">
+	import { flushSync } from 'svelte';
 	import Icon from './Icon.pui';
 	import Spinner from './Spinner.pui';
 	import LiveRegion from './LiveRegion.pui';
@@ -51,9 +52,14 @@
 		formAction = 'submit',
 		ariaLabel = undefined,
 		ariaDescribedby = undefined,
+		ariaControls = undefined,
+		ariaExpanded = undefined,
+		ariaHaspopup = undefined,
 		i18nStrings = undefined,
 		fullWidth = false,
+		form = undefined,
 		onClick = undefined,
+		onFollow = undefined,
 		class: extraClass = undefined,
 		...rest
 	}: {
@@ -77,9 +83,14 @@
 		formAction?: 'submit' | 'none';
 		ariaLabel?: string;
 		ariaDescribedby?: string;
+		ariaControls?: string;
+		ariaExpanded?: boolean;
+		ariaHaspopup?: boolean | string;
 		i18nStrings?: { externalIconAriaLabel?: string };
 		fullWidth?: boolean;
-		onClick?: (e: MouseEvent) => void;
+		form?: string;
+		onClick?: (e: unknown) => void;
+		onFollow?: (e: unknown) => void;
 		class?: string;
 		[k: string]: unknown;
 	} = $props();
@@ -98,13 +109,27 @@
 	// the reason + aria-describedby on the control pointing at it.
 	const hiddenDescId = useUniqueId();
 	derived describedBy = isDisabledWithReason ? hiddenDescId : ariaDescribedby;
-	// internal.js handleClick — no onClick/onFollow when non-interactive.
+	// checkSafeUrl — block dangerous javascript: URLs (void(0)/; no-ops are safe).
+	if (href && /^\s*javascript:/i.test(href) && !/^\s*javascript:\s*(void\(0\)|;)?\s*$/i.test(href)) {
+		console.warn(`[AwsUi] [Button] A javascript: URL was blocked as a security precaution. The URL was "${href}".`);
+		throw new Error('A javascript: URL was blocked as a security precaution.');
+	}
+	// internal.js handleClick — wrap the native event so consumers get the
+	// modifier detail; no onClick/onFollow when non-interactive; onFollow only
+	// for an href click with no modifiers.
 	function handleClick(e: MouseEvent) {
 		if (isNotInteractive) {
 			e.preventDefault();
 			return;
 		}
-		onClick?.(e);
+		const wrapped = {
+			detail: { button: e.button, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey },
+			preventDefault: () => e.preventDefault(),
+			stopPropagation: () => e.stopPropagation(),
+		};
+		onClick?.(wrapped);
+		const plainLeftClick = e.button === 0 && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey;
+		if (isAnchor && plainLeftClick) onFollow?.(wrapped);
 	}
 	// internal.js: button native `disabled` only when truly disabled and
 	// NOT disabled-with-reason (with-reason stays focusable for the
@@ -112,7 +137,8 @@
 	// (loading&&!disabled) || isDisabledWithReason. Anchor tabindex −1
 	// when non-interactive unless disabled-with-reason (then 0).
 	derived nativeDisabled = disabled && !isDisabledWithReason;
-	derived ariaDisabled = (loading && !disabled) || isDisabledWithReason ? 'true' : undefined;
+	derived ariaDisabled =
+		(loading && !disabled) || isDisabledWithReason || (isAnchor && isNotInteractive) ? 'true' : undefined;
 	derived anchorTabIndex = isNotInteractive ? (isDisabledWithReason ? 0 : -1) : undefined;
 	const T = testClasses as Record<string, string>;
 	derived hasIcon = !!(iconName || iconUrl || iconSvg);
@@ -142,6 +168,31 @@
 
 	const computedTarget = target ?? (external ? '_blank' : undefined);
 	derived btnType = formAction === 'submit' ? 'submit' : 'button';
+
+	// Disabled-reason tooltip: opens on focus/mouseenter, closes on
+	// blur/mouseleave/Escape (findDisabledReason → .disabled-reason-tooltip).
+	signal tooltipOpen = false;
+	function showTooltip() {
+		if (isDisabledWithReason) {
+			tooltipOpen = true;
+			flushSync(); // native focus()/mouseenter don't flush Svelte's batch; the test-utils read the DOM synchronously
+		}
+	}
+	function hideTooltip() {
+		tooltipOpen = false;
+		flushSync();
+	}
+	effect {
+		if (typeof window === 'undefined') return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				tooltipOpen = false;
+				flushSync();
+			}
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}
 </script>
 
 {#if isAnchor}
@@ -151,11 +202,20 @@
 		target={computedTarget}
 		{rel}
 		{download}
+		role={isNotInteractive ? 'link' : undefined}
+		title={ariaLabel}
 		aria-label={ariaLabel}
 		aria-describedby={describedBy}
 		aria-disabled={ariaDisabled}
+		aria-controls={ariaControls}
+		aria-expanded={ariaExpanded === undefined ? undefined : ariaExpanded ? 'true' : 'false'}
+		aria-haspopup={ariaHaspopup === undefined ? undefined : ariaHaspopup === true ? 'true' : ariaHaspopup}
 		tabindex={anchorTabIndex}
 		onclick={handleClick}
+		onfocusin={showTooltip}
+		onfocusout={hideTooltip}
+		onmouseenter={showTooltip}
+		onmouseleave={hideTooltip}
 		{...rest}
 	>
 		{#if loading}<Spinner class={cx(S.icon, S['icon-left'])} />{:else if hasIcon && effAlign === 'left'}<Icon
@@ -184,11 +244,20 @@
 	<button
 		class={buttonClass}
 		type={btnType}
+		{form}
 		disabled={nativeDisabled}
+		title={ariaLabel}
 		aria-disabled={ariaDisabled}
 		aria-label={ariaLabel}
 		aria-describedby={describedBy}
+		aria-controls={ariaControls}
+		aria-expanded={ariaExpanded === undefined ? undefined : ariaExpanded ? 'true' : 'false'}
+		aria-haspopup={ariaHaspopup === undefined ? undefined : ariaHaspopup === true ? 'true' : ariaHaspopup}
 		onclick={handleClick}
+		onfocusin={showTooltip}
+		onfocusout={hideTooltip}
+		onmouseenter={showTooltip}
+		onmouseleave={hideTooltip}
 		{...rest}
 	>
 		{#if loading}<Spinner class={cx(S.icon, S['icon-left'])} />{:else if hasIcon && effAlign === 'left'}<Icon
@@ -215,4 +284,5 @@
 	</button>
 {/if}
 
+{#if isDisabledWithReason && tooltipOpen}<div class={T['disabled-reason-tooltip']} role="tooltip">{disabledReason}</div>{/if}
 {#if loading && loadingText}<LiveRegion tagName="span" hidden>{loadingText}</LiveRegion>{/if}
