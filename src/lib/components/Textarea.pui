@@ -28,6 +28,7 @@
 		controlId = undefined,
 		spellcheck = undefined,
 		disableBrowserAutocorrect = false,
+		disableBrowserSpellcheck = false,
 		nativeAttributes = undefined,
 		autoFocus = false,
 		onChange = undefined,
@@ -54,6 +55,7 @@
 		controlId?: string;
 		spellcheck?: boolean;
 		disableBrowserAutocorrect?: boolean;
+		disableBrowserSpellcheck?: boolean;
 		nativeAttributes?: Record<string, unknown>;
 		autoFocus?: boolean;
 		onChange?: (e: { detail: { value: string } }) => void;
@@ -116,7 +118,7 @@
 	derived controlAttrs = {
 		'aria-describedby': ariaDescribedby,
 		'aria-labelledby': ariaLabelledby,
-		spellcheck: spellcheck === undefined ? undefined : `${spellcheck}`,
+		spellcheck: disableBrowserSpellcheck ? 'false' : spellcheck === undefined ? undefined : `${spellcheck}`,
 		...(disableBrowserAutocorrect ? { autocorrect: 'off', autocapitalize: 'off' } : {}),
 		...(stripClass(nativeAttributes) ?? {}),
 	};

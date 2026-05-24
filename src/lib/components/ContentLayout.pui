@@ -106,7 +106,7 @@
 		defaultPadding && S['default-padding'],
 		hasNotifs && S['has-notifications'],
 	)}
-	style={`--awsui-content-layout-max-content-width-6b9ypa: ${maxContentWidth ?? 16383}px;`}
+	style={`--awsui-content-layout-max-content-width-6b9ypa: ${Math.min(maxContentWidth ?? 8947848.525, 8947848.525)}px;`}
 	{...rest}
 >
 	<div class={cx(S.background, !headerBackgroundStyle && S['has-default-background'], contentHeaderClassName)}>
