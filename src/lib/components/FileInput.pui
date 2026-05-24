@@ -26,6 +26,9 @@
 		multiple = false,
 		accept = undefined,
 		ariaLabel = undefined,
+		ariaDescribedby = undefined,
+		ariaRequired = false,
+		invalid = false,
 		controlId = undefined,
 		onChange = undefined,
 		children = undefined,
@@ -36,6 +39,9 @@
 		multiple?: boolean;
 		accept?: string;
 		ariaLabel?: string;
+		ariaDescribedby?: string;
+		ariaRequired?: boolean;
+		invalid?: boolean;
 		controlId?: string;
 		onChange?: (e: { value: File[] }) => void;
 		children?: import('svelte').Snippet | string;
@@ -63,6 +69,9 @@
 		{multiple}
 		{accept}
 		aria-label={ariaLabel}
+		aria-describedby={ariaDescribedby}
+		aria-invalid={invalid ? 'true' : undefined}
+		aria-required={ariaRequired ? 'true' : undefined}
 		onchange={onUploadInputChange}
 	/><Button
 		class={S['file-input-button']}

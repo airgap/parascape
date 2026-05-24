@@ -44,6 +44,7 @@
 		ariaRequired = false,
 		ariaLabel = undefined,
 		ariaDescribedby = undefined,
+		invalid = false,
 		controlId = undefined,
 		i18nStrings = undefined,
 		onChange = undefined,
@@ -66,6 +67,7 @@
 		ariaRequired?: boolean;
 		ariaLabel?: string;
 		ariaDescribedby?: string;
+		invalid?: boolean;
 		controlId?: string;
 		i18nStrings?: {
 			uploadButtonText?: (multiple: boolean) => string;
@@ -89,6 +91,23 @@
 	const snip = (v: unknown) => typeof v === 'function';
 	const has = (v: unknown) => v !== null && v !== undefined;
 	derived uploadText = i18nStrings?.uploadButtonText?.(multiple) ?? (multiple ? 'Choose files' : 'Choose file');
+
+	// Associate the hint text with the native input + drive aria-invalid.
+	let __fuN = 0;
+	const fuId = `parascape-file-upload-${(__fuN += 1)}`;
+	const errorId = `${fuId}-error`;
+	const warningId = `${fuId}-warning`;
+	const constraintId = `${fuId}-constraint`;
+	derived describedBy =
+		[
+			ariaDescribedby,
+			has(errorText) ? errorId : null,
+			has(warningText) && !has(errorText) ? warningId : null,
+			has(constraintText) ? constraintId : null,
+		]
+			.filter(Boolean)
+			.join(' ') || undefined;
+	derived isInvalid = invalid || has(errorText) || (Array.isArray(fileErrors) && fileErrors.some((e) => e != null));
 </script>
 
 <div class={cx(extraClass, S.root)} {...rest}>
@@ -97,7 +116,8 @@
 		{accept}
 		{ariaRequired}
 		{ariaLabel}
-		{ariaDescribedby}
+		ariaDescribedby={describedBy}
+		invalid={isInvalid}
 		{controlId}
 		onChange={(e: { detail: { value: File[] } }) => {
 			value = e.detail.value;
@@ -106,13 +126,13 @@
 	>{uploadText}</FileInput>
 	{#if has(errorText) || has(warningText) || has(constraintText)}
 		<div class={S.hints}>
-			{#if has(errorText)}<span class={FF.error}
+			{#if has(errorText)}<span class={FF.error} id={errorId}
 					>{#if snip(errorText)}{@render (errorText as import('svelte').Snippet)()}{:else}{errorText}{/if}</span
 				>{/if}
-			{#if has(warningText) && !has(errorText)}<span class={FF.warning}
+			{#if has(warningText) && !has(errorText)}<span class={FF.warning} id={warningId}
 					>{#if snip(warningText)}{@render (warningText as import('svelte').Snippet)()}{:else}{warningText}{/if}</span
 				>{/if}
-			{#if has(constraintText)}<span class={FF.constraint}
+			{#if has(constraintText)}<span class={FF.constraint} id={constraintId}
 					>{#if snip(constraintText)}{@render (constraintText as import('svelte').Snippet)()}{:else}{constraintText}{/if}</span
 				>{/if}
 		</div>
