@@ -2498,10 +2498,12 @@
 		codeDraft = codeDraft.slice(0, s) + '\t' + codeDraft.slice(ta.selectionEnd);
 		queueMicrotask(() => (ta.selectionStart = ta.selectionEnd = s + 1));
 	}
-	// keep the highlighted <pre> and the gutter aligned with the textarea scroll
+	// keep the highlighted <pre> and the gutter aligned with the textarea scroll.
+	// NB: query the overlay directly — the squiggle layer (LYK-964) sits between
+	// the <pre> and the textarea, so previousElementSibling is no longer the <pre>.
 	function codeSync(e: Event) {
 		const ta = e.currentTarget as HTMLTextAreaElement;
-		const pre = ta.previousElementSibling as HTMLElement | null;
+		const pre = ta.closest('.code-ed-wrap')?.querySelector('pre.code-hl') as HTMLElement | null;
 		if (pre) {
 			pre.scrollTop = ta.scrollTop;
 			pre.scrollLeft = ta.scrollLeft;
