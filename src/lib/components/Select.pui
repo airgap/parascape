@@ -21,6 +21,7 @@
 <script lang="pts">
 	import { flushSync } from 'svelte';
 	import Icon from './Icon.pui';
+	import Input from './Input.pui';
 	import styles from '../cloudscape/select.styles.js';
 	import bt from '../cloudscape/button-trigger.styles.js';
 	import dropdownStyles from '../cloudscape/dropdown.styles.js';
@@ -29,7 +30,7 @@
 	import '../cloudscape/select.scoped.css';
 	import '../cloudscape/button-trigger.scoped.css';
 
-	type Option = { value: string; label?: string; description?: string; disabled?: boolean };
+	type Option = { value?: string; label?: string; description?: string; disabled?: boolean; options?: Option[] };
 	let {
 		options = [],
 		selectedOption = $bindable(undefined),
@@ -38,6 +39,10 @@
 		readOnly = false,
 		invalid = false,
 		warning = false,
+		filteringType = 'none',
+		filteringPlaceholder = undefined,
+		filteringAriaLabel = undefined,
+		onLoadItems = undefined,
 		controlId = undefined,
 		ariaLabel = undefined,
 		ariaLabelledby = undefined,
@@ -54,6 +59,10 @@
 		readOnly?: boolean;
 		invalid?: boolean;
 		warning?: boolean;
+		filteringType?: 'none' | 'auto' | 'manual';
+		filteringPlaceholder?: string;
+		filteringAriaLabel?: string;
+		onLoadItems?: (e: { detail: { filteringText: string; firstPage: boolean; samePage: boolean } }) => void;
 		controlId?: string;
 		ariaLabel?: string;
 		ariaLabelledby?: string;
@@ -74,10 +83,46 @@
 	derived triggerText = hasSelection ? selectedOption!.label : placeholder;
 
 	signal open = false;
+	signal filterValue = '';
+	type Row = { group: true; label?: string } | { group?: false; option: Option; index: number };
+	// Flatten groups into leaf options (1-based flat index for findOption), with
+	// a parent row per group; 'auto' filters leaves client-side by label/value.
+	function matchOpt(o: Option) {
+		return (
+			filteringType !== 'auto' ||
+			!filterValue ||
+			`${o.label ?? o.value ?? ''}`.toLowerCase().includes(filterValue.toLowerCase())
+		);
+	}
+	function buildRows(): Row[] {
+		const out: Row[] = [];
+		let idx = 0;
+		for (const o of options) {
+			if (o.options) {
+				const kids = o.options.filter(matchOpt);
+				if (kids.length) {
+					out.push({ group: true, label: o.label });
+					for (const k of kids) out.push({ option: k, index: ++idx });
+				}
+			} else if (matchOpt(o)) {
+				out.push({ option: o, index: ++idx });
+			}
+		}
+		return out;
+	}
+	derived rows = buildRows();
+	const loadItems = (firstPage: boolean, samePage: boolean) =>
+		onLoadItems?.({ detail: { filteringText: filterValue, firstPage, samePage } });
 	function toggleOpen() {
 		if (disabled || readOnly) return;
 		open = !open;
 		flushSync(); // sync DOM so the test-utils dropdown finders see the open state immediately
+		if (open && filteringType === 'manual') loadItems(true, false);
+	}
+	function onFilterInput(v: string) {
+		filterValue = v;
+		flushSync();
+		if (filteringType === 'manual') loadItems(true, false);
 	}
 	function pick(o: Option) {
 		if (o.disabled) return;
@@ -115,16 +160,21 @@
 				variant={disabled || readOnly ? 'disabled' : 'normal'}
 			/></span></button
 	>
-	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true"><ul
+	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true">{#if filteringType !== 'none'}<Input
+				value={filterValue}
+				placeholder={filteringPlaceholder}
+				ariaLabel={filteringAriaLabel}
+				onChange={(e: { detail: { value: string } }) => onFilterInput(e.detail.value)}
+			/>{/if}<ul
 				class={SI['options-list']}
 				role="listbox"
-			>{#each options as o, i (o.value)}<li
-						class={cx(SI['selectable-item'], o.disabled && SI.disabled, selectedOption?.value === o.value && SI.selected)}
-						data-test-index={i + 1}
+			>{#each rows as row, ri (ri)}{#if row.group}<li class={cx(SI['selectable-item'], SI.parent)} aria-disabled="true"><span class={OPT.label}>{row.label ?? ''}</span></li>{:else}<li
+						class={cx(SI['selectable-item'], row.option.disabled && SI.disabled, selectedOption?.value === row.option.value && SI.selected)}
+						data-test-index={row.index}
 						role="option"
-						aria-selected={selectedOption?.value === o.value ? 'true' : 'false'}
-					><div class={OPT.option} data-value={o.value} onclick={() => pick(o)}
-						><div class={OPT.content}><div class={OPT.label}>{o.label ?? o.value}</div>{#if o.description}<div
-									class={OPT.description}>{o.description}</div>{/if}</div></div></li
-					>{/each}</ul></div></div>{/if}
+						aria-selected={selectedOption?.value === row.option.value ? 'true' : 'false'}
+					><div class={OPT.option} data-value={row.option.value} onclick={() => pick(row.option)}
+						><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div
+									class={OPT.description}>{row.option.description}</div>{/if}</div></div></li
+					>{/if}{/each}</ul></div></div>{/if}
 </div>
