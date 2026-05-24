@@ -16,8 +16,12 @@
   parity Input✅.
 -->
 <script lang="pts">
+	import { flushSync } from 'svelte';
 	import Input from './Input.pui';
 	import styles from '../cloudscape/autosuggest.styles.js';
+	import dropdownStyles from '../cloudscape/dropdown.styles.js';
+	import optStyles from '../cloudscape/option.styles.js';
+	import selItemStyles from '../cloudscape/selectable-item.styles.js';
 	import '../cloudscape/autosuggest.scoped.css';
 
 	type Option = { value: string; label?: string; description?: string; disabled?: boolean };
@@ -77,16 +81,37 @@
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
+	const D = dropdownStyles as Record<string, string>;
+	const OPT = optStyles as Record<string, string>;
+	const SI = selItemStyles as Record<string, string>;
+	signal open = false;
+	function matchOpt(o: Option) {
+		return filteringType !== 'auto' || !value || `${o.label ?? o.value ?? ''}`.toLowerCase().includes(value.toLowerCase());
+	}
+	derived rows = options.filter(matchOpt).map((o, i) => ({ option: o, index: i + 1 }));
+	function openIt() {
+		if (disabled || readOnly) return;
+		open = true;
+		flushSync();
+	}
+	function pick(o: Option) {
+		if (o.disabled) return;
+		value = o.value;
+		open = false;
+		flushSync();
+		onChange?.({ detail: { value: o.value } });
+		onSelect?.({ detail: { value: o.value, selectedOption: o } });
+	}
 
 	// Autosuggest closed-state input combobox-role aria surface
 	// (open-state aria-expanded=true/aria-activedescendant pointing at
 	// the highlighted-option id = interaction-tier, not rendered here).
-	const __comboAttrs: Record<string, unknown> = {
+	derived comboAttrs = {
 		role: 'combobox',
 		'aria-autocomplete': 'list',
-		'aria-expanded': 'false',
+		'aria-expanded': open ? 'true' : 'false',
 		'aria-haspopup': 'listbox',
-	};
+	} as Record<string, unknown>;
 </script>
 
 <div class={cx(extraClass, S.root)} {...rest}>
@@ -104,14 +129,16 @@
 		{autoFocus}
 		{disableBrowserAutocorrect}
 		autoComplete={false}
-		nativeAttributes={__comboAttrs}
+		nativeAttributes={comboAttrs}
 		onChange={(e) => {
 			value = e.detail.value;
+			openIt();
 			onChange?.(e);
 		}}
 		{onBlur}
-		{onFocus}
+		onFocus={(e) => { openIt(); onFocus?.(e); }}
 		{onKeyDown}
 		{onKeyUp}
 	/>
+	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true"><ul class={SI['options-list']} role="listbox">{#each rows as row, ri (ri)}<li class={cx(SI['selectable-item'])} data-test-index={row.index} role="option"><div class={OPT.option} data-value={row.option.value} onmouseup={() => pick(row.option)} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div class={OPT.description}>{row.option.description}</div>{/if}</div></div></li>{/each}</ul></div></div>{/if}
 </div>
