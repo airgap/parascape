@@ -9,5 +9,6 @@ export default {
   selected: "awsui_selected_15o6u_k2c9q_164",
   child: "awsui_child_15o6u_k2c9q_184",
   disabled: "awsui_disabled_15o6u_k2c9q_190",
+  "has-background": "awsui_has-background_15o6u_k2c9q_181",
   "options-list": "awsui_options-list_19gcf_eqp8j_145",
 };

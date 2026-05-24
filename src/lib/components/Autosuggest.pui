@@ -49,6 +49,8 @@
 		onKeyUp = undefined,
 		onSelect = undefined,
 		onLoadItems = undefined,
+		enteredTextLabel = undefined,
+		hideEnteredTextOption = false,
 		class: extraClass = undefined,
 		...rest
 	}: {
@@ -75,6 +77,8 @@
 		onKeyUp?: (e: { detail: KeyboardEvent }) => void;
 		onSelect?: (e: { detail: { value: string; selectedOption?: Option } }) => void;
 		onLoadItems?: (e: { detail: { filteringText: string; firstPage: boolean; samePage: boolean } }) => void;
+		enteredTextLabel?: (value: string) => string;
+		hideEnteredTextOption?: boolean;
 		class?: string;
 		[k: string]: unknown;
 	} = $props();
@@ -148,6 +152,18 @@
 		}
 	}
 
+	// "Use entered text" option: shown (first, with .has-background) when the
+	// input is non-empty and not hidden; picking it confirms the typed value.
+	derived showEntered = !!value && !hideEnteredTextOption;
+	derived enteredText = enteredTextLabel ? enteredTextLabel(value) : value;
+	function pickEntered() {
+		open = false;
+		highlightedIndex = -1;
+		flushSync();
+		onChange?.({ detail: { value } });
+		onSelect?.({ detail: { value, selectedOption: undefined } });
+	}
+
 	// Autosuggest closed-state input combobox-role aria surface
 	// (open-state aria-expanded=true/aria-activedescendant pointing at
 	// the highlighted-option id = interaction-tier, not rendered here).
@@ -186,5 +202,5 @@
 		onKeyDown={(e) => { handleKey(e); onKeyDown?.(e); }}
 		{onKeyUp}
 	/>
-	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true"><ul class={SI['options-list']} role="listbox">{#each rows as row, ri (ri)}<li class={cx(SI['selectable-item'], highlightedIndex === ri && SI.highlighted)} data-test-index={row.index} role="option"><div class={OPT.option} data-value={row.option.value} onmouseup={() => pick(row.option)} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div class={OPT.description}>{row.option.description}</div>{/if}</div></div></li>{/each}</ul></div></div>{/if}
+	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true"><ul class={SI['options-list']} role="listbox">{#if showEntered}<li class={cx(SI['selectable-item'], SI['has-background'])} role="option" onmouseup={pickEntered} onclick={pickEntered}><div class={OPT.option}><div class={OPT.content}><div class={OPT.label}>{enteredText}</div></div></div></li>{/if}{#each rows as row, ri (ri)}<li class={cx(SI['selectable-item'], highlightedIndex === ri && SI.highlighted)} data-test-index={row.index} role="option"><div class={OPT.option} data-value={row.option.value} onmouseup={() => pick(row.option)} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div class={OPT.description}>{row.option.description}</div>{/if}</div></div></li>{/each}</ul></div></div>{/if}
 </div>
