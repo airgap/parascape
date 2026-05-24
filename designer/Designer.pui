@@ -182,9 +182,12 @@
 	// Shared modules (LYK-959): user-created helper files (`util.ts`, `Shared.pui`)
 	// that pages/components import. `name` is the filename used in imports.
 	type SharedModule = { id: string; name: string; source: string };
+	// Data connectors (LYK-962): named API/CMS sources fetched at runtime into
+	// data[name]; `root` is a dot-path to extract from the response.
+	type DataSource = { id: string; name: string; url: string; method?: 'GET' | 'POST'; headers?: string; body?: string; root?: string };
 	// `data` (LYK-945): inline data sources — named variables/collections bound
 	// into node content (Section.bind) + emitted as a `const data = …` in export.
-	type Project = { pages: Page[]; activePageId: number; nextKey: number; components: NamedComponent[]; nextCompId: number; data?: Record<string, unknown>; dataUrl?: string; modules?: SharedModule[] };
+	type Project = { pages: Page[]; activePageId: number; nextKey: number; components: NamedComponent[]; nextCompId: number; data?: Record<string, unknown>; dataUrl?: string; modules?: SharedModule[]; sources?: DataSource[] };
 	type Saved = { sections: Section[]; nextKey?: number; codeOverride?: string | null };
 	// Early Designer builds shipped an unprofessional footer default ("for-funzies
 	// … Not affiliated with AWS") and later a copyright line. Pages saved then keep
@@ -305,6 +308,11 @@
 							.filter((m) => m && typeof m.id === 'string' && typeof m.name === 'string')
 							.map((m) => ({ id: m.id, name: m.name, source: typeof m.source === 'string' ? m.source : '' }))
 					: [],
+				sources: Array.isArray(x.sources)
+					? (x.sources as DataSource[])
+							.filter((s) => s && typeof s.id === 'string' && typeof s.name === 'string')
+							.map((s) => ({ id: s.id, name: s.name, url: typeof s.url === 'string' ? s.url : '', method: s.method === 'POST' ? 'POST' : 'GET', headers: typeof s.headers === 'string' ? s.headers : undefined, body: typeof s.body === 'string' ? s.body : undefined, root: typeof s.root === 'string' ? s.root : undefined }))
+					: [],
 			};
 		}
 		if (Array.isArray(x?.sections)) {
@@ -379,6 +387,43 @@
 			dataError = 'Could not fetch / parse that URL';
 		} finally {
 			dataLoading = false;
+		}
+	}
+	// --- data connectors (LYK-962): named API/CMS sources ---
+	signal sources: DataSource[] = init.sources ?? [];
+	let nextSourceId = 1;
+	signal sourceLoading: string | null = null;
+	function addSource() {
+		let n = sources.length + 1;
+		let name = `api${n}`;
+		while (sources.some((s) => s.name === name)) name = `api${++n}`;
+		sources = [...sources, { id: `ds${nextSourceId++}`, name, url: '', method: 'GET' }];
+	}
+	const setConnector = (id: string, patch: Partial<DataSource>) => (sources = sources.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+	const removeSource = (id: string) => (sources = sources.filter((s) => s.id !== id));
+	// design-time fetch into siteData[name] so bindings preview real data
+	async function loadSource(s: DataSource) {
+		if (!s.url.trim() || sourceLoading) return;
+		sourceLoading = s.id;
+		dataError = null;
+		try {
+			const opts: RequestInit = { method: s.method || 'GET' };
+			if (s.headers && s.headers.trim()) {
+				try {
+					opts.headers = JSON.parse(s.headers);
+				} catch {
+					throw new Error('headers must be JSON');
+				}
+			}
+			if (s.method === 'POST' && s.body && s.body.trim()) opts.body = s.body;
+			const resp = await (await fetch(s.url, opts)).json();
+			const val = s.root && s.root.trim() ? resolvePath(resp, s.root.trim()) : resp;
+			siteData = { ...siteData, [s.name]: val };
+			dataText = JSON.stringify(siteData, null, 2);
+		} catch (e: unknown) {
+			dataError = `“${s.name}”: ${(e as { message?: string })?.message ?? 'fetch/parse failed'}`;
+		} finally {
+			sourceLoading = null;
 		}
 	}
 	const _initActive = init.pages.find((p) => p.id === init.activePageId) ?? init.pages[0];
@@ -561,6 +606,7 @@
 			data: siteData,
 			dataUrl: dataUrl || undefined,
 			modules: clone(modules),
+			sources: clone(sources),
 		};
 	}
 	effect {
@@ -1946,13 +1992,29 @@
 	}
 	// `const data = …` for inline sources; a live `signal data` + fetch effect when
 	// a CMS/API URL is configured (LYK-945) so the published page loads it at runtime.
-	derived dataDecl {
-		if (!hasBinding) return '';
+	// The `data` declaration emitted into a page's <script> (LYK-945/962): the
+	// inline seed, plus a fetch effect for the single CMS URL and one per named
+	// connector (assigning data[name] = the response, optionally at `root`). With
+	// no fetches it's a static `const data`. Shared by the active-page derived and
+	// pageToSource so every page gets connectors.
+	function dataDeclSource(): string {
 		const url = dataUrl.trim();
-		if (url)
-			return `\tsignal data = {};\n\teffect { fetch(${JSON.stringify(url)}).then((r) => r.json()).then((d) => (data = d)).catch(() => {}); }\n`;
-		return `\tconst data = ${JSON.stringify(siteData)};\n`;
+		const live = sources.filter((s) => s.url.trim());
+		if (!url && !live.length) return `\tconst data = ${JSON.stringify(siteData)};\n`;
+		const lines = [`\tsignal data = ${JSON.stringify(siteData)};`];
+		if (url) lines.push(`\teffect { fetch(${JSON.stringify(url)}).then((r) => r.json()).then((d) => (data = { ...data, ...d })).catch(() => {}); }`);
+		for (const s of live) {
+			const opts = [`method: ${JSON.stringify(s.method || 'GET')}`];
+			if (s.headers && s.headers.trim()) opts.push(`headers: JSON.parse(${JSON.stringify(s.headers.trim())})`);
+			if (s.method === 'POST' && s.body && s.body.trim()) opts.push(`body: ${JSON.stringify(s.body)}`);
+			const extract = s.root && s.root.trim() ? `d.${s.root.trim()}` : 'd';
+			lines.push(
+				`\teffect { fetch(${JSON.stringify(s.url)}, { ${opts.join(', ')} }).then((r) => r.json()).then((d) => (data = { ...data, ${JSON.stringify(s.name)}: ${extract} })).catch(() => {}); }`,
+			);
+		}
+		return lines.join('\n') + '\n';
 	}
+	derived dataDecl = hasBinding ? dataDeclSource() : '';
 	// Every exported page accepts the router's URL params/query as props (LYK-957),
 	// so page code can read `params.slug` / `query.tab`. (Code-Mode pages declare
 	// their own props; see pageToSource.)
@@ -2007,13 +2069,7 @@
 		const binds = (function chk(l: Section[]): boolean {
 			return l.some((n) => !!n.bind || (n.propBind && Object.keys(n.propBind).length > 0) || (isRepeat(n) && !!n.source) || (n.children ? chk(n.children) : false));
 		})(list);
-		let dd = '';
-		if (binds) {
-			const url = dataUrl.trim();
-			dd = url
-				? `\tsignal data = {};\n\teffect { fetch(${JSON.stringify(url)}).then((r) => r.json()).then((d) => (data = d)).catch(() => {}); }\n`
-				: `\tconst data = ${JSON.stringify(siteData)};\n`;
-		}
+		const dd = binds ? dataDeclSource() : '';
 		const rules: string[] = [];
 		const rwalk = (l: Section[]) => {
 			for (const n of l) {
@@ -2368,6 +2424,7 @@
 		nextCompId = Math.max(nextCompId, proj.nextCompId);
 		modules = proj.modules ?? [];
 		nextModuleId = Math.max(nextModuleId, modules.length + 1);
+		sources = proj.sources ?? [];
 		siteData = proj.data ?? {};
 		dataText = JSON.stringify(siteData, null, 2);
 		dataUrl = proj.dataUrl ?? '';
@@ -3252,6 +3309,27 @@
 							<button class="mini" disabled={!dataUrl.trim() || dataLoading} onclick={loadDataUrl}>{dataLoading ? "…" : "Load"}</button>
 						</div>
 						{#if dataUrl.trim()}<p class="ds-note">Live: the published page fetches this URL at runtime; “Load” previews it here.</p>{/if}
+					<!-- Data connectors (LYK-962): named API sources → data.<name> -->
+					<div class="connectors">
+						<div class="conn-head"><span>Connectors</span><button class="mini" onclick={addSource}>+ API</button></div>
+						{#each sources as s (s.id)}
+							<div class="conn">
+								<div class="conn-row">
+									<input class="conn-name" placeholder="name" value={s.name} oninput={(e) => setConnector(s.id, { name: (e.target as HTMLInputElement).value })} />
+									<select class="conn-method" onchange={(e) => setConnector(s.id, { method: (e.target as HTMLSelectElement).value as 'GET' | 'POST' })}>
+										<option value="GET" selected={(s.method ?? 'GET') === 'GET'}>GET</option>
+										<option value="POST" selected={s.method === 'POST'}>POST</option>
+									</select>
+									<button class="mini" disabled={!s.url.trim() || sourceLoading === s.id} onclick={() => loadSource(s)}>{sourceLoading === s.id ? '…' : 'Load'}</button>
+									<button class="conn-del" aria-label="Remove connector {s.name}" onclick={() => removeSource(s.id)}>✕</button>
+								</div>
+								<input class="conn-url" placeholder="https://api…/path" value={s.url} oninput={(e) => setConnector(s.id, { url: (e.target as HTMLInputElement).value })} />
+								<input class="conn-sub" placeholder="extract path, e.g. data.items (optional)" value={s.root ?? ''} oninput={(e) => setConnector(s.id, { root: (e.target as HTMLInputElement).value })} />
+								<input class="conn-sub" placeholder="headers JSON — optional" value={s.headers ?? ''} oninput={(e) => setConnector(s.id, { headers: (e.target as HTMLInputElement).value })} />
+							</div>
+						{/each}
+						{#if sources.length}<p class="ds-note">Each connector is fetched at runtime into <code>data.NAME</code>; “Load” previews it. Bind a node to <code>NAME.field</code>.</p>{/if}
+					</div>
 					<textarea class="ds-json" spellcheck="false" value={dataText} oninput={(e) => setDataText((e.target as HTMLTextAreaElement).value)}></textarea>
 					{#if dataError}<p class="ds-err">{dataError}</p>{/if}
 				</details>
@@ -3992,6 +4070,18 @@
 	.ds-url { display: flex; gap: 6px; margin-bottom: 6px; }
 	.ds-url input { flex: 1; min-width: 0; box-sizing: border-box; padding: 4px 7px; font-size: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--fg-body); }
 	.ds-url button { flex: 0 0 auto; }
+	/* data connectors (LYK-962) */
+	.connectors { margin: 8px 0; }
+	.conn-head { display: flex; align-items: center; justify-content: space-between; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); margin-bottom: 4px; }
+	.conn { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 4px; background: var(--bg-elev); }
+	.conn-row { display: flex; gap: 4px; align-items: center; }
+	.conn-name { flex: 1; min-width: 0; }
+	.conn .conn-name, .conn .conn-method, .conn .conn-url, .conn .conn-sub { box-sizing: border-box; padding: 4px 7px; font: 12px inherit; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--fg-body); }
+	.conn-url, .conn-sub { width: 100%; }
+	.conn-sub { font-size: 11px; }
+	.conn-del { flex: 0 0 auto; background: none; border: 0; color: var(--fg-subtle); cursor: pointer; padding: 2px 6px; }
+	.conn-del:hover { color: var(--danger, #d33); }
+	.connectors code { font-family: ui-monospace, monospace; background: var(--bg-sunken); padding: 0 4px; border-radius: 3px; }
 	.pf-bound { background: var(--bg-accent-subtle); color: var(--accent); border-radius: 3px; padding: 0 4px; outline: 1px dashed var(--accent-ring); }
 	/* repeater (LYK-945) */
 	.repeat-zone { position: relative; outline: 1px dashed var(--accent-ring); outline-offset: 3px; border-radius: var(--radius-sm); }

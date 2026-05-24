@@ -61,7 +61,7 @@ try {
   await page.waitForSelector(".export-code");
   await page.waitForTimeout(200);
   const src = await page.evaluate(() => document.querySelector(".export-code")?.textContent || "");
-  ok("export declares a live `signal data`", src.includes("signal data = {}"));
+  ok("export declares a live `signal data` (seeded, then fetched)", /signal data =/.test(src));
   ok("export fetches the URL at runtime", src.includes(`fetch("${URL}")`) || src.includes(`fetch('${URL}')`));
   ok("export uses an effect to load it", /effect\s*\{[^}]*fetch/.test(src.replace(/\n/g, " ")));
   ok("export does NOT bake a static const data", !src.includes("const data ="));
