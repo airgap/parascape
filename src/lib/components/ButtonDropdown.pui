@@ -23,9 +23,22 @@
   (not the default/static path). Composes the parity Button✅.
 -->
 <script lang="pts">
+	import { flushSync } from 'svelte';
 	import Button from './Button.pui';
 	import styles from '../cloudscape/button-dropdown.styles.js';
+	import dropdownStyles from '../cloudscape/dropdown.styles.js';
+	import itemElStyles from '../cloudscape/item-element.styles.js';
 	import '../cloudscape/button-dropdown.scoped.css';
+
+	type BDItem = {
+		id?: string;
+		text?: string;
+		disabled?: boolean;
+		href?: string;
+		itemType?: string;
+		checked?: boolean;
+		items?: BDItem[];
+	};
 
 	let {
 		variant = 'normal',
@@ -46,17 +59,46 @@
 		loadingText?: string;
 		fullWidth?: boolean;
 		ariaLabel?: string;
-		items?: Array<{ id: string; text: string; disabled?: boolean }>;
+		items?: BDItem[];
 		children?: import('svelte').Snippet | string;
-		onItemClick?: (e: { id: string }) => void;
+		onItemClick?: (e: { detail: { id: string } }) => void;
 		class?: string;
 		[k: string]: unknown;
 	} = $props();
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
+	const D = dropdownStyles as Record<string, string>;
+	const IE = itemElStyles as Record<string, string>;
 	const isVisualRefresh = true; // Cloudscape 3.x
 	const snip = (v: unknown) => typeof v === 'function';
+	signal open = false;
+	type BDRow = { category: true; text?: string } | { category?: false; item: BDItem };
+	// Flatten categories ({text, items:[...]}) into leaf .item-element rows.
+	function buildItems(): BDRow[] {
+		const out: BDRow[] = [];
+		for (const it of items) {
+			if (it.items) {
+				out.push({ category: true, text: it.text });
+				for (const c of it.items) out.push({ item: c });
+			} else {
+				out.push({ item: it });
+			}
+		}
+		return out;
+	}
+	derived flatItems = buildItems();
+	function toggleOpen() {
+		if (disabled || loading) return;
+		open = !open;
+		flushSync();
+	}
+	function onItem(item: BDItem) {
+		if (item.disabled || !item.id) return;
+		open = false;
+		flushSync();
+		onItemClick?.({ detail: { id: item.id } });
+	}
 
 	// internal.js — verbatim
 	derived triggerVariant =
@@ -97,6 +139,8 @@
 			{loading}
 			{loadingText}
 			{ariaLabel}
+			onClick={toggleOpen}
 		>{#if hasText}{#if snip(children)}{@render (children as import('svelte').Snippet)()}{:else}{children}{/if}{/if}</Button>
 	</div>
+	{#if open}<div class={D.root}><div class={D.dropdown} data-open="true"><ul role="menu">{#each flatItems as row, ri (ri)}{#if row.category}<li role="presentation"><span>{row.text ?? ''}</span></li>{:else}<li class={cx(IE['item-element'], row.item.disabled && IE.disabled)} data-testid={row.item.id} role="menuitem" aria-disabled={row.item.disabled ? 'true' : undefined} onclick={() => onItem(row.item)}>{#if row.item.href}<a href={row.item.href}>{row.item.text}</a>{:else}<span>{row.item.text}</span>{/if}</li>{/if}{/each}</ul></div></div>{/if}
 </div>
