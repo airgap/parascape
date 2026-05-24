@@ -141,6 +141,14 @@
 	const listboxId = `parascape-multiselect-listbox-${__msN}`;
 	const dialogId = `parascape-multiselect-dialog-${__msN}`;
 	const triggerButtonId = controlId ?? `parascape-multiselect-trigger-${__msN}`;
+	const ariaLabelId = `parascape-multiselect-label-${__msN}`;
+	const placeholderId = `parascape-multiselect-ph-${__msN}`;
+	// Compose the trigger's accessible name from the (hidden) aria-label and the
+	// visible placeholder, matching Cloudscape's labelledby chain.
+	derived triggerLabelledby =
+		[ariaLabelledby, ariaLabel ? ariaLabelId : null, !hasSelection && placeholder ? placeholderId : null]
+			.filter(Boolean)
+			.join(' ') || undefined;
 	derived isFiltering = filteringType !== 'none';
 	signal triggerEl: HTMLButtonElement | undefined = undefined;
 	signal rootEl: HTMLElement | undefined = undefined;
@@ -277,6 +285,7 @@
 
 <div class={cx(extraClass, S.root)} bind:this={rootEl} onfocusout={onRootBlur} {...rest}>
 	{#if inlineLabelText}<label class={SP['inline-label']} for={triggerButtonId}>{inlineLabelText}</label>{/if}
+	{#if ariaLabel}<span id={ariaLabelId} hidden>{ariaLabel}</span>{/if}
 	<button
 		type="button"
 		bind:this={triggerEl}
@@ -297,11 +306,11 @@
 		aria-controls={open ? (isFiltering ? dialogId : listboxId) : undefined}
 		aria-expanded={open ? 'true' : 'false'}
 		aria-label={ariaLabel}
-		aria-labelledby={ariaLabelledby}
+		aria-labelledby={triggerLabelledby}
 		aria-describedby={ariaDescribedby}
 		aria-required={ariaRequired ? 'true' : undefined}
 		aria-invalid={invalid ? 'true' : undefined}
-		>{#if hasSelection}{#if inlineTokens}<span class={SP['inline-token-list']}>{#each selectedOptions as opt, i (i)}<span class={TC.root}><span class={OPT.option}><span class={OPT.content}><span class={OPT.label}>{opt.label ?? opt.value}</span></span></span></span>{/each}</span><span class={SP['inline-token-counter']}>({selectedOptions.length})</span>{:else}{triggerText}{/if}{:else}<span class={SP.placeholder}>{placeholder ?? ''}</span>{/if}<span class={BT.arrow}><Icon
+		>{#if hasSelection}{#if inlineTokens}<span class={SP['inline-token-list']}>{#each selectedOptions as opt, i (i)}<span class={TC.root}><span class={OPT.option}><span class={OPT.content}><span class={OPT.label}>{opt.label ?? opt.value}</span></span></span></span>{/each}</span><span class={SP['inline-token-counter']}>({selectedOptions.length})</span>{:else}{triggerText}{/if}{:else}<span class={SP.placeholder} id={placeholderId}>{placeholder ?? ''}</span>{/if}<span class={BT.arrow}><Icon
 				name="caret-down-filled"
 				variant={disabled || readOnly ? 'disabled' : 'normal'}
 			/></span></button
