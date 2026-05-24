@@ -191,7 +191,7 @@
 									onChange={toggleAll}
 								/></label><span class={SEL.stud} aria-hidden="true"
 							>&nbsp;</span></th>{/if}
-					{#each columnDefinitions as col (col.id)}
+					{#each columnDefinitions as col, ci (col.id ?? ci)}
 						{@const st = sortStatus(col)}
 						<th
 							class={cx(
@@ -204,6 +204,7 @@
 								st === 'ascending' && HC['header-cell-ascending'],
 								st === 'descending' && HC['header-cell-descending'],
 							)}
+								scope="col"
 								aria-sort={st === 'ascending' ? 'ascending' : st === 'descending' ? 'descending' : undefined}
 								onclick={() => clickHeader(col)}
 						><div class={HC['header-cell-content']}><div
@@ -218,7 +219,7 @@
 			     selection/{selection-cell,selection-control}.js. Selection
 			     control composes the parity Checkbox. -->
 			<tbody>
-				{#each items as item, i (trackBy(item))}
+				{#each items as item, i (trackBy(item) ?? i)}
 					{@const sel = selectedKeys.has(trackBy(item))}
 					{@const first = i === 0}
 					{@const last = i === items.length - 1}
@@ -240,7 +241,7 @@
 											onChange={() => toggleRow(item)}
 										/></label><span class={SEL.stud} aria-hidden="true"
 									>&nbsp;</span></div></td>{/if}
-						{#each columnDefinitions as col (col.id)}
+						{#each columnDefinitions as col, ci (col.id ?? ci)}
 							<td
 								class={cx(
 									BC['body-cell'],
