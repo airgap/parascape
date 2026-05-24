@@ -111,7 +111,7 @@
 </script>
 
 <div class={cx(extraClass, S.flashbar)} {...rest}>
-	<ul class={S['flash-list']} aria-label={ariaLabel}>
+	<ul class={S['flash-list']} aria-label={ariaLabel ?? i18nStrings?.ariaLabel}>
 		{#each items as item, i (item.id ?? i)}
 			{@const t = item.type || 'info'}
 			{@const effType = item.loading ? 'in-progress' : t}
