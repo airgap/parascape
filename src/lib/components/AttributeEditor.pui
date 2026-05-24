@@ -32,6 +32,7 @@
 	import FormField from './FormField.pui';
 	import Button from './Button.pui';
 	import SpaceBetween from './SpaceBetween.pui';
+	import LiveRegion from './LiveRegion.pui';
 	import styles from '../cloudscape/attribute-editor.styles.js';
 	import '../cloudscape/attribute-editor.scoped.css';
 
@@ -49,10 +50,14 @@
 		items = [],
 		definition = [],
 		addButtonText = 'Add',
+		addButtonVariant = 'normal',
 		removeButtonText = 'Remove',
+		removeButtonAriaLabel = undefined,
 		empty = undefined,
 		disableAddButton = false,
 		hideAddButton = false,
+		additionalInfo = undefined,
+		i18nStrings = undefined,
 		isItemRemovable = (_item: any) => true,
 		onAddButtonClick = undefined,
 		onRemoveButtonClick = undefined,
@@ -62,13 +67,17 @@
 		items?: any[];
 		definition?: Def[];
 		addButtonText?: string;
+		addButtonVariant?: string;
 		removeButtonText?: string;
+		removeButtonAriaLabel?: (item: any) => string;
 		empty?: import('svelte').Snippet | string;
 		disableAddButton?: boolean;
 		hideAddButton?: boolean;
+		additionalInfo?: import('svelte').Snippet | string;
+		i18nStrings?: { removeButtonAriaLabel?: (item: any) => string; itemRemovedAriaLive?: string };
 		isItemRemovable?: (item: any) => boolean;
 		onAddButtonClick?: () => void;
-		onRemoveButtonClick?: (e: { itemIndex: number }) => void;
+		onRemoveButtonClick?: (e: { detail: { itemIndex: number } }) => void;
 		class?: string;
 		[k: string]: unknown;
 	} = $props();
@@ -76,6 +85,15 @@
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
 	const snip = (v: unknown) => typeof v === 'function';
+	let __aeN = 0;
+	const infoId = `parascape-attr-editor-info-${(__aeN += 1)}`;
+	const removeAria = (item: any) =>
+		removeButtonAriaLabel?.(item) ?? i18nStrings?.removeButtonAriaLabel?.(item);
+	signal removalAnnouncement = '';
+	function fireRemove(index: number, item: any) {
+		onRemoveButtonClick?.({ detail: { itemIndex: index } });
+		removalAnnouncement = i18nStrings?.itemRemovedAriaLive ?? '';
+	}
 
 	// grid-defaults.js — transcribed verbatim
 	const gridDefaults: Record<number, any[]> = {
@@ -220,13 +238,19 @@
 			>{#if isItemRemovable(item)}<Button
 						class={S['remove-button']}
 						formAction="none"
-						onClick={() => onRemoveButtonClick?.({ itemIndex: index })}>{removeButtonText}</Button
+						ariaLabel={removeAria(item)}
+						onClick={() => fireRemove(index, item)}>{removeButtonText}</Button
 					>{/if}</div>{#if !onSameLine}<div class={S.divider}></div>{/if}</div>
 	{/each}
 	<div class={S['add-row']}>
 		{#if !hideAddButton}<SpaceBetween size="xs" direction="horizontal"><Button
 					class={S['add-button']}
-					disabled={disableAddButton}
-					onClick={() => onAddButtonClick?.()}>{addButtonText}</Button></SpaceBetween>{/if}
+					variant={addButtonVariant}
+					iconName={addButtonVariant === 'inline-link' ? 'add-plus' : undefined}
+					aria-disabled={disableAddButton ? 'true' : undefined}
+					aria-describedby={additionalInfo ? infoId : undefined}
+					onClick={() => { if (!disableAddButton) onAddButtonClick?.(); }}>{addButtonText}</Button></SpaceBetween>{/if}
 	</div>
+	{#if additionalInfo}<div class={S['additional-info']} id={infoId}>{#if snip(additionalInfo)}{@render (additionalInfo as import('svelte').Snippet)()}{:else}{additionalInfo}{/if}</div><LiveRegion tagName="span" hidden data-testid="info-live-region">{#if snip(additionalInfo)}{@render (additionalInfo as import('svelte').Snippet)()}{:else}{additionalInfo}{/if}</LiveRegion>{/if}
+	<LiveRegion tagName="span" hidden data-testid="removal-announcement">{removalAnnouncement}</LiveRegion>
 </div>
