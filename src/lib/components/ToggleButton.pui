@@ -46,7 +46,7 @@
 		wrapText?: boolean;
 		ariaLabel?: string;
 		pressed?: boolean;
-		onChange?: (pressed: boolean) => void;
+		onChange?: (e: { detail: { pressed: boolean } }) => void;
 		class?: string;
 		[k: string]: unknown;
 	} = $props();
@@ -73,10 +73,11 @@
 	{disabled}
 	{wrapText}
 	{ariaLabel}
+	aria-pressed={pressed ? 'true' : 'false'}
 	onClick={() => {
 		const next = !pressed;
 		pressed = next;
-		onChange?.(next);
+		onChange?.({ detail: { pressed: next } });
 	}}
 	{...rest}
 >{#if typeof children === 'string'}{children}{:else}{@render children?.()}{/if}</Button>
