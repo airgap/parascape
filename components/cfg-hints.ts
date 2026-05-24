@@ -252,6 +252,10 @@ export const hints: Record<string, Hints> = {
   "column-layout": {
     previewNote: "Column Layout splits its children into columns — see the code and properties below.",
   },
+  "split-panel": {
+    previewNote:
+      "Split Panel docks to the bottom (or side) of the App Layout shell, so it can't render standalone — see the code and properties below.",
+  },
   "tag-editor": {
     previewNote:
       "Tag Editor needs key/value autosuggest handlers and i18n strings — see the code and properties below.",
