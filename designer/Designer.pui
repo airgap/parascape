@@ -42,6 +42,9 @@
 	// `ref` = the NamedComponent id; it renders that component's `def`). Container
 	// components (takesContent) can hold child component nodes, so the page is a
 	// tree, not a flat list — `sections` is the top-level (the stack).
+	// LYK-963: a no-code interaction. v1 events: click. Types: navigate (hash route
+	// or URL), setState (set a state var to a string), toggle (flip a boolean var).
+	type Action = { event: 'click'; type: 'navigate' | 'setState' | 'toggle'; to?: string; target?: string; value?: string };
 	type Section = {
 		key: number;
 		type: string;
@@ -52,6 +55,7 @@
 		content?: string;
 		bind?: string; // LYK-945: data path bound to this node's content (e.g. "hero.title")
 		propBind?: Record<string, string>; // LYK-945: prop name → data path
+		actions?: Action[]; // LYK-963: no-code interactions (onClick → navigate/setState/toggle)
 		source?: string; // LYK-945: for a `repeat` node — the data-array path to loop
 		children?: Section[];
 		ref?: string;
@@ -1202,6 +1206,31 @@
 	function setBind(key: number, path: string) {
 		sections = mapTree(sections, key, (s) => ({ ...s, bind: path || undefined }));
 	}
+	// --- LYK-963: no-code interactions ---
+	function addAction(key: number) {
+		sections = mapTree(sections, key, (s) => ({ ...s, actions: [...(s.actions ?? []), { event: 'click', type: 'navigate', to: '/' }] }));
+	}
+	function setAction(key: number, idx: number, patch: Partial<Action>) {
+		sections = mapTree(sections, key, (s) => ({ ...s, actions: (s.actions ?? []).map((a, i) => (i === idx ? { ...a, ...patch } : a)) }));
+	}
+	function removeAction(key: number, idx: number) {
+		sections = mapTree(sections, key, (s) => {
+			const actions = (s.actions ?? []).filter((_, i) => i !== idx);
+			return { ...s, actions: actions.length ? actions : undefined };
+		});
+	}
+	// state variable names declared by any setState/toggle action on this page
+	derived stateVars {
+		const names = new Set<string>();
+		const walk = (l: Section[]) => {
+			for (const n of l) {
+				for (const a of n.actions ?? []) if ((a.type === 'setState' || a.type === 'toggle') && a.target && /^[A-Za-z_$][\w$]*$/.test(a.target)) names.add(a.target);
+				if (n.children) walk(n.children);
+			}
+		};
+		walk(sections);
+		return [...names];
+	}
 	// LYK-945: bind/unbind a single prop to a data path.
 	function setPropBind(key: number, prop: string, path: string) {
 		sections = mapTree(sections, key, (s) => {
@@ -1650,6 +1679,11 @@
 			let inner: string;
 			if (n.children && n.children.length) {
 				inner = n.children.map((c) => nodeBody(c, editable, scope)).join('\n');
+			} else if (n.bind && n.bind.startsWith('state:')) {
+				// LYK-963: content bound to a state variable → emit `{name}`; preview
+				// shows the var name as a placeholder (its value is runtime-only).
+				const name = n.bind.slice(6);
+				inner = editable ? `<span class="pf-bound" title="Bound to state ${esc(name)}">{${esc(name)}}</span>` : `{${name}}`;
 			} else if (n.bind) {
 				// LYK-945: content bound to data. Preview shows the resolved value
 				// (not editable); export emits a Svelte expression. Inside a repeater
@@ -1673,8 +1707,48 @@
 		// css it's display:contents (no layout box), otherwise it carries the css.
 		const sty = cssOf(n, editable);
 		if (editable) return `<div data-pk="${n.key}" style="${sty || 'display:contents'}">${tag}</div>`;
+		// LYK-963: export attaches a click handler for the node's actions (preview is
+		// inert so clicks still select). Wrapper appears if there's css, responsive, or actions.
+		const act = actionHandler(n);
 		const cls = hasResponsive(n) ? ` class="pn-${n.key}"` : '';
-		return sty || cls ? `<div${cls} style="${sty}">${tag}</div>` : tag;
+		return sty || cls || act ? `<div${cls}${act} style="${sty || (act ? 'display:contents' : '')}">${tag}</div>` : tag;
+	}
+	// LYK-963: an ` onclick={…}` attribute for a node's actions (export only).
+	function actionHandler(n: Section): string {
+		const acts = (n.actions ?? []).filter((a) => a.event === 'click' && a.type);
+		const valid = (name?: string) => !!name && /^[A-Za-z_$][\w$]*$/.test(name);
+		const stmts = acts
+			.map((a) => {
+				if (a.type === 'navigate') return `__nav(${JSON.stringify(a.to ?? '/')})`;
+				if (a.type === 'toggle' && valid(a.target)) return `${a.target} = !${a.target}`;
+				if (a.type === 'setState' && valid(a.target)) return `${a.target} = ${JSON.stringify(a.value ?? '')}`;
+				return '';
+			})
+			.filter(Boolean);
+		return stmts.length ? ` onclick={() => { ${stmts.join('; ')}; }}` : '';
+	}
+	// LYK-963: state signals + nav helper a page's actions need, injected into its
+	// <script>. Toggle-only vars default false; others ''. Shared by exportHead +
+	// pageToSource so every page wires its own logic.
+	function logicDeclFor(list: Section[]): string {
+		const acts: Action[] = [];
+		const walk = (l: Section[]) => {
+			for (const n of l) {
+				if (n.actions) acts.push(...n.actions);
+				if (n.children) walk(n.children);
+			}
+		};
+		walk(list);
+		if (!acts.length) return '';
+		const valid = (name?: string) => !!name && /^[A-Za-z_$][\w$]*$/.test(name);
+		const lines: string[] = [];
+		if (acts.some((a) => a.type === 'navigate'))
+			lines.push(`\tconst __nav = (to) => { if (/^https?:/.test(to)) location.href = to; else location.hash = to[0] === '#' ? to : '#' + (to[0] === '/' ? to : '/' + to); };`);
+		const toggles = new Set(acts.filter((a) => a.type === 'toggle' && valid(a.target)).map((a) => a.target));
+		const setters = new Set(acts.filter((a) => a.type === 'setState' && valid(a.target)).map((a) => a.target));
+		for (const name of new Set([...toggles, ...setters]))
+			lines.push(`\tsignal ${name} = ${toggles.has(name) && !setters.has(name) ? 'false' : "''"};`);
+		return lines.length ? lines.join('\n') + '\n' : '';
 	}
 	function nodeImports(n: Section, forExport = false): string[] {
 		if (isInstance(n)) {
@@ -2019,7 +2093,8 @@
 	// so page code can read `params.slug` / `query.tab`. (Code-Mode pages declare
 	// their own props; see pageToSource.)
 	const PROPS_LINE = '\tlet { params = {}, query = {} } = $props();\n';
-	derived exportHead = sections.length ? `${routeComment}${metaHead}<script lang="pts">\n${pageImports}\n${PROPS_LINE}${dataDecl}<\/script>\n\n<div class="page">` : '';
+	derived logicDecl = logicDeclFor(sections); // LYK-963: state signals + nav helper for the active page
+	derived exportHead = sections.length ? `${routeComment}${metaHead}<script lang="pts">\n${pageImports}\n${PROPS_LINE}${dataDecl}${logicDecl}<\/script>\n\n<div class="page">` : '';
 	// Media-query rules from per-node responsive overrides (LYK-932): each node
 	// with cssMd/cssSm exports a `.pn-<key>` class targeted at ≤768 / ≤480.
 	derived responsiveCss {
@@ -2070,6 +2145,7 @@
 			return l.some((n) => !!n.bind || (n.propBind && Object.keys(n.propBind).length > 0) || (isRepeat(n) && !!n.source) || (n.children ? chk(n.children) : false));
 		})(list);
 		const dd = binds ? dataDeclSource() : '';
+		const ld = logicDeclFor(list); // LYK-963: per-page state + nav helper
 		const rules: string[] = [];
 		const rwalk = (l: Section[]) => {
 			for (const n of l) {
@@ -2082,7 +2158,7 @@
 		};
 		rwalk(list);
 		const rcss = rules.join('\n');
-		const head = `${rc}<script lang="pts">\n${imports}\n${PROPS_LINE}${dd}<\/script>\n\n<div class="page">`;
+		const head = `${rc}<script lang="pts">\n${imports}\n${PROPS_LINE}${dd}${ld}<\/script>\n\n<div class="page">`;
 		const body = list.map(segmentOf).join('\n');
 		const foot = `</div>\n\n<style>\n\t.page { display: flex; flex-direction: column; }${rcss ? '\n' + rcss : ''}\n</style>\n`;
 		return `${head}\n${body}\n${foot}`;
@@ -3721,12 +3797,33 @@
 						<input value={selected.content ?? ''} disabled={!!selected.bind} placeholder={selected.bind ? 'bound to data' : ''} oninput={(e) => setContent(selected.key, (e.target as HTMLInputElement).value)} />
 					</label>
 					<label class="field">
-						<span>Bind to data{bindOptions.length ? (repeatAncestorFields(selected.key) ? ' (item field)' : '') : ' (add data sources first)'}</span>
-						<select value={selected.bind ?? ''} disabled={!bindOptions.length} onchange={(e) => setBind(selected.key, (e.target as HTMLSelectElement).value)}>
+						<span>Bind to data{bindOptions.length ? (repeatAncestorFields(selected.key) ? ' (item field)' : '') : !stateVars.length ? ' (add data sources first)' : ''}</span>
+						<select value={selected.bind ?? ''} disabled={!bindOptions.length && !stateVars.length} onchange={(e) => setBind(selected.key, (e.target as HTMLSelectElement).value)}>
 							<option value="">(static text)</option>
-							{#each bindOptions as p (p)}<option value={p}>{p}</option>{/each}
+							{#each bindOptions as p (p)}<option value={p} selected={selected.bind === p}>{p}</option>{/each}
+							{#each stateVars as v (v)}<option value="state:{v}" selected={selected.bind === `state:${v}`}>{v} (state)</option>{/each}
 						</select>
 					</label>
+					<div class="field">
+						<span>Interactions</span>
+						{#each selected.actions ?? [] as a, i (i)}
+							<div class="action-row">
+								<select class="act-type" onchange={(e) => setAction(selected.key, i, { type: (e.target as HTMLSelectElement).value as Action['type'] })}>
+									<option value="navigate" selected={a.type === 'navigate'}>navigate</option>
+									<option value="setState" selected={a.type === 'setState'}>set state</option>
+									<option value="toggle" selected={a.type === 'toggle'}>toggle</option>
+								</select>
+								{#if a.type === 'navigate'}
+									<input class="act-arg" placeholder="/route or https://…" value={a.to ?? ''} oninput={(e) => setAction(selected.key, i, { to: (e.target as HTMLInputElement).value })} />
+								{:else}
+									<input class="act-arg" placeholder="state var" value={a.target ?? ''} oninput={(e) => setAction(selected.key, i, { target: (e.target as HTMLInputElement).value })} />
+									{#if a.type === 'setState'}<input class="act-arg" placeholder="value" value={a.value ?? ''} oninput={(e) => setAction(selected.key, i, { value: (e.target as HTMLInputElement).value })} />{/if}
+								{/if}
+								<button class="act-del" aria-label="Remove action" onclick={() => removeAction(selected.key, i)}>✕</button>
+							</div>
+						{/each}
+						<button class="mini" onclick={() => addAction(selected.key)}>+ On click</button>
+					</div>
 				{/if}
 
 				<h3>Properties</h3>
@@ -4103,6 +4200,12 @@
 	.mycomp-edit:hover { background: var(--bg-hover); color: var(--fg-strong); }
 	.mycomp-del:hover { background: var(--bad); color: #fff; border-color: var(--bad); }
 	.insp-actions { display: flex; gap: 6px; }
+	/* no-code interactions (LYK-963) */
+	.action-row { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
+	.act-type { flex: 0 0 auto; font-size: 12px; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--fg-body); }
+	.act-arg { flex: 1; min-width: 0; box-sizing: border-box; font-size: 12px; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--fg-body); }
+	.act-del { flex: 0 0 auto; background: none; border: 0; color: var(--fg-subtle); cursor: pointer; padding: 2px 6px; }
+	.act-del:hover { color: var(--danger, #d33); }
 	.export-mods-head { margin-top: 16px; }
 	/* AI generation (LYK-936) */
 	.ai-box { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
