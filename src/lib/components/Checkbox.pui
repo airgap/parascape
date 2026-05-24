@@ -33,8 +33,12 @@
 		indeterminate = false,
 		description = undefined,
 		ariaLabel = undefined,
+		ariaLabelledby = undefined,
+		ariaDescribedby = undefined,
 		ariaControls = undefined,
 		onChange = undefined,
+		onFocus = undefined,
+		onBlur = undefined,
 		tabIndex = undefined,
 		showOutline = undefined,
 		class: extraClass = undefined,
@@ -50,8 +54,12 @@
 		indeterminate?: boolean;
 		description?: string;
 		ariaLabel?: string;
+		ariaLabelledby?: string;
+		ariaDescribedby?: string;
 		ariaControls?: string;
-		onChange?: (e: { checked: boolean; indeterminate: boolean }) => void;
+		onChange?: (e: { detail: { checked: boolean; indeterminate: boolean } }) => void;
+		onFocus?: (e: { detail: null }) => void;
+		onBlur?: (e: { detail: null }) => void;
 		tabIndex?: number;
 		showOutline?: boolean;
 		class?: string;
@@ -71,12 +79,15 @@
 	const labelId = `${id}-label`;
 	const descriptionId = `${id}-description`;
 	derived hasLabel = children !== null && children !== undefined;
+	derived labelledBy =
+		[hasLabel && !ariaLabel ? labelId : null, ariaLabelledby].filter(Boolean).join(' ') || undefined;
+	derived describedBy = [description ? descriptionId : null, ariaDescribedby].filter(Boolean).join(' ') || undefined;
 
 	function handleClick() {
 		if (disabled || readOnly) return;
 		const next = indeterminate ? true : !checked;
 		checked = next;
-		onChange?.({ checked: next, indeterminate: false });
+		onChange?.({ detail: { checked: next, indeterminate: false } });
 	}
 </script>
 
@@ -117,15 +128,18 @@
 				class={cx(A['native-input'], AN['native-input'])}
 				type="checkbox"
 				{checked}
+				{indeterminate}
 				{name}
 				{disabled}
 				aria-required={ariaRequired ? 'true' : undefined}
 				aria-disabled={readOnly && !disabled ? 'true' : undefined}
 				aria-label={ariaLabel}
 				aria-controls={ariaControls}
-				aria-labelledby={hasLabel && !ariaLabel ? labelId : undefined}
-				aria-describedby={description ? descriptionId : undefined}
+				aria-labelledby={labelledBy}
+				aria-describedby={describedBy}
 				tabindex={tabIndex}
+				onfocus={() => onFocus?.({ detail: null })}
+				onblur={() => onBlur?.({ detail: null })}
 			/><span
 				class={cx(A.outline, C.outline, showOutline && A['show-outline'])}
 			></span></span>
