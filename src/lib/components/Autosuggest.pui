@@ -58,6 +58,7 @@
 		finishedText = undefined,
 		recoveryText = undefined,
 		errorIconAriaLabel = undefined,
+		selectedAriaLabel = undefined,
 		enteredTextLabel = undefined,
 		hideEnteredTextOption = false,
 		class: extraClass = undefined,
@@ -91,6 +92,7 @@
 		finishedText?: string;
 		recoveryText?: string;
 		errorIconAriaLabel?: string;
+		selectedAriaLabel?: string;
 		enteredTextLabel?: (value: string) => string;
 		hideEnteredTextOption?: boolean;
 		class?: string;
@@ -257,5 +259,5 @@
 		onKeyDown={(e) => { handleKey(e); onKeyDown?.(e); }}
 		{onKeyUp}
 	/>
-	{#if open && hasContent}<div class={D.root}><div class={D.dropdown} data-open="true"><ul id={listboxId} class={SI['options-list']} role="listbox" aria-describedby={hasStatus ? footerId : undefined} onscroll={onListScroll}>{#if showEntered}<li class={cx(SI['selectable-item'], SI['has-background'])} role="option" onmouseup={pickEntered} onclick={pickEntered}><div class={OPT.option}><div class={OPT.content}><div class={OPT.label}>{enteredText}</div></div></div></li>{/if}{#each rows as row, ri (ri)}<li id={optionId(ri)} class={cx(SI['selectable-item'], highlightedIndex === ri && SI.highlighted)} data-test-index={row.index} role="option" aria-selected={row.option.value === value ? 'true' : 'false'}><div class={OPT.option} data-value={row.option.value} onmouseup={() => pick(row.option)} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div class={OPT.description}>{row.option.description}</div>{/if}</div></div></li>{/each}</ul>{#if statusType === 'loading'}<div class={DS.root} id={footerId}><StatusIndicator type="loading">{loadingText ?? ''}</StatusIndicator></div>{:else if statusType === 'error'}<div class={DS.root} id={footerId}><span><StatusIndicator type="error" iconAriaLabel={errorIconAriaLabel}>{errorText ?? ''}</StatusIndicator>{#if hasRecovery}<button type="button" class={DS.recovery} onclick={retry}>{recoveryText}</button>{/if}</span></div>{:else if statusType === 'finished' && finishedText}<div class={SP['list-bottom']}><div class={DS.root} id={footerId}>{finishedText}</div></div>{/if}{#if hasStatus}<LiveRegion>{statusAnnouncement}</LiveRegion>{/if}</div></div>{/if}
+	{#if open && hasContent}<div class={D.root}><div class={D.dropdown} data-open="true"><ul id={listboxId} class={SI['options-list']} role="listbox" aria-describedby={hasStatus ? footerId : undefined} onscroll={onListScroll}>{#if showEntered}<li class={cx(SI['selectable-item'], SI['has-background'])} role="option" onmouseup={pickEntered} onclick={pickEntered}><div class={OPT.option}><div class={OPT.content}><div class={OPT.label}>{enteredText}</div></div></div></li>{/if}{#each rows as row, ri (ri)}<li id={optionId(ri)} class={cx(SI['selectable-item'], highlightedIndex === ri && SI.highlighted)} data-test-index={row.index} role="option" aria-selected={row.option.value === value ? 'true' : 'false'}><div class={OPT.option} data-value={row.option.value} lang={row.option.lang} onmouseup={() => pick(row.option)} onclick={() => pick(row.option)}><div class={OPT.content}><div class={OPT.label}>{row.option.label ?? row.option.value}</div>{#if row.option.description}<div class={OPT.description}>{row.option.description}</div>{/if}</div></div><span class={SI['screenreader-content']}>{row.option.label ?? row.option.value}{#if row.option.value === value && selectedAriaLabel}&nbsp;{selectedAriaLabel}{/if}</span></li>{/each}</ul>{#if statusType === 'loading'}<div class={DS.root} id={footerId}><StatusIndicator type="loading">{loadingText ?? ''}</StatusIndicator></div>{:else if statusType === 'error'}<div class={DS.root} id={footerId}><span><StatusIndicator type="error" iconAriaLabel={errorIconAriaLabel}>{errorText ?? ''}</StatusIndicator>{#if hasRecovery}<button type="button" class={DS.recovery} onclick={retry}>{recoveryText}</button>{/if}</span></div>{:else if statusType === 'finished' && finishedText}<div class={SP['list-bottom']}><div class={DS.root} id={footerId}>{finishedText}</div></div>{/if}{#if hasStatus}<LiveRegion>{statusAnnouncement}</LiveRegion>{/if}</div></div>{/if}
 </div>
