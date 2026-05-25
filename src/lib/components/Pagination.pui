@@ -31,6 +31,8 @@
 		disabled = false,
 		ariaLabels = undefined,
 		onChange = undefined,
+		onNextPageClick = undefined,
+		onPreviousPageClick = undefined,
 		class: extraClass = undefined,
 		...rest
 	}: {
@@ -44,7 +46,9 @@
 			nextPageLabel?: string;
 			pageLabel?: (n: number) => string;
 		};
-		onChange?: (e: { currentPageIndex: number }) => void;
+		onChange?: (e: { detail: { currentPageIndex: number } }) => void;
+		onNextPageClick?: (e: { detail: { requestedPageAvailable: boolean; requestedPageIndex: number } }) => void;
+		onPreviousPageClick?: (e: { detail: { requestedPageAvailable: boolean; requestedPageIndex: number } }) => void;
 		class?: string;
 		[k: string]: unknown;
 	} = $props();
@@ -95,7 +99,21 @@
 	function go(i: number) {
 		if (disabled) return;
 		currentPageIndex = i;
-		onChange?.({ currentPageIndex: i });
+		onChange?.({ detail: { currentPageIndex: i } });
+	}
+	function nextPage() {
+		const requested = currentPageIndex + 1;
+		onNextPageClick?.({
+			detail: { requestedPageAvailable: openEnd || requested <= pagesCount, requestedPageIndex: requested },
+		});
+		go(requested);
+	}
+	function prevPage() {
+		const requested = currentPageIndex - 1;
+		onPreviousPageClick?.({
+			detail: { requestedPageAvailable: requested >= 1, requestedPageIndex: requested },
+		});
+		go(requested);
 	}
 </script>
 
@@ -113,7 +131,7 @@
 			type="button"
 			aria-label={ariaLabels?.previousPageLabel}
 			disabled={prevDisabled}
-			onclick={() => go(currentPageIndex - 1)}
+			onclick={prevPage}
 		><Icon name="angle-left" variant={disabled ? 'disabled' : 'normal'} /></button></li>
 	{#snippet pageNum(i: number)}
 		<li class={S['page-item']}><button
@@ -144,6 +162,6 @@
 			type="button"
 			aria-label={ariaLabels?.nextPageLabel}
 			disabled={nextDisabled}
-			onclick={() => go(currentPageIndex + 1)}
+			onclick={nextPage}
 		><Icon name="angle-right" variant={disabled ? 'disabled' : 'normal'} /></button></li>
 </ul>
