@@ -20,6 +20,8 @@
     "gen:component-manifest": "bun components/gen-manifests.ts && bun components/gen-component-manifest.ts",
     "check:component-manifest": "bun components/check-component-manifest.ts",
     "build:lib": "bun run gen:component-manifest && vite build --config vite.lib.config.ts && bun components/gen-lib-meta.ts",
+    "pack:lib": "bun run build:lib && npm pack",
+    "release:lib": "bun components/release-lib.ts",
     "demos:smoke": "bun run build && bun tests/visual/demos-smoke.mjs",
     "build": "vite build",
     "preview": "vite preview",

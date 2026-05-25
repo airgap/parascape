@@ -19,3 +19,6 @@ src-tauri/target
 src-tauri/binaries
 src-tauri/gen
 /dist
+
+# packed library tarballs (build artifacts; regenerate via bun run pack:lib)
+*.tgz
