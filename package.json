@@ -1,16 +1,25 @@
 {
-  "name": "parascape",
+  "name": "@parascape-design/components",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "description": "A 1:1 port of the Cloudscape Design System to .pui (Svelte 5), with Para signals in place of React hooks. Includes a component catalog, a side-by-side demo viewer, a component composer, and a site designer.",
   "componentManifest": "./component-manifest.json",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "component-manifest.json"
+  ],
+  "peerDependencies": {
+    "svelte": "^5"
+  },
   "scripts": {
     "dev": "vite",
     "demos": "vite --open=/demos/",
     "gen:manifests": "bun components/gen-manifests.ts",
     "gen:component-manifest": "bun components/gen-manifests.ts && bun components/gen-component-manifest.ts",
     "check:component-manifest": "bun components/check-component-manifest.ts",
+    "build:lib": "bun run gen:component-manifest && vite build --config vite.lib.config.ts && bun components/gen-lib-meta.ts",
     "demos:smoke": "bun run build && bun tests/visual/demos-smoke.mjs",
     "build": "vite build",
     "preview": "vite preview",
@@ -67,5 +76,379 @@
   "dependencies": {
     "msgpackr": "^2.0.1",
     "yjs": "^13.6.30"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    "./component-manifest.json": "./component-manifest.json",
+    "./app-layout": {
+      "types": "./dist/app-layout.d.ts",
+      "svelte": "./dist/app-layout.js",
+      "default": "./dist/app-layout.js"
+    },
+    "./content-layout": {
+      "types": "./dist/content-layout.d.ts",
+      "svelte": "./dist/content-layout.js",
+      "default": "./dist/content-layout.js"
+    },
+    "./container": {
+      "types": "./dist/container.d.ts",
+      "svelte": "./dist/container.js",
+      "default": "./dist/container.js"
+    },
+    "./grid": {
+      "types": "./dist/grid.d.ts",
+      "svelte": "./dist/grid.js",
+      "default": "./dist/grid.js"
+    },
+    "./column-layout": {
+      "types": "./dist/column-layout.d.ts",
+      "svelte": "./dist/column-layout.js",
+      "default": "./dist/column-layout.js"
+    },
+    "./space-between": {
+      "types": "./dist/space-between.d.ts",
+      "svelte": "./dist/space-between.js",
+      "default": "./dist/space-between.js"
+    },
+    "./box": {
+      "types": "./dist/box.d.ts",
+      "svelte": "./dist/box.js",
+      "default": "./dist/box.js"
+    },
+    "./split-panel": {
+      "types": "./dist/split-panel.d.ts",
+      "svelte": "./dist/split-panel.js",
+      "default": "./dist/split-panel.js"
+    },
+    "./divider": {
+      "types": "./dist/divider.d.ts",
+      "svelte": "./dist/divider.js",
+      "default": "./dist/divider.js"
+    },
+    "./side-navigation": {
+      "types": "./dist/side-navigation.d.ts",
+      "svelte": "./dist/side-navigation.js",
+      "default": "./dist/side-navigation.js"
+    },
+    "./top-navigation": {
+      "types": "./dist/top-navigation.d.ts",
+      "svelte": "./dist/top-navigation.js",
+      "default": "./dist/top-navigation.js"
+    },
+    "./breadcrumb-group": {
+      "types": "./dist/breadcrumb-group.d.ts",
+      "svelte": "./dist/breadcrumb-group.js",
+      "default": "./dist/breadcrumb-group.js"
+    },
+    "./tabs": {
+      "types": "./dist/tabs.d.ts",
+      "svelte": "./dist/tabs.js",
+      "default": "./dist/tabs.js"
+    },
+    "./anchor-navigation": {
+      "types": "./dist/anchor-navigation.d.ts",
+      "svelte": "./dist/anchor-navigation.js",
+      "default": "./dist/anchor-navigation.js"
+    },
+    "./pagination": {
+      "types": "./dist/pagination.d.ts",
+      "svelte": "./dist/pagination.js",
+      "default": "./dist/pagination.js"
+    },
+    "./wizard": {
+      "types": "./dist/wizard.d.ts",
+      "svelte": "./dist/wizard.js",
+      "default": "./dist/wizard.js"
+    },
+    "./steps": {
+      "types": "./dist/steps.d.ts",
+      "svelte": "./dist/steps.js",
+      "default": "./dist/steps.js"
+    },
+    "./button": {
+      "types": "./dist/button.d.ts",
+      "svelte": "./dist/button.js",
+      "default": "./dist/button.js"
+    },
+    "./button-dropdown": {
+      "types": "./dist/button-dropdown.d.ts",
+      "svelte": "./dist/button-dropdown.js",
+      "default": "./dist/button-dropdown.js"
+    },
+    "./button-group": {
+      "types": "./dist/button-group.d.ts",
+      "svelte": "./dist/button-group.js",
+      "default": "./dist/button-group.js"
+    },
+    "./link": {
+      "types": "./dist/link.d.ts",
+      "svelte": "./dist/link.js",
+      "default": "./dist/link.js"
+    },
+    "./copy-to-clipboard": {
+      "types": "./dist/copy-to-clipboard.d.ts",
+      "svelte": "./dist/copy-to-clipboard.js",
+      "default": "./dist/copy-to-clipboard.js"
+    },
+    "./form": {
+      "types": "./dist/form.d.ts",
+      "svelte": "./dist/form.js",
+      "default": "./dist/form.js"
+    },
+    "./form-field": {
+      "types": "./dist/form-field.d.ts",
+      "svelte": "./dist/form-field.js",
+      "default": "./dist/form-field.js"
+    },
+    "./input": {
+      "types": "./dist/input.d.ts",
+      "svelte": "./dist/input.js",
+      "default": "./dist/input.js"
+    },
+    "./textarea": {
+      "types": "./dist/textarea.d.ts",
+      "svelte": "./dist/textarea.js",
+      "default": "./dist/textarea.js"
+    },
+    "./select": {
+      "types": "./dist/select.d.ts",
+      "svelte": "./dist/select.js",
+      "default": "./dist/select.js"
+    },
+    "./multiselect": {
+      "types": "./dist/multiselect.d.ts",
+      "svelte": "./dist/multiselect.js",
+      "default": "./dist/multiselect.js"
+    },
+    "./autosuggest": {
+      "types": "./dist/autosuggest.d.ts",
+      "svelte": "./dist/autosuggest.js",
+      "default": "./dist/autosuggest.js"
+    },
+    "./prompt-input": {
+      "types": "./dist/prompt-input.d.ts",
+      "svelte": "./dist/prompt-input.js",
+      "default": "./dist/prompt-input.js"
+    },
+    "./checkbox": {
+      "types": "./dist/checkbox.d.ts",
+      "svelte": "./dist/checkbox.js",
+      "default": "./dist/checkbox.js"
+    },
+    "./radio-group": {
+      "types": "./dist/radio-group.d.ts",
+      "svelte": "./dist/radio-group.js",
+      "default": "./dist/radio-group.js"
+    },
+    "./tiles": {
+      "types": "./dist/tiles.d.ts",
+      "svelte": "./dist/tiles.js",
+      "default": "./dist/tiles.js"
+    },
+    "./toggle": {
+      "types": "./dist/toggle.d.ts",
+      "svelte": "./dist/toggle.js",
+      "default": "./dist/toggle.js"
+    },
+    "./segmented-control": {
+      "types": "./dist/segmented-control.d.ts",
+      "svelte": "./dist/segmented-control.js",
+      "default": "./dist/segmented-control.js"
+    },
+    "./slider": {
+      "types": "./dist/slider.d.ts",
+      "svelte": "./dist/slider.js",
+      "default": "./dist/slider.js"
+    },
+    "./date-input": {
+      "types": "./dist/date-input.d.ts",
+      "svelte": "./dist/date-input.js",
+      "default": "./dist/date-input.js"
+    },
+    "./date-picker": {
+      "types": "./dist/date-picker.d.ts",
+      "svelte": "./dist/date-picker.js",
+      "default": "./dist/date-picker.js"
+    },
+    "./date-range-picker": {
+      "types": "./dist/date-range-picker.d.ts",
+      "svelte": "./dist/date-range-picker.js",
+      "default": "./dist/date-range-picker.js"
+    },
+    "./time-input": {
+      "types": "./dist/time-input.d.ts",
+      "svelte": "./dist/time-input.js",
+      "default": "./dist/time-input.js"
+    },
+    "./calendar": {
+      "types": "./dist/calendar.d.ts",
+      "svelte": "./dist/calendar.js",
+      "default": "./dist/calendar.js"
+    },
+    "./file-upload": {
+      "types": "./dist/file-upload.d.ts",
+      "svelte": "./dist/file-upload.js",
+      "default": "./dist/file-upload.js"
+    },
+    "./tag-editor": {
+      "types": "./dist/tag-editor.d.ts",
+      "svelte": "./dist/tag-editor.js",
+      "default": "./dist/tag-editor.js"
+    },
+    "./attribute-editor": {
+      "types": "./dist/attribute-editor.d.ts",
+      "svelte": "./dist/attribute-editor.js",
+      "default": "./dist/attribute-editor.js"
+    },
+    "./text-filter": {
+      "types": "./dist/text-filter.d.ts",
+      "svelte": "./dist/text-filter.js",
+      "default": "./dist/text-filter.js"
+    },
+    "./property-filter": {
+      "types": "./dist/property-filter.d.ts",
+      "svelte": "./dist/property-filter.js",
+      "default": "./dist/property-filter.js"
+    },
+    "./collection-preferences": {
+      "types": "./dist/collection-preferences.d.ts",
+      "svelte": "./dist/collection-preferences.js",
+      "default": "./dist/collection-preferences.js"
+    },
+    "./table": {
+      "types": "./dist/table.d.ts",
+      "svelte": "./dist/table.js",
+      "default": "./dist/table.js"
+    },
+    "./cards": {
+      "types": "./dist/cards.d.ts",
+      "svelte": "./dist/cards.js",
+      "default": "./dist/cards.js"
+    },
+    "./list": {
+      "types": "./dist/list.d.ts",
+      "svelte": "./dist/list.js",
+      "default": "./dist/list.js"
+    },
+    "./tree-view": {
+      "types": "./dist/tree-view.d.ts",
+      "svelte": "./dist/tree-view.js",
+      "default": "./dist/tree-view.js"
+    },
+    "./key-value-pairs": {
+      "types": "./dist/key-value-pairs.d.ts",
+      "svelte": "./dist/key-value-pairs.js",
+      "default": "./dist/key-value-pairs.js"
+    },
+    "./text-content": {
+      "types": "./dist/text-content.d.ts",
+      "svelte": "./dist/text-content.js",
+      "default": "./dist/text-content.js"
+    },
+    "./code-editor": {
+      "types": "./dist/code-editor.d.ts",
+      "svelte": "./dist/code-editor.js",
+      "default": "./dist/code-editor.js"
+    },
+    "./area-chart": {
+      "types": "./dist/area-chart.d.ts",
+      "svelte": "./dist/area-chart.js",
+      "default": "./dist/area-chart.js"
+    },
+    "./bar-chart": {
+      "types": "./dist/bar-chart.d.ts",
+      "svelte": "./dist/bar-chart.js",
+      "default": "./dist/bar-chart.js"
+    },
+    "./line-chart": {
+      "types": "./dist/line-chart.d.ts",
+      "svelte": "./dist/line-chart.js",
+      "default": "./dist/line-chart.js"
+    },
+    "./mixed-line-bar-chart": {
+      "types": "./dist/mixed-line-bar-chart.d.ts",
+      "svelte": "./dist/mixed-line-bar-chart.js",
+      "default": "./dist/mixed-line-bar-chart.js"
+    },
+    "./pie-chart": {
+      "types": "./dist/pie-chart.d.ts",
+      "svelte": "./dist/pie-chart.js",
+      "default": "./dist/pie-chart.js"
+    },
+    "./alert": {
+      "types": "./dist/alert.d.ts",
+      "svelte": "./dist/alert.js",
+      "default": "./dist/alert.js"
+    },
+    "./flashbar": {
+      "types": "./dist/flashbar.d.ts",
+      "svelte": "./dist/flashbar.js",
+      "default": "./dist/flashbar.js"
+    },
+    "./progress-bar": {
+      "types": "./dist/progress-bar.d.ts",
+      "svelte": "./dist/progress-bar.js",
+      "default": "./dist/progress-bar.js"
+    },
+    "./spinner": {
+      "types": "./dist/spinner.d.ts",
+      "svelte": "./dist/spinner.js",
+      "default": "./dist/spinner.js"
+    },
+    "./status-indicator": {
+      "types": "./dist/status-indicator.d.ts",
+      "svelte": "./dist/status-indicator.js",
+      "default": "./dist/status-indicator.js"
+    },
+    "./badge": {
+      "types": "./dist/badge.d.ts",
+      "svelte": "./dist/badge.js",
+      "default": "./dist/badge.js"
+    },
+    "./token-group": {
+      "types": "./dist/token-group.d.ts",
+      "svelte": "./dist/token-group.js",
+      "default": "./dist/token-group.js"
+    },
+    "./popover": {
+      "types": "./dist/popover.d.ts",
+      "svelte": "./dist/popover.js",
+      "default": "./dist/popover.js"
+    },
+    "./modal": {
+      "types": "./dist/modal.d.ts",
+      "svelte": "./dist/modal.js",
+      "default": "./dist/modal.js"
+    },
+    "./help-panel": {
+      "types": "./dist/help-panel.d.ts",
+      "svelte": "./dist/help-panel.js",
+      "default": "./dist/help-panel.js"
+    },
+    "./icon": {
+      "types": "./dist/icon.d.ts",
+      "svelte": "./dist/icon.js",
+      "default": "./dist/icon.js"
+    },
+    "./header": {
+      "types": "./dist/header.d.ts",
+      "svelte": "./dist/header.js",
+      "default": "./dist/header.js"
+    },
+    "./expandable-section": {
+      "types": "./dist/expandable-section.d.ts",
+      "svelte": "./dist/expandable-section.js",
+      "default": "./dist/expandable-section.js"
+    },
+    "./hotspot": {
+      "types": "./dist/hotspot.d.ts",
+      "svelte": "./dist/hotspot.js",
+      "default": "./dist/hotspot.js"
+    },
+    "./tutorial-panel": {
+      "types": "./dist/tutorial-panel.d.ts",
+      "svelte": "./dist/tutorial-panel.js",
+      "default": "./dist/tutorial-panel.js"
+    }
   }
 }
