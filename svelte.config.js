@@ -1,11 +1,5 @@
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import { parabunPreprocess } from "@lyku/para-preprocess";
-import paraInlineSnippets from "./demos/para-inline-snippets.js";
-import lowerMatchPreprocess from "./demos/lower-match.js";
-import lowerLeadingDotPreprocess from "./demos/lower-leading-dot.js";
-import lowerPipelinePreprocess from "./demos/lower-pipeline.js";
-import lowerFusionPreprocess from "./demos/lower-fusion.js";
-import lowerAsyncBlockPreprocess from "./demos/lower-async-block.js";
 
 // @lyku/para-preprocess returns `dependencies: [filename]` on every
 // script-tag pass. vite-plugin-svelte's preprocess plugin records the
@@ -55,22 +49,14 @@ export default {
   // lowerMatchPreprocess — sugar that exists in para-preprocess as a
   // type-stub but needs runtime lowering for browser / live-compile.
   extensions: [".svelte", ".pui"],
-  preprocess: [
-    // async-block desugar runs FIRST so its body (which may contain
-    // pipelines / chains / leading-dots) flows through every later
-    // pass as ordinary code.
-    lowerAsyncBlockPreprocess(),
-    lowerPipelinePreprocess(),
-    lowerLeadingDotPreprocess(),
-    // Loop fusion runs AFTER the operator desugars so it sees
-    // method chains in their post-pipeline shape (`x.map(f).filter(g)`
-    // instead of `x |> .map(f) |> .filter(g)`).
-    lowerFusionPreprocess(),
-    lowerMatchPreprocess(),
-    paraInlineSnippets(),
-    withoutSelfDependency(parabunPreprocess()),
-    vitePreprocess(),
-  ],
+  // The Para browser-lowering (match, |>, leading-dot, async {}, inline-markup)
+  // now lives in @lyku/para-preprocess (>=0.0.1-pre.15) and runs inside
+  // parabunPreprocess — so the local demos/lower-*.js passes are no longer in the
+  // build chain. (They remain only for demos/live-compile.ts, the in-browser
+  // playground; that could be repointed to para-preprocess's exported
+  // lowerParaScript/lowerParaMarkup too.) Loop fusion is dropped here — it was a
+  // perf optimization, not a correctness lowering; the lib ships unfused.
+  preprocess: [withoutSelfDependency(parabunPreprocess()), vitePreprocess()],
   compilerOptions: {
     runes: true,
   },

@@ -45,7 +45,7 @@
     "@cloudscape-design/components": "3.0.1297",
     "@cloudscape-design/design-tokens": "3.0.87",
     "@cloudscape-design/global-styles": "1.0.59",
-    "@lyku/para-preprocess": "^0.0.1-pre.14",
+    "@lyku/para-preprocess": "file:../para/packages/para-preprocess",
     "@sveltejs/vite-plugin-svelte": "6.1.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/svelte": "^5",
