@@ -112,7 +112,7 @@ function lowerPuiSource(src: string): string {
       // them, run the strip on the rest, then prepend the imports
       // back verbatim so Svelte's compiler keeps them in scope.
       const importLines: string[] = [];
-      const nonImport = fused.replace(/^[ \t]*import\s[^\n]*\n?/gm, m => {
+      const nonImport = fused.replace(/^[ \t]*import\s[^\n]*\n?/gm, (m: string) => {
         importLines.push(m);
         return "";
       });
