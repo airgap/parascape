@@ -25,11 +25,7 @@
     "visual:pie": "bun tests/visual/pie-shoot.mjs",
     "vendor:gen": "bun tests/visual/gen-tokens.mjs",
     "vendor:verify": "bun tests/visual/gen-tokens.mjs --check",
-    "conformance:score": "node tests/conformance/scoreboard.mjs",
-    "tauri": "tauri",
-    "tauri:prep": "bun scripts/tauri-prep.mjs",
-    "tauri:dev": "bun run tauri:prep && tauri dev",
-    "tauri:build": "bun run tauri:prep && tauri build"
+    "conformance:score": "node tests/conformance/scoreboard.mjs"
   },
   "devDependencies": {
     "@cloudscape-design/components": "3.0.1297",
@@ -39,7 +35,6 @@
     "@lyku/lockstep-sqlite": "^0.1.1",
     "@lyku/para-preprocess": "^0.0.1-pre.14",
     "@sveltejs/vite-plugin-svelte": "6.1.0",
-    "@tauri-apps/cli": "^2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/svelte": "^5",
     "@tsconfig/svelte": "^5.0.4",
