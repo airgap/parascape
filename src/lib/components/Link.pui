@@ -33,6 +33,7 @@
 		rel = undefined,
 		ariaLabel = undefined,
 		onFollow = undefined,
+		onClick = undefined,
 		externalIconAriaLabel = undefined,
 		children = undefined,
 		class: extraClass = undefined,
@@ -47,6 +48,7 @@
 		rel?: string;
 		ariaLabel?: string;
 		onFollow?: (e: { detail: { href?: string; external: boolean; target?: string } }) => void;
+		onClick?: (e: unknown) => void;
 		externalIconAriaLabel?: string;
 		children?: import('svelte').Snippet | string;
 		class?: string;
@@ -93,13 +95,23 @@
 
 	derived anchorTarget = target ?? (external ? '_blank' : undefined);
 
-	// checkSafeUrl (link/index.js) — block dangerous protocols at render.
-	if (typeof href === 'string' && /^\s*javascript:/i.test(href)) {
+	// checkSafeUrl (link/index.js) — block dangerous javascript: protocols at
+	// render (void(0)/; no-ops are safe).
+	if (
+		typeof href === 'string' &&
+		/^\s*javascript:/i.test(href) &&
+		!/^\s*javascript:\s*(void\(0\)|;)?\s*$/i.test(href)
+	) {
 		console.warn(`[AwsUi] [Link] A javascript: URL was blocked as a security precaution. The URL was "${href}".`);
 		throw new Error('A javascript: URL was blocked as a security precaution.');
 	}
 
 	function handleFollow(e: MouseEvent) {
+		onClick?.({
+			detail: { button: e.button, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey },
+			preventDefault: () => e.preventDefault(),
+			stopPropagation: () => e.stopPropagation(),
+		});
 		// anchors with a modifier / non-primary button: let the browser handle it.
 		if (href && (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0)) return;
 		e.preventDefault();
