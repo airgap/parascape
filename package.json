@@ -4,10 +4,13 @@
   "private": true,
   "type": "module",
   "description": "A 1:1 port of the Cloudscape Design System to .pui (Svelte 5), with Para signals in place of React hooks. Includes a component catalog, a side-by-side demo viewer, a component composer, and a site designer.",
+  "componentManifest": "./component-manifest.json",
   "scripts": {
     "dev": "vite",
     "demos": "vite --open=/demos/",
     "gen:manifests": "bun components/gen-manifests.ts",
+    "gen:component-manifest": "bun components/gen-manifests.ts && bun components/gen-component-manifest.ts",
+    "check:component-manifest": "bun components/check-component-manifest.ts",
     "demos:smoke": "bun run build && bun tests/visual/demos-smoke.mjs",
     "build": "vite build",
     "preview": "vite preview",

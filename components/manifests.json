@@ -187,7 +187,7 @@
       },
       {
         "name": "onChange",
-        "type": "(e: { value: string }) => void",
+        "type": "(e: { detail: { value: string } }) => void",
         "default": null,
         "optional": true,
         "bindable": false,
@@ -407,6 +407,14 @@
       },
       {
         "name": "disableBrowserAutocorrect",
+        "type": "boolean",
+        "default": "false",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "disableBrowserSpellcheck",
         "type": "boolean",
         "default": "false",
         "optional": true,
@@ -1458,6 +1466,14 @@
         "kind": "value"
       },
       {
+        "name": "invalid",
+        "type": "boolean",
+        "default": "false",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
         "name": "controlId",
         "type": "string",
         "default": null,
@@ -1608,6 +1624,46 @@
         "kind": "value"
       },
       {
+        "name": "empty",
+        "type": "import('svelte').Snippet | string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "slot"
+      },
+      {
+        "name": "loading",
+        "type": "boolean",
+        "default": "false",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "loadingText",
+        "type": "import('svelte').Snippet | string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "slot"
+      },
+      {
+        "name": "columnDisplay",
+        "type": "{ id: string; visible: boolean }[]",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "visibleColumns",
+        "type": "string[]",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
         "name": "class",
         "type": "string",
         "default": null,
@@ -1733,6 +1789,14 @@
       },
       {
         "name": "onChange",
+        "type": "(e: { value: string | undefined }) => void",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "event"
+      },
+      {
+        "name": "onSelect",
         "type": "(e: { value: string | undefined }) => void",
         "default": null,
         "optional": true,
@@ -2186,6 +2250,110 @@
         "kind": "value"
       },
       {
+        "name": "filteringType",
+        "type": "'none' | 'auto' | 'manual'",
+        "default": "'none'",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "filteringPlaceholder",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "filteringAriaLabel",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "statusType",
+        "type": "'finished' | 'pending' | 'loading' | 'error'",
+        "default": "'finished'",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "loadingText",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "errorText",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "finishedText",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "recoveryText",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "errorIconAriaLabel",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "filteringResultsText",
+        "type": "(matchesCount: number, totalCount: number) => string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "noMatch",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "empty",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "onLoadItems",
+        "type": "(e: { detail: { filteringText: string; firstPage: boolean; samePage: boolean } }) => void",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "event"
+      },
+      {
         "name": "controlId",
         "type": "string",
         "default": null,
@@ -2219,6 +2387,22 @@
       },
       {
         "name": "ariaRequired",
+        "type": "boolean",
+        "default": "false",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "inlineLabelText",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "autoFocus",
         "type": "boolean",
         "default": "false",
         "optional": true,
@@ -2388,6 +2572,22 @@
         "optional": true,
         "bindable": false,
         "kind": "slot"
+      },
+      {
+        "name": "loading",
+        "type": "boolean",
+        "default": "false",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "i18nStrings",
+        "type": "{ loadingText?: string }",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
       },
       {
         "name": "onClose",
@@ -3220,6 +3420,70 @@
         "kind": "event"
       },
       {
+        "name": "loadingText",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "errorText",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "finishedText",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "recoveryText",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "errorIconAriaLabel",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "selectedAriaLabel",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "enteredTextLabel",
+        "type": "(value: string) => string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "hideEnteredTextOption",
+        "type": "boolean",
+        "default": "false",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
         "name": "class",
         "type": "string",
         "default": null,
@@ -3417,7 +3681,7 @@
       },
       {
         "name": "onChange",
-        "type": "(pressed: boolean) => void",
+        "type": "(e: { detail: { pressed: boolean } }) => void",
         "default": null,
         "optional": true,
         "bindable": false,
@@ -3644,6 +3908,30 @@
         "kind": "value"
       },
       {
+        "name": "ariaControls",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "ariaExpanded",
+        "type": "boolean",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "ariaHaspopup",
+        "type": "boolean | string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
         "name": "i18nStrings",
         "type": "{ externalIconAriaLabel?: string }",
         "default": null,
@@ -3660,8 +3948,24 @@
         "kind": "value"
       },
       {
+        "name": "form",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
         "name": "onClick",
-        "type": "(e: MouseEvent) => void",
+        "type": "(e: unknown) => void",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "event"
+      },
+      {
+        "name": "onFollow",
+        "type": "(e: unknown) => void",
         "default": null,
         "optional": true,
         "bindable": false,
@@ -3747,7 +4051,7 @@
       },
       {
         "name": "fontWeight",
-        "type": "'light' | 'normal' | 'bold' | 'heavy'",
+        "type": "'normal' | 'light' | 'bold' | 'heavy'",
         "default": null,
         "optional": true,
         "bindable": false,
@@ -3946,9 +4250,25 @@
         "kind": "value"
       },
       {
+        "name": "addButtonVariant",
+        "type": "string",
+        "default": "'normal'",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
         "name": "removeButtonText",
         "type": "string",
         "default": "'Remove'",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "removeButtonAriaLabel",
+        "type": "(item: any) => string",
+        "default": null,
         "optional": true,
         "bindable": false,
         "kind": "value"
@@ -3978,6 +4298,22 @@
         "kind": "value"
       },
       {
+        "name": "additionalInfo",
+        "type": "import('svelte').Snippet | string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "slot"
+      },
+      {
+        "name": "i18nStrings",
+        "type": "{ removeButtonAriaLabel?: (item: any) => string; itemRemovedAriaLive?: string }",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
         "name": "isItemRemovable",
         "type": "(item: any) => boolean",
         "default": "(_item: any) => true",
@@ -3995,7 +4331,7 @@
       },
       {
         "name": "onRemoveButtonClick",
-        "type": "(e: { itemIndex: number }) => void",
+        "type": "(e: { detail: { itemIndex: number } }) => void",
         "default": null,
         "optional": true,
         "bindable": false,
@@ -4111,11 +4447,27 @@
       },
       {
         "name": "onFollow",
-        "type": "(e: Event) => void",
+        "type": "(e: { detail: { href?: string; external: boolean; target?: string } }) => void",
         "default": null,
         "optional": true,
         "bindable": false,
         "kind": "event"
+      },
+      {
+        "name": "onClick",
+        "type": "(e: unknown) => void",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "event"
+      },
+      {
+        "name": "externalIconAriaLabel",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
       },
       {
         "name": "children",
@@ -5118,6 +5470,30 @@
         "kind": "value"
       },
       {
+        "name": "ariaDescribedby",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "ariaRequired",
+        "type": "boolean",
+        "default": "false",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "invalid",
+        "type": "boolean",
+        "default": "false",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
         "name": "controlId",
         "type": "string",
         "default": null,
@@ -6054,6 +6430,22 @@
         "kind": "value"
       },
       {
+        "name": "tokenLimitShowMoreAriaLabel",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "tokenLimitShowFewerAriaLabel",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
         "name": "inlineTokens",
         "type": "boolean",
         "default": "false",
@@ -6076,6 +6468,94 @@
         "optional": true,
         "bindable": false,
         "kind": "value"
+      },
+      {
+        "name": "loadingText",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "errorText",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "finishedText",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "recoveryText",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "errorIconAriaLabel",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "filteringResultsText",
+        "type": "(matchesCount: number, totalCount: number) => string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "noMatch",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "empty",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "inlineLabelText",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "autoFocus",
+        "type": "boolean",
+        "default": "false",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "onLoadItems",
+        "type": "(e: { detail: { filteringText: string; firstPage: boolean; samePage: boolean } }) => void",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "event"
       },
       {
         "name": "i18nStrings",
@@ -7311,7 +7791,23 @@
       },
       {
         "name": "onChange",
-        "type": "(e: { currentPageIndex: number }) => void",
+        "type": "(e: { detail: { currentPageIndex: number } }) => void",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "event"
+      },
+      {
+        "name": "onNextPageClick",
+        "type": "(e: { detail: { requestedPageAvailable: boolean; requestedPageIndex: number } }) => void",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "event"
+      },
+      {
+        "name": "onPreviousPageClick",
+        "type": "(e: { detail: { requestedPageAvailable: boolean; requestedPageIndex: number } }) => void",
         "default": null,
         "optional": true,
         "bindable": false,
@@ -8280,6 +8776,14 @@
         "kind": "value"
       },
       {
+        "name": "disabledReason",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
         "name": "loading",
         "type": "boolean",
         "default": "false",
@@ -8312,8 +8816,24 @@
         "kind": "value"
       },
       {
+        "name": "mainAction",
+        "type": "{ text?: string; ariaLabel?: string; onClick?: (e: unknown) => void; onFollow?: (e: unknown) => void; href?: string; external?: boolean; externalIconAriaLabel?: string; disabled?: boolean; disabledReason?: string; loading?: boolean; loadingText?: string; iconName?: string; iconAlt?: string; }",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "showMainActionOnly",
+        "type": "boolean",
+        "default": "false",
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
         "name": "items",
-        "type": "Array<{ id: string; text: string; disabled?: boolean }>",
+        "type": "BDItem[]",
         "default": "[]",
         "optional": true,
         "bindable": false,
@@ -8329,7 +8849,7 @@
       },
       {
         "name": "onItemClick",
-        "type": "(e: { id: string }) => void",
+        "type": "(e: { detail: { id: string } }) => void",
         "default": null,
         "optional": true,
         "bindable": false,
@@ -8493,7 +9013,39 @@
       },
       {
         "name": "i18nStrings",
-        "type": "{ limitShowFewer?: string; limitShowMore?: string }",
+        "type": "{ limitShowFewer?: string; limitShowMore?: string; limitShowMoreAriaLabel?: string; limitShowFewerAriaLabel?: string; }",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "showMoreAriaLabel",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "showFewerAriaLabel",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "limitShowMoreAriaLabel",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "limitShowFewerAriaLabel",
+        "type": "string",
         "default": null,
         "optional": true,
         "bindable": false,
@@ -8838,6 +9390,22 @@
         "kind": "value"
       },
       {
+        "name": "ariaLabelledby",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
+        "name": "ariaDescribedby",
+        "type": "string",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "value"
+      },
+      {
         "name": "ariaControls",
         "type": "string",
         "default": null,
@@ -8847,7 +9415,23 @@
       },
       {
         "name": "onChange",
-        "type": "(e: { checked: boolean; indeterminate: boolean }) => void",
+        "type": "(e: { detail: { checked: boolean; indeterminate: boolean } }) => void",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "event"
+      },
+      {
+        "name": "onFocus",
+        "type": "(e: { detail: null }) => void",
+        "default": null,
+        "optional": true,
+        "bindable": false,
+        "kind": "event"
+      },
+      {
+        "name": "onBlur",
+        "type": "(e: { detail: null }) => void",
         "default": null,
         "optional": true,
         "bindable": false,
