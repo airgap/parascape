@@ -18,6 +18,7 @@
   RadioButton✅.
 -->
 <script lang="pts">
+	import { flushSync } from 'svelte';
 	import RadioButton from './RadioButton.pui';
 	import styles from '../cloudscape/tiles.styles.js';
 	import '../cloudscape/tiles.scoped.css';
@@ -50,14 +51,15 @@
 		ariaLabel?: string;
 		ariaRequired?: boolean;
 		ariaControls?: string;
-		onChange?: (e: { value: string }) => void;
+		onChange?: (e: { detail: { value: string } }) => void;
 		class?: string;
 		[k: string]: unknown;
 	} = $props();
 
 	const cx = (...a: unknown[]) => a.flat(Infinity).filter(Boolean).join(' ');
 	const S = styles as Record<string, string>;
-	const groupName = name || 'parascape-tiles';
+	let __tilesN = 0;
+	const groupName = name || `awsui-tiles-${(__tilesN += 1)}`;
 	const isVisualRefresh = true; // Cloudscape 3.x
 
 	// tiles/internal.js getColumnCount — verbatim
@@ -115,11 +117,13 @@
 					isVisualRefresh && S.refresh,
 					S[`breakpoint-${bp}`],
 				)}
+				data-value={item.value}
 				onclick={() => {
 					if (item.disabled || readOnly) return;
 					if (value !== item.value) {
 						value = item.value;
-						onChange?.({ value: item.value });
+						flushSync();
+						onChange?.({ detail: { value: item.value } });
 					}
 				}}
 			>
