@@ -32,7 +32,13 @@
 
 <nav class="site-topnav">
 	<a class="brand" href="/">
-		<span class="brand-mark">▢</span>
+		<svg class="brand-logo" viewBox="0 0 24 24" aria-hidden="true">
+			<rect class="lm-bg" x="2" y="2" width="20" height="20" rx="6" />
+			<path class="lm-line" d="M8 15.5 L16 8.5" />
+			<circle class="lm-node" cx="8" cy="15.5" r="2.2" />
+			<circle class="lm-node" cx="16" cy="8.5" r="2.2" />
+			<circle class="lm-node lm-dim" cx="16" cy="15.5" r="1.5" />
+		</svg>
 		Parascape
 	</a>
 	<div class="links">
@@ -80,9 +86,27 @@
 		text-decoration: none;
 		white-space: nowrap;
 	}
-	.brand-mark {
-		color: var(--accent);
-		font-size: 14px;
+	.brand-logo {
+		inline-size: 22px;
+		block-size: 22px;
+		display: block;
+		flex: 0 0 auto;
+	}
+	.brand-logo .lm-bg {
+		fill: var(--accent);
+	}
+	.brand-logo .lm-node {
+		fill: #fff;
+	}
+	.brand-logo .lm-dim {
+		fill: #fff;
+		opacity: 0.5;
+	}
+	.brand-logo .lm-line {
+		fill: none;
+		stroke: #fff;
+		stroke-width: 1.8;
+		stroke-linecap: round;
 	}
 	.links {
 		display: flex;

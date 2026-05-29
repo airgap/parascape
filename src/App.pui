@@ -2,8 +2,10 @@
   Parascape home — a landing page for the design system, composed from the
   ported Parascape components themselves (Header / Box / Button / Columns /
   Container / Badge), so the "Cloudscape, ported to .pui" claim holds end to
-  end. Reactivity is Para signals; the page is .pui. (Previously this was a
-  lone <Table> demo — that lives in the Components catalog now.)
+  end. Reactivity is Para signals; the page is .pui. The hero + CTA bands run
+  on the dark palette (awsui-dark-mode) and are centre-aligned; the Header
+  component lays its title out with flex, so .hero / .cta nudge that flex to
+  centre (plain text-align can't reach a flex item).
 -->
 <script lang="pts">
 	import SiteNav from './lib/SiteNav.pui';
@@ -14,26 +16,44 @@
 	import Columns from './lib/components/Columns.pui';
 	import Container from './lib/components/Container.pui';
 	import Badge from './lib/components/Badge.pui';
+	import { highlightPui } from './lib/highlight';
 
 	const features = [
 		{
-			t: 'The Cloudscape API you know',
-			b: 'Container, Table, Form, Wizard, charts — 70+ Cloudscape components rebuilt on signals, with the prop API you already know.',
+			t: 'The API you already know',
+			b: 'Container, Table, Form, Wizard, charts — 70+ Cloudscape components with the same props, slots and behaviour. Change the import and your existing markup just works.',
 		},
 		{
-			t: 'Signals, not hooks',
-			b: 'Fine-grained reactivity with signal / derived / effect. No virtual DOM, no dependency arrays, no re-render churn.',
+			t: 'Powered by signals',
+			b: 'signal, derived and effect give fine-grained reactivity: the DOM updates exactly where state changed. No virtual DOM, no dependency arrays, no re-render churn.',
 		},
 		{
-			t: 'Drops into your app',
-			b: 'Import a component and go — `@parascape-design/components`. Light/dark theming via the Cloudscape design tokens, no setup.',
+			t: 'Themed and ready',
+			b: "Cloudscape's design tokens drive light and dark out of the box. Import a component and ship — no providers, no global setup, no extra wiring.",
 		},
 	];
+
 	const stats = [
-		{ v: '74', l: 'components ported' },
-		{ v: 'Cloudscape', l: 'API you know' },
+		{ v: '74', l: 'components' },
+		{ v: '8', l: 'categories' },
 		{ v: '0', l: 'React hooks' },
+		{ v: '2', l: 'themes, light + dark' },
 	];
+
+	// Assembled from pieces so the Para reactivity bridge doesn't rewrite the
+	// `signal …` LINE (it lowers signal→$state across the whole script, strings
+	// included) — we want to SHOW the Para syntax, not its lowered form.
+	const sig = 'signal';
+	const sample = [
+		"import Button from '@parascape-design/components/button';",
+		'',
+		`${sig} count = 0;`,
+		'',
+		'<Button variant="primary" onClick={() => count++}>',
+		'  Clicked {count} times',
+		'</Button>',
+	].join('\n');
+	const sampleHtml = highlightPui(sample);
 </script>
 
 <SiteNav active="home" />
@@ -45,12 +65,17 @@
 				<div><Badge color="blue">Cloudscape, ported to .pui</Badge></div>
 				<Header variant="h1">The Cloudscape design system, rebuilt on signals.</Header>
 				<Box variant="p" fontSize="heading-s" color="text-body-secondary">
-					Parascape is a growing port of AWS Cloudscape to Para-UI — the components you already know,
-					rebuilt on fine-grained reactivity instead of React hooks.
+					Parascape ports AWS Cloudscape to .pui — the same components and prop APIs you already
+					know, running on fine-grained Para signals instead of React hooks.
 				</Box>
 				<div class="cta-row">
 					<Button variant="primary" href="/components/">Browse components</Button>
 					<Button variant="link" href="/demos/">See the demos</Button>
+				</div>
+				<div class="stats">
+					{#each stats as s (s.l)}
+						<div class="stat"><span class="stat-v">{s.v}</span><span class="stat-l">{s.l}</span></div>
+					{/each}
 				</div>
 			</SpaceBetween>
 		</div>
@@ -73,14 +98,19 @@
 
 	<section class="band">
 		<div class="inner">
-			<Columns cols={3} gap="24px">
-				{#each stats as s (s.l)}
-					<Box textAlign="center">
-						<Box variant="h1" fontSize="display-l" fontWeight="bold">{s.v}</Box>
-						<Box variant="p" color="text-body-secondary">{s.l}</Box>
-					</Box>
-				{/each}
-			</Columns>
+			<div class="showcase">
+				<div class="showcase-copy">
+					<SpaceBetween size="s">
+						<Header variant="h2">Drops straight into your app</Header>
+						<Box variant="p" color="text-body-secondary">
+							Import any component by its kebab path, bind it to a signal, and you have a reactive
+							UI. The prop API matches Cloudscape one-to-one, so the code you already write keeps
+							working — no adapters, no build ceremony.
+						</Box>
+					</SpaceBetween>
+				</div>
+				<pre class="showcase-code"><code>{@html sampleHtml}</code></pre>
+			</div>
 		</div>
 	</section>
 
@@ -120,17 +150,94 @@
 	}
 	.hero {
 		background: #0f1b2d;
-		padding: 104px 20px;
+		padding: 96px 20px 80px;
 	}
 	.hero .inner {
-		max-width: 820px;
+		max-width: 860px;
+		text-align: center;
+	}
+	/* The Header component lays its title out with flex (justify-content:
+	   space-between from Cloudscape's scoped CSS, same specificity as ours), so
+	   centre it explicitly with !important inside the centred hero / CTA bands. */
+	.hero :global([class*='awsui_main']),
+	.cta :global([class*='awsui_main']) {
+		justify-content: center !important;
+	}
+	.hero :global([class*='awsui_title']),
+	.cta :global([class*='awsui_title']) {
 		text-align: center;
 	}
 	.cta-row {
 		display: flex;
-		gap: 10px;
+		gap: 12px;
 		justify-content: center;
 		flex-wrap: wrap;
+	}
+	.stats {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 14px 40px;
+		margin-block-start: 8px;
+	}
+	.stat {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 2px;
+	}
+	.stat-v {
+		font-size: 26px;
+		font-weight: 700;
+		color: #fff;
+		line-height: 1.1;
+	}
+	.stat-l {
+		font-size: 12px;
+		letter-spacing: 0.4px;
+		text-transform: uppercase;
+		color: #9fb2cc;
+	}
+	.showcase {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 32px;
+		align-items: center;
+	}
+	.showcase-code {
+		margin: 0;
+		padding: 18px 20px;
+		background: var(--bg-sunken);
+		border: 1px solid var(--border-soft);
+		border-radius: 12px;
+		overflow-x: auto;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		font-size: 13px;
+		line-height: 1.6;
+		color: var(--fg-body);
+		box-shadow: var(--shadow-sm);
+	}
+	.showcase-code :global(.tok-tag) {
+		color: var(--code-tag);
+	}
+	.showcase-code :global(.tok-attr) {
+		color: var(--code-attr);
+	}
+	.showcase-code :global(.tok-str) {
+		color: var(--code-str);
+	}
+	.showcase-code :global(.tok-num) {
+		color: var(--code-num);
+	}
+	.showcase-code :global(.tok-bool) {
+		color: var(--code-bool);
+	}
+	.showcase-code :global(.tok-kw) {
+		color: var(--code-kw);
+	}
+	.showcase-code :global(.tok-punc),
+	.showcase-code :global(.tok-op) {
+		color: var(--code-punc);
 	}
 	.cta {
 		background: #006ce0;
@@ -140,5 +247,10 @@
 		background: #0f1b2d;
 		padding: 28px 20px;
 		text-align: center;
+	}
+	@media (max-width: 760px) {
+		.showcase {
+			grid-template-columns: 1fr;
+		}
 	}
 </style>

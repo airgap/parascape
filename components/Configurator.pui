@@ -9,6 +9,7 @@
 	import { loaders } from './cfg-loaders';
 	import { hints } from './cfg-hints';
 	import { deriveControls, buildLiveProps, generateCode, type Control } from './cfg-derive';
+	import { highlightPui } from '../src/lib/highlight';
 	import manifests from './manifests.json';
 	import Examples from './Examples.pui';
 	import Spinner from '@parascape-design/components/spinner';
@@ -59,6 +60,7 @@
 
 	derived liveProps = buildLiveProps(spec.controls, values, samples);
 	derived code = generateCode(compName, spec.controls, values, spec.hasChildren, childText, samples);
+	derived codeHtml = highlightPui(code);
 
 	signal copied = false;
 	const copy = async () => {
@@ -78,8 +80,17 @@
 				{@const spProps = { header: 'Split panel header', ...liveProps }}
 				<div class="cfg-sp-shell">
 					<div class="cfg-sp-main">App content area</div>
-					<div class="cfg-sp-dock"><Comp {...spProps}>{childText}</Comp></div>
+					<div class="cfg-sp-dock">
+						<div class="cfg-sp-slider" aria-hidden="true"><span></span></div>
+						<Comp {...spProps}>{childText}</Comp>
+					</div>
 				</div>
+			{:else if id === 'side-navigation' && loaded}
+				{@const Comp = loaded}
+				<!-- Side navigation is a fixed-width panel; framing it at a real
+				     nav width (not shrink-wrapped + centered) keeps the header and
+				     list dividers aligned, as in a true App Layout nav slot. -->
+				<div class="cfg-nav-frame"><Comp {...liveProps} /></div>
 			{:else if previewNote}
 				<div class="cfg-note">{previewNote}</div>
 			{:else if loadFailed}
@@ -102,7 +113,7 @@
 		</div>
 		<div class="cfg-code">
 			<button class="cfg-copy" onclick={copy}>{copied ? 'Copied' : 'Copy'}</button>
-			<pre><code>{code}</code></pre>
+			<pre><code>{@html codeHtml}</code></pre>
 		</div>
 	</div>
 
@@ -165,6 +176,18 @@
 	.cfg-fallback {
 		width: 100%;
 	}
+	/* Nav panel preview: real nav width, left-aligned, so the header divider
+	   and the inset list dividers line up like a true App Layout nav slot. */
+	.cfg-nav-frame {
+		align-self: stretch;
+		max-width: 300px;
+		margin-inline: auto;
+		text-align: start;
+		border: 1px solid var(--border-soft);
+		border-radius: 8px;
+		padding: 12px 4px;
+		background: var(--bg-page);
+	}
 	.cfg-note {
 		max-width: 42ch;
 		text-align: center;
@@ -191,6 +214,25 @@
 		color: var(--fg-muted);
 		font-size: 13px;
 	}
+	/* Resize grip Cloudscape draws at the docked panel's top edge (the real
+	   slider/drag affordance lives in App Layout; the port's panel is a
+	   skeleton, so we render the handle here to complete the docked look). */
+	.cfg-sp-dock {
+		border-block-start: 1px solid var(--border);
+		background: var(--bg-elev);
+	}
+	.cfg-sp-slider {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		block-size: 18px;
+	}
+	.cfg-sp-slider span {
+		inline-size: 40px;
+		block-size: 4px;
+		border-radius: 999px;
+		background: var(--border-strong);
+	}
 	/* Our SplitPanel port is position:fixed (App Layout owns the docking,
 	   LYK-925); in the playground frame, pin it into the dock band instead. */
 	.cfg-sp-dock :global([class*='awsui_position-bottom']) {
@@ -214,6 +256,30 @@
 		font-size: 12.5px;
 		line-height: 1.5;
 		color: var(--fg-body);
+		tab-size: 2;
+		white-space: pre;
+	}
+	.cfg-code :global(.tok-tag) {
+		color: var(--code-tag);
+	}
+	.cfg-code :global(.tok-attr) {
+		color: var(--code-attr);
+	}
+	.cfg-code :global(.tok-str) {
+		color: var(--code-str);
+	}
+	.cfg-code :global(.tok-num) {
+		color: var(--code-num);
+	}
+	.cfg-code :global(.tok-bool) {
+		color: var(--code-bool);
+	}
+	.cfg-code :global(.tok-kw) {
+		color: var(--code-kw);
+	}
+	.cfg-code :global(.tok-punc),
+	.cfg-code :global(.tok-op) {
+		color: var(--code-punc);
 	}
 	.cfg-copy {
 		position: absolute;
@@ -258,6 +324,8 @@
 	.ctl input[type='text'],
 	.ctl input[type='number'] {
 		width: 100%;
+		box-sizing: border-box;
+		min-width: 0;
 		padding: 6px 8px;
 		font-size: 13px;
 		border: 1px solid var(--border-strong);
