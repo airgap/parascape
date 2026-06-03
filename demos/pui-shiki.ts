@@ -148,9 +148,9 @@ function fusionDecorations(src: string, lang: "pui" | "tsx") {
 // Only the first occurrence of each is marked.
 const CONCEPT_COPY: Record<string, string> = {
   signal:
-    "Reactive state. Reading it — in a derived or the markup — subscribes; assigning re-runs everything that read it.",
+    "Reactive state. Reading it, in a derived or the markup, subscribes; assigning re-runs everything that read it.",
   derived: "A cached computation. It re-runs only when one of the signals it depends on changes, and you read it like a plain value.",
-  bind: "Two-way binding. The input's value and the signal stay in sync — typing updates the signal, assigning the signal updates the input — with no change handler and no setter.",
+  bind: "Two-way binding. The input's value and the signal stay in sync: typing updates the signal, assigning the signal updates the input, with no change handler and no setter.",
 };
 // `signal`/`derived` are keyword tokens (word-boundary terminated). `bind` is
 // the Svelte directive `bind:`, so it's matched only when followed by `:` (not
@@ -373,6 +373,16 @@ function tokenDecorations(src: string, avoid: Array<{ start: number; end: number
   for (const name of vars) mark(name, "tok-var");
   for (const name of funcs) mark(name, "tok-fn");
   for (const name of PRIMITIVE_TYPES) mark(name, "tok-type");
+  // Svelte's shorthand attribute `{name}` scopes its braces as an attribute
+  // name (purple), so `{onsubmit}` reads as all-purple. Neutralise the braces
+  // to punctuation so only the identifier inside carries colour. A no-op for
+  // ordinary `{expr}` interpolation (those braces are already punctuation).
+  for (const m of masked.matchAll(/\{[A-Za-z_$][\w$]*\}/g)) {
+    const s = m.index!;
+    const e = s + m[0].length;
+    if (!clashes(s, s + 1)) decos.push({ start: s, end: s + 1, properties: { class: "tok-punc" } });
+    if (!clashes(e - 1, e)) decos.push({ start: e - 1, end: e, properties: { class: "tok-punc" } });
+  }
   decos.sort((a, b) => a.start - b.start);
   return decos;
 }

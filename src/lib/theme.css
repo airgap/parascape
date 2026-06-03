@@ -92,6 +92,7 @@
 	--shiki-var: #953800; /* demos: variable references (semantic stand-in) */
 	--shiki-fn: #6f42c1; /* demos: function references */
 	--shiki-type: #d73a49; /* demos: primitive type names */
+	--shiki-punc: #24292e; /* demos: shorthand `{name}` braces (neutralised) */
 }
 
 [data-theme='dark'] {
@@ -155,6 +156,7 @@
 	--shiki-var: #ffa657; /* demos: variable references (semantic stand-in) */
 	--shiki-fn: #d2a8ff; /* demos: function references */
 	--shiki-type: #ff7b72; /* demos: primitive type names */
+	--shiki-punc: #e1e4e8; /* demos: shorthand `{name}` braces (neutralised) */
 }
 
 /* ── Dark hero "islands" on a LIGHT page ─────────────────────────────────
@@ -191,4 +193,8 @@ html[data-theme='light'] .awsui-dark-mode [class*='awsui_variant-link'] .pf {
 .tok-type,
 .tok-type span {
 	color: var(--shiki-type) !important;
+}
+.tok-punc,
+.tok-punc span {
+	color: var(--shiki-punc) !important;
 }
