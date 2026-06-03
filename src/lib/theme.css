@@ -89,6 +89,9 @@
 	--code-bool: #b1530a; /* true / false / null */
 	--code-punc: #57606a; /* braces, commas, arrows */
 	--code-kw: #cf222e; /* keywords: import / signal / const … */
+	--shiki-var: #953800; /* demos: variable references (semantic stand-in) */
+	--shiki-fn: #6f42c1; /* demos: function references */
+	--shiki-type: #d73a49; /* demos: primitive type names */
 }
 
 [data-theme='dark'] {
@@ -149,6 +152,9 @@
 	--code-bool: #ffa657;
 	--code-punc: #8b949e;
 	--code-kw: #ff7b72;
+	--shiki-var: #ffa657; /* demos: variable references (semantic stand-in) */
+	--shiki-fn: #d2a8ff; /* demos: function references */
+	--shiki-type: #ff7b72; /* demos: primitive type names */
 }
 
 /* ── Dark hero "islands" on a LIGHT page ─────────────────────────────────
@@ -167,4 +173,22 @@ html[data-theme='light'] .awsui-dark-mode [class*='awsui_variant-primary'] .pf {
 html[data-theme='light'] .awsui-dark-mode [class*='awsui_variant-link'] [class*='awsui_content'],
 html[data-theme='light'] .awsui-dark-mode [class*='awsui_variant-link'] .pf {
 	color: #4d9bff; /* the dark-theme --accent, legible on the dark band */
+}
+
+/* Demos (Shiki): colour variable references tagged by the semantic pass in
+   demos/pui-shiki.ts. TextMate grammars don't scope plain identifier
+   references, so without this they render in the default foreground. !important
+   beats the per-token `color: var(--shiki-light|dark)` rules; both selectors
+   cover the direct-class and wrapped-span decoration shapes Shiki may emit. */
+.tok-var,
+.tok-var span {
+	color: var(--shiki-var) !important;
+}
+.tok-fn,
+.tok-fn span {
+	color: var(--shiki-fn) !important;
+}
+.tok-type,
+.tok-type span {
+	color: var(--shiki-type) !important;
 }

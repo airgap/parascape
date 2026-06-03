@@ -51,10 +51,40 @@
 	// scenario, matching DemoPane's `teach` gating; fusion POIs appear wherever
 	// the Para source has a fusable chain.
 	derived popoutTeach = active.id === "01-form";
+
+	// Collapse the leading `import …` run to a one-line `// … N imports`
+	// placeholder — the same fold the editor panes show by default — so popped-
+	// out demos lead with the component code, not a wall of imports. Mirrors
+	// DemoPane.findImportsBlock (tolerates a `<script>` opener + blank lines).
+	function foldImports(src: string): string {
+		const lines = src.split("\n");
+		let i = 0;
+		while (i < lines.length) {
+			const t = (lines[i] ?? "").trim();
+			if (t === "" || t.startsWith("<script")) { i++; continue; }
+			break;
+		}
+		const startLine = i;
+		let lastImport = -1;
+		while (i < lines.length) {
+			const t = (lines[i] ?? "").trim();
+			if (t.startsWith("import ")) { lastImport = i; i++; continue; }
+			if (lastImport >= 0 && t === "") { i++; continue; }
+			break;
+		}
+		if (lastImport < 0) return src;
+		let count = 0;
+		for (let k = startLine; k <= lastImport; k++) if ((lines[k] ?? "").trim().startsWith("import ")) count++;
+		const indent = (lines[startLine] ?? "").match(/^\s*/)?.[0] ?? "";
+		const placeholder = `${indent}// … ${count} imports`;
+		return [...lines.slice(0, startLine), placeholder, ...lines.slice(lastImport + 1)].join("\n");
+	}
+	derived popoutCsSrc = foldImports(active.csSrc);
+	derived popoutPsSrc = foldImports(active.psSrc);
 	effect {
 		if (!popout || !shikiReadyFlag) return;
-		shikiHighlight(active.csSrc, "tsx").then((h) => (popoutCsHtml = h));
-		shikiHighlight(active.psSrc, "pui", { concepts: popoutTeach }).then((h) => (popoutPsHtml = h));
+		shikiHighlight(popoutCsSrc, "tsx").then((h) => (popoutCsHtml = h));
+		shikiHighlight(popoutPsSrc, "pui", { concepts: popoutTeach }).then((h) => (popoutPsHtml = h));
 	}
 	// Esc closes the pop-out while it's open.
 	effect {
@@ -79,11 +109,13 @@
 	type PopBox = { left: number; top: number; width: number; height: number; concept: boolean };
 	type PopDot = { x: number; y: number; concept: boolean };
 	type PopLine = { x1: number; y1: number; x2: number; y2: number; concept: boolean };
-	type PopGeom = { boxes: PopBox[]; dots: PopDot[]; lines: PopLine[] };
+	// `tops` is the per-card top offset within the rail (index-aligned with
+	// popoutAnnos); `railHeight` reserves space for the absolutely-placed cards.
+	type PopGeom = { boxes: PopBox[]; dots: PopDot[]; lines: PopLine[]; tops: number[]; railHeight: number };
 	signal popoutBodyEl: HTMLElement | null = null;
 	signal popoutPsCodeEl: HTMLElement | null = null;
 	signal popoutAnnos: PopAnno[] = [];
-	signal popoutGeom: PopGeom = { boxes: [], dots: [], lines: [] };
+	signal popoutGeom: PopGeom = { boxes: [], dots: [], lines: [], tops: [], railHeight: 0 };
 
 	// Tight text bounds of an element (leading indentation trimmed). Shiki puts
 	// a full-line decoration's class on the `.line` block (full editor width),
@@ -148,19 +180,20 @@
 	// CONTENT space (scroll offset folded in) so the absolutely-positioned
 	// overlay tracks the code as the body scrolls.
 	const POP_BOX_PAD = 3;
+	const POP_CARD_GAP = 12;
 	function measurePopout() {
 		const body = popoutBodyEl;
 		const ps = popoutPsCodeEl;
 		if (!body || !ps) return;
+		const rail = body.querySelector(".popout-rail") as HTMLElement | null;
 		const bb = body.getBoundingClientRect();
 		const ox = -bb.left + body.scrollLeft;
 		const oy = -bb.top + body.scrollTop;
 		const boxes: PopBox[] = [];
-		const dots: PopDot[] = [];
-		const lines: PopLine[] = [];
-		popoutAnnos.forEach((a, i) => {
+		// First pass: each card's anchor point (in the Para column) and its
+		// measured height — geometry only, layout-independent.
+		const items = popoutAnnos.map((a, i) => {
 			const card = body.querySelector(`.popout-anno[data-i="${i}"]`);
-			if (!card) return;
 			let anchor: { x: number; y: number } | null = null;
 			if (a.isBox) {
 				// Union the chain's `.pipeline-fused` spans into one box.
@@ -171,22 +204,39 @@
 					l = Math.min(l, rc.left); t = Math.min(t, rc.top);
 					r = Math.max(r, rc.right); b = Math.max(b, rc.bottom);
 				}
-				if (l === Infinity) return;
-				boxes.push({ left: l + ox - POP_BOX_PAD, top: t + oy - POP_BOX_PAD, width: r - l + POP_BOX_PAD * 2, height: b - t + POP_BOX_PAD * 2, concept: false });
-				anchor = { x: r + ox + POP_BOX_PAD, y: (t + b) / 2 + oy };
+				if (l !== Infinity) {
+					boxes.push({ left: l + ox - POP_BOX_PAD, top: t + oy - POP_BOX_PAD, width: r - l + POP_BOX_PAD * 2, height: b - t + POP_BOX_PAD * 2, concept: false });
+					anchor = { x: r + ox + POP_BOX_PAD, y: (t + b) / 2 + oy };
+				}
 			} else {
 				const el = ps.querySelector(`.poi-concept[data-poi-label="${a.label}"]`);
-				if (!el) return;
-				const lineEl = el.closest(".line") ?? el;
-				const rc = popTextRect(lineEl);
-				anchor = { x: rc.right + ox + 8, y: (rc.top + rc.bottom) / 2 + oy };
+				if (el) {
+					const lineEl = el.closest(".line") ?? el;
+					const rc = popTextRect(lineEl);
+					anchor = { x: rc.right + ox + 8, y: (rc.top + rc.bottom) / 2 + oy };
+				}
 			}
-			if (!anchor) return;
-			dots.push({ x: anchor.x, y: anchor.y, concept: !a.isBox });
-			const cr = card.getBoundingClientRect();
-			lines.push({ x1: cr.left + ox - 1, y1: (cr.top + cr.bottom) / 2 + oy, x2: anchor.x, y2: anchor.y, concept: !a.isBox });
+			return { i, isBox: a.isBox, anchor, h: card ? card.getBoundingClientRect().height : 0 };
 		});
-		popoutGeom = { boxes, dots, lines };
+		// Second pass: place each card at its anchor's vertical centre, then push
+		// down to clear the previous card — so cards line up with the code rows
+		// they point at and the leader lines stay near-horizontal.
+		const rb = rail ? rail.getBoundingClientRect() : bb;
+		const railTop = rb.top + oy;
+		const railLeft = rb.left + ox;
+		const tops = new Array(popoutAnnos.length).fill(0);
+		const dots: PopDot[] = [];
+		const lines: PopLine[] = [];
+		const ordered = items.filter((it) => it.anchor).sort((p, q) => p.anchor!.y - q.anchor!.y);
+		let cursor = railTop;
+		for (const it of ordered) {
+			const top = Math.max(it.anchor!.y - it.h / 2, cursor);
+			tops[it.i] = top - railTop;
+			cursor = top + it.h + POP_CARD_GAP;
+			dots.push({ x: it.anchor!.x, y: it.anchor!.y, concept: !it.isBox });
+			lines.push({ x1: railLeft, y1: top + it.h / 2, x2: it.anchor!.x, y2: it.anchor!.y, concept: !it.isBox });
+		}
+		popoutGeom = { boxes, dots, lines, tops, railHeight: Math.max(cursor - railTop, 0) };
 	}
 
 	// Rebuild annotation content whenever the Para column re-highlights.
@@ -465,7 +515,6 @@
 		<button type="button" class="popout-scrim" aria-label="Close comparison" onclick={() => (popout = false)}></button>
 		<div
 			class="popout-panel"
-			class:has-rail={popoutAnnos.length > 0}
 			role="dialog"
 			aria-modal="true"
 			aria-label="{active.title} — code comparison"
@@ -500,9 +549,9 @@
 					</figure>
 				</div>
 				{#if popoutAnnos.length}
-					<div class="popout-rail">
+					<div class="popout-rail" style="height: {popoutGeom.railHeight}px">
 						{#each popoutAnnos as a, i (a.label + "|" + a.content)}
-							<div class="popout-anno" data-i={i} class:concept={a.kind === "text"}>
+							<div class="popout-anno" data-i={i} class:concept={a.kind === "text"} style="top: {popoutGeom.tops[i] ?? 0}px">
 								<div class="popout-anno-label">{a.label}</div>
 								{#if a.kind === "code"}
 									<div class="popout-anno-code">{@html a.contentHtml}</div>
@@ -799,7 +848,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 32px;
+		padding: 16px;
 		box-sizing: border-box;
 		background: rgba(0, 0, 0, 0.62);
 		backdrop-filter: blur(2px);
@@ -816,23 +865,19 @@
 		background: transparent;
 		cursor: default;
 	}
+	/* Fill the window (minus the backdrop's 16px gutter). */
 	.popout-panel {
 		position: relative;
 		z-index: 1;
 		display: flex;
 		flex-direction: column;
-		width: min(1240px, 100%);
-		max-height: 100%;
-		transition: width 0.15s ease;
+		width: 100%;
+		height: 100%;
 		background: var(--bg-elev);
 		border: 1px solid var(--border);
 		border-radius: 14px;
 		box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
 		overflow: hidden;
-	}
-	/* Widen to make room for the annotation rail when there are POIs. */
-	.popout-panel.has-rail {
-		width: min(1480px, 100%);
 	}
 	.popout-head {
 		display: flex;
@@ -917,6 +962,8 @@
 	   an optional annotation rail, with the marker/leader overlay on top. */
 	.popout-body {
 		position: relative;
+		flex: 1 1 auto;
+		min-height: 0;
 		display: flex;
 		gap: 18px;
 		padding: 22px;
@@ -989,13 +1036,16 @@
 	   leader line ties it back to its marker over the Para column, so the
 	   explanation never sits on top of code. */
 	.popout-rail {
-		flex: 0 0 300px;
-		display: flex;
-		flex-direction: column;
-		gap: 14px;
+		position: relative;
+		flex: 0 0 320px;
 		min-width: 0;
 	}
+	/* Cards are absolutely placed (top set per-card from popoutGeom) so each
+	   lines up with the code row it annotates; the rail reserves their height. */
 	.popout-anno {
+		position: absolute;
+		left: 0;
+		right: 0;
 		background: var(--bg-elev);
 		border: 1px solid var(--border);
 		border-left: 3px solid var(--accent);

@@ -143,23 +143,32 @@ function fusionDecorations(src: string, lang: "pui" | "tsx") {
   }));
 }
 
-// Teaching POIs for the intro demo: a hotspot on the first `signal`
-// and the first `derived`, each with a one-line explanation. Only the
-// first non-property occurrence of each keyword is marked.
+// Teaching POIs for the intro demo: a hotspot on the first `signal`, the
+// first `derived`, and the first `bind:` — each with a one-line explanation.
+// Only the first occurrence of each is marked.
 const CONCEPT_COPY: Record<string, string> = {
   signal:
     "Reactive state. Reading it — in a derived or the markup — subscribes; assigning re-runs everything that read it.",
-  derived: "A cached computation. It re-runs only when a signal it read changes, and you read it like a plain value.",
+  derived: "A cached computation. It re-runs only when one of the signals it depends on changes, and you read it like a plain value.",
+  bind: "Two-way binding. The input's value and the signal stay in sync — typing updates the signal, assigning the signal updates the input — with no change handler and no setter.",
+};
+// `signal`/`derived` are keyword tokens (word-boundary terminated). `bind` is
+// the Svelte directive `bind:`, so it's matched only when followed by `:` (not
+// a bare identifier named "bind").
+const CONCEPT_PATTERN: Record<string, RegExp> = {
+  signal: /(?:^|[^\w$.])(signal)\b/,
+  derived: /(?:^|[^\w$.])(derived)\b/,
+  bind: /(?:^|[^\w$.])(bind)(?=:)/,
 };
 function firstTokenRange(src: string, kw: string): { start: number; end: number } | null {
-  const m = new RegExp(`(?:^|[^\\w$.])(${kw})\\b`).exec(src);
+  const m = CONCEPT_PATTERN[kw]!.exec(src);
   if (!m) return null;
   const start = m.index + m[0].length - kw.length;
   return { start, end: start + kw.length };
 }
 function conceptDecorations(src: string) {
   const out = [];
-  for (const kw of ["signal", "derived"]) {
+  for (const kw of ["signal", "derived", "bind"]) {
     const r = firstTokenRange(src, kw);
     if (r)
       out.push({
@@ -171,10 +180,212 @@ function conceptDecorations(src: string) {
   return out;
 }
 
+// ── Variable semantic highlight ────────────────────────────────────────────
+// TextMate grammars (both the .pui grammar and Shiki's bundled `tsx`) scope
+// declarations, calls and params but NOT plain identifier *references* — a real
+// editor colours those from the language server's semantic tokens, which the
+// in-browser demos have no room to run. This is a lightweight stand-in: collect
+// the names BOUND in the snippet (signal / derived / prop / const|let|var /
+// destructures / params / `{#each … as}`) and decorate every reference with
+// `tok-var`, so `count` reads as a variable wherever it appears, not only at its
+// declaration. Best-effort + regex-based: it may miss an exotic binding or tint
+// a same-named object key, but it never throws — ranges that would overlap a
+// fusion/concept decoration are dropped (Shiki forbids partial overlaps).
+
+// Same-length copy with string interiors + line/block comments blanked, so an
+// identifier inside a string or comment isn't mistaken for a reference. Quote
+// and newline characters are preserved so offsets and line counts stay exact.
+function maskStringsComments(src: string): string {
+  const a = src.split("");
+  const blank = (from: number, to: number) => {
+    for (let k = from; k < to; k++) if (a[k] !== "\n") a[k] = " ";
+  };
+  let i = 0;
+  while (i < src.length) {
+    const c = src[i];
+    if (c === "/" && src[i + 1] === "/") {
+      let e = src.indexOf("\n", i);
+      if (e === -1) e = src.length;
+      blank(i, e);
+      i = e;
+      continue;
+    }
+    if (c === "/" && src[i + 1] === "*") {
+      let e = src.indexOf("*/", i + 2);
+      e = e === -1 ? src.length : e + 2;
+      blank(i, e);
+      i = e;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      let j = i + 1;
+      while (j < src.length) {
+        if (src[j] === "\\") {
+          j += 2;
+          continue;
+        }
+        if (src[j] === c) {
+          j++;
+          break;
+        }
+        j++;
+      }
+      blank(i + 1, Math.max(i + 1, j - 1)); // keep the quotes, blank the interior
+      i = j;
+      continue;
+    }
+    i++;
+  }
+  return a.join("");
+}
+
+// Split a binding target on top-level commas (depth-aware over () [] {}).
+function splitTopCommas(s: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let last = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === "(" || c === "[" || c === "{") depth++;
+    else if (c === ")" || c === "]" || c === "}") depth--;
+    else if (c === "," && depth === 0) {
+      parts.push(s.slice(last, i));
+      last = i + 1;
+    }
+  }
+  parts.push(s.slice(last));
+  return parts.map((p) => p.trim()).filter(Boolean);
+}
+
+// Identifiers bound by a target: a plain name, an object/array destructure
+// (`{ a, b: c, ...rest }` binds a, c, rest; `[x, y]` binds x, y), each with its
+// type annotation / default stripped.
+function identsFromTarget(t: string, out: Set<string>): void {
+  t = t.trim();
+  if (!t) return;
+  if (t[0] === "{" || t[0] === "[") {
+    const inner = t.slice(1, -1);
+    for (let part of splitTopCommas(inner)) {
+      part = part.replace(/^\.\.\./, "").trim();
+      if (!part) continue;
+      if (part[0] === "{" || part[0] === "[") {
+        identsFromTarget(part, out);
+        continue;
+      }
+      // `key: target` — the bound name is the value side (which may itself
+      // destructure); a lone `key` binds `key`.
+      const colon = part.indexOf(":");
+      if (colon !== -1) {
+        identsFromTarget(part.slice(colon + 1), out);
+        continue;
+      }
+      const nm = part.match(/^[A-Za-z_$][\w$]*/);
+      if (nm) out.add(nm[0]);
+    }
+    return;
+  }
+  const nm = t.match(/^[A-Za-z_$][\w$]*/);
+  if (nm) out.add(nm[0]);
+}
+
+// Collect the names bound in a masked snippet, split into variables and
+// functions. Function bindings are kept separate so their references get the
+// function colour (and call sites keep the grammar's function colour) while
+// variables get the variable colour.
+function collectBindings(masked: string): { vars: Set<string>; funcs: Set<string> } {
+  const vars = new Set<string>();
+  const funcs = new Set<string>();
+
+  // `function NAME` and `const NAME = (…) =>` / `= function` → functions.
+  for (const m of masked.matchAll(/\bfunction\s+([A-Za-z_$][\w$]*)/g)) funcs.add(m[1]!);
+  for (const m of masked.matchAll(
+    /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?(?:function\b|(?:\([^()]*\)|[A-Za-z_$][\w$]*)\s*(?::\s*[^=]+?)?=>)/g,
+  ))
+    funcs.add(m[1]!);
+
+  // Para reactive declarations: signal / derived / prop / source / synced /
+  // using / sync / `async signal`. Each binds one identifier.
+  for (const m of masked.matchAll(
+    /\b(?:async\s+signal|signal|derived|prop|source|synced|using|sync)\s+([A-Za-z_$][\w$]*)/g,
+  ))
+    vars.add(m[1]!);
+
+  // const/let/var — simple names AND object/array destructures.
+  for (const m of masked.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g)) vars.add(m[1]!);
+  for (const m of masked.matchAll(/\b(?:const|let|var)\s+([{[][\s\S]*?[}\]])\s*=/g)) identsFromTarget(m[1]!, vars);
+
+  // Parameters: `function name(…)`, arrow `(…) =>`, and single-ident `x =>`.
+  for (const m of masked.matchAll(/\(([^()]*)\)\s*(?::\s*[^=]+?)?=>/g))
+    for (const p of splitTopCommas(m[1]!)) identsFromTarget(p, vars);
+  for (const m of masked.matchAll(/(?:\bfunction\b[^(]*)\(([^()]*)\)/g))
+    for (const p of splitTopCommas(m[1]!)) identsFromTarget(p, vars);
+  for (const m of masked.matchAll(/(^|[^\w$.])([A-Za-z_$][\w$]*)\s*=>/g)) vars.add(m[2]!);
+
+  // `{#each EXPR as NAME}` / `as NAME, INDEX` (and the keyed form's index).
+  for (const m of masked.matchAll(/\bas\s+([A-Za-z_$][\w$]*)(?:\s*,\s*([A-Za-z_$][\w$]*))?/g)) {
+    vars.add(m[1]!);
+    if (m[2]) vars.add(m[2]);
+  }
+
+  for (const f of funcs) vars.delete(f);
+  vars.delete("");
+  funcs.delete("");
+  return { vars, funcs };
+}
+
+const VAR_KEYWORDS = new Set([
+  "const", "let", "var", "function", "return", "if", "else", "for", "while", "of", "in",
+  "new", "typeof", "instanceof", "void", "delete", "await", "async", "yield", "as",
+  "true", "false", "null", "undefined", "this", "import", "from", "export", "default",
+  "signal", "derived", "effect", "prop", "source", "synced", "using", "sync",
+]);
+
+// Primitive / built-in type names. TextMate scopes these correctly in normal
+// annotation positions, but the `signal X: T` / `derived X: T` para forms make
+// the TS grammar read `X:` as a label and `T` as a plain variable reference, so
+// the type renders uncoloured. Marking the names directly restores the colour.
+const PRIMITIVE_TYPES = new Set([
+  "string", "number", "boolean", "bigint", "symbol", "object", "unknown", "any", "never", "void",
+]);
+
+// One token-decoration pass: variable refs (`tok-var`), function refs
+// (`tok-fn`), and primitive type names (`tok-type`). Scanned over the masked
+// source so strings/comments and dotted members (`.name`) are skipped; ranges
+// that would overlap a reserved (fusion/concept) decoration or an already-added
+// one are dropped (Shiki forbids partial overlaps).
+function tokenDecorations(src: string, avoid: Array<{ start: number; end: number }>) {
+  const masked = maskStringsComments(src);
+  const { vars, funcs } = collectBindings(masked);
+  const decos: Array<{ start: number; end: number; properties: { class: string } }> = [];
+  const clashes = (s: number, e: number) =>
+    avoid.some((r) => s < r.end && e > r.start) || decos.some((d) => s < d.end && e > d.start);
+  const mark = (name: string, cls: string) => {
+    if (VAR_KEYWORDS.has(name)) return;
+    const re = new RegExp(`(?<![\\w$.])${name.replace(/[$]/g, "\\$&")}(?![\\w$])`, "g");
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(masked)) !== null) {
+      const start = m.index;
+      const end = start + name.length;
+      if (clashes(start, end)) continue;
+      decos.push({ start, end, properties: { class: cls } });
+    }
+  };
+  for (const name of vars) mark(name, "tok-var");
+  for (const name of funcs) mark(name, "tok-fn");
+  for (const name of PRIMITIVE_TYPES) mark(name, "tok-type");
+  decos.sort((a, b) => a.start - b.start);
+  return decos;
+}
+
 function decorationsFor(src: string, lang: "pui" | "tsx", opts?: { concepts?: boolean }) {
   const fusion = fusionDecorations(src, lang);
-  if (opts?.concepts && lang === "pui") return [...fusion, ...conceptDecorations(src)];
-  return fusion;
+  const concepts = opts?.concepts && lang === "pui" ? conceptDecorations(src) : [];
+  // Token decorations must not partially overlap the fusion boxes / concept
+  // marks (Shiki throws); drop any that would. Order: structural decorations
+  // first, then the per-token colour decorations.
+  const reserved = [...fusion, ...concepts].map((d) => ({ start: d.start, end: d.end }));
+  const tokens = tokenDecorations(src, reserved);
+  return [...fusion, ...concepts, ...tokens];
 }
 
 /**
