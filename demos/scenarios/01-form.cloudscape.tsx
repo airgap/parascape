@@ -23,16 +23,17 @@ export default function LoginCloudscape() {
 				actions={
 					<SpaceBetween direction="horizontal" size="xs">
 						<Button variant="link">Cancel</Button>
-						<Button variant="primary" disabled={!valid}>
-							Sign in
-						</Button>
+						<Button variant="primary" disabled={!valid}>Sign in</Button>
 					</SpaceBetween>
 				}
 			>
 				<Container>
 					<SpaceBetween size="l">
 						<FormField label="Email" description="Use the address on your account.">
-							<Input value={email} type="email" onChange={({ detail }) => setEmail(detail.value)} />
+							<Input
+								value={email} type="email"
+								onChange={({ detail }) => setEmail(detail.value)}
+							/>
 						</FormField>
 						<FormField label="Password" constraintText="Minimum 8 characters.">
 							<Input
