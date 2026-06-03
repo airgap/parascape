@@ -29,12 +29,190 @@
 	import SiteNav from "../src/lib/SiteNav.pui";
 	import { scenarios } from "./scenarios";
 	import DemoPane from "./DemoPane.pui";
+	import { highlight as shikiHighlight, highlightSync, ready as shikiReady } from "./pui-shiki";
 
 	signal activeId = scenarios[0].id;
 	derived active = scenarios.find((s) => s.id === activeId) ?? scenarios[0];
 	// Shared import-fold state — both panes bind to this one signal, so
 	// expanding/collapsing the imports on either side drives the other.
 	signal importsCollapsed = true;
+
+	// Pop-out code comparison — a chrome-free, side-by-side view of the two
+	// sources for screenshots: no editors, no render panes, no sidebar, just
+	// the highlighted code and the headline stats. Shows the ORIGINAL scenario
+	// sources (not any live edits in the panes) so the snapshot is deterministic,
+	// highlighted with the same Shiki setup the editor panes use.
+	signal popout = false;
+	signal popoutCsHtml = "";
+	signal popoutPsHtml = "";
+	signal shikiReadyFlag = false;
+	shikiReady.then(() => (shikiReadyFlag = true));
+	// Concept (signal / derived) teaching POIs are only marked on the intro
+	// scenario, matching DemoPane's `teach` gating; fusion POIs appear wherever
+	// the Para source has a fusable chain.
+	derived popoutTeach = active.id === "01-form";
+	effect {
+		if (!popout || !shikiReadyFlag) return;
+		shikiHighlight(active.csSrc, "tsx").then((h) => (popoutCsHtml = h));
+		shikiHighlight(active.psSrc, "pui", { concepts: popoutTeach }).then((h) => (popoutPsHtml = h));
+	}
+	// Esc closes the pop-out while it's open.
+	effect {
+		if (!popout) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === "Escape") popout = false;
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}
+
+	// ── Always-on POI annotations (pop-out only) ───────────────────────────
+	// In the editor panes the fusion / concept tooltips are hover-gated. For
+	// the screenshot pop-out we surface ALL of them at once: each becomes a
+	// callout card in a right-hand rail (so it never covers the code), the POI
+	// it explains is marked over the Para column (a fusion box or a dot), and a
+	// leader line joins the card to its marker. The cards' content comes from
+	// the same Shiki decorations DemoPane reads — `.pipeline-fused[data-fused]`
+	// (the single-loop fused form) and `.poi-concept[data-poi-*]` (the concept
+	// copy) — so the pop-out stays in lockstep with the live tooltips.
+	type PopAnno = { kind: "code" | "text"; label: string; content: string; contentHtml: string; isBox: boolean };
+	type PopBox = { left: number; top: number; width: number; height: number; concept: boolean };
+	type PopDot = { x: number; y: number; concept: boolean };
+	type PopLine = { x1: number; y1: number; x2: number; y2: number; concept: boolean };
+	type PopGeom = { boxes: PopBox[]; dots: PopDot[]; lines: PopLine[] };
+	signal popoutBodyEl: HTMLElement | null = null;
+	signal popoutPsCodeEl: HTMLElement | null = null;
+	signal popoutAnnos: PopAnno[] = [];
+	signal popoutGeom: PopGeom = { boxes: [], dots: [], lines: [] };
+
+	// Tight text bounds of an element (leading indentation trimmed). Shiki puts
+	// a full-line decoration's class on the `.line` block (full editor width),
+	// so a raw getBoundingClientRect would balloon edge-to-edge; a Range from
+	// the first non-whitespace glyph gives gutter-free bounds. Ported from
+	// DemoPane.textRect.
+	function popTextRect(el: Element): DOMRect {
+		const range = document.createRange();
+		range.selectNodeContents(el);
+		const txt = el.textContent ?? "";
+		const lead = txt.length - txt.trimStart().length;
+		if (lead > 0) {
+			const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+			let acc = 0;
+			let node = walker.nextNode();
+			while (node) {
+				const len = node.textContent?.length ?? 0;
+				if (acc + len > lead) {
+					range.setStart(node, lead - acc);
+					break;
+				}
+				acc += len;
+				node = walker.nextNode();
+			}
+		}
+		const r = range.getBoundingClientRect();
+		return r.width === 0 && r.height === 0 ? el.getBoundingClientRect() : r;
+	}
+
+	// Build the annotation list from the rendered Para column — content only,
+	// no geometry (so it's layout-independent and can run before the rail
+	// exists). Fusion chains group by their `data-fused` value (one card per
+	// distinct fused form); concept POIs are one card each.
+	function buildPopoutAnnos() {
+		const ps = popoutPsCodeEl;
+		if (!ps) {
+			popoutAnnos = [];
+			return;
+		}
+		const annos: PopAnno[] = [];
+		const seen = new Set<string>();
+		for (const el of ps.querySelectorAll(".pipeline-fused")) {
+			const fused = el.getAttribute("data-fused") ?? "";
+			if (!fused || seen.has(fused)) continue;
+			seen.add(fused);
+			annos.push({ kind: "code", label: "fuses to", content: fused, contentHtml: highlightSync(fused, "tsx"), isBox: true });
+		}
+		for (const el of ps.querySelectorAll(".poi-concept")) {
+			annos.push({
+				kind: "text",
+				label: (el as HTMLElement).getAttribute("data-poi-label") ?? "",
+				content: (el as HTMLElement).getAttribute("data-poi-text") ?? "",
+				contentHtml: "",
+				isBox: false,
+			});
+		}
+		popoutAnnos = annos;
+	}
+
+	// Measure marker positions + leader lines once the rail (and therefore the
+	// final code layout) has painted. All coordinates are in the pop-out body's
+	// CONTENT space (scroll offset folded in) so the absolutely-positioned
+	// overlay tracks the code as the body scrolls.
+	const POP_BOX_PAD = 3;
+	function measurePopout() {
+		const body = popoutBodyEl;
+		const ps = popoutPsCodeEl;
+		if (!body || !ps) return;
+		const bb = body.getBoundingClientRect();
+		const ox = -bb.left + body.scrollLeft;
+		const oy = -bb.top + body.scrollTop;
+		const boxes: PopBox[] = [];
+		const dots: PopDot[] = [];
+		const lines: PopLine[] = [];
+		popoutAnnos.forEach((a, i) => {
+			const card = body.querySelector(`.popout-anno[data-i="${i}"]`);
+			if (!card) return;
+			let anchor: { x: number; y: number } | null = null;
+			if (a.isBox) {
+				// Union the chain's `.pipeline-fused` spans into one box.
+				let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+				for (const el of ps.querySelectorAll(".pipeline-fused")) {
+					if ((el.getAttribute("data-fused") ?? "") !== a.content) continue;
+					const rc = popTextRect(el);
+					l = Math.min(l, rc.left); t = Math.min(t, rc.top);
+					r = Math.max(r, rc.right); b = Math.max(b, rc.bottom);
+				}
+				if (l === Infinity) return;
+				boxes.push({ left: l + ox - POP_BOX_PAD, top: t + oy - POP_BOX_PAD, width: r - l + POP_BOX_PAD * 2, height: b - t + POP_BOX_PAD * 2, concept: false });
+				anchor = { x: r + ox + POP_BOX_PAD, y: (t + b) / 2 + oy };
+			} else {
+				const el = ps.querySelector(`.poi-concept[data-poi-label="${a.label}"]`);
+				if (!el) return;
+				const lineEl = el.closest(".line") ?? el;
+				const rc = popTextRect(lineEl);
+				anchor = { x: rc.right + ox + 8, y: (rc.top + rc.bottom) / 2 + oy };
+			}
+			if (!anchor) return;
+			dots.push({ x: anchor.x, y: anchor.y, concept: !a.isBox });
+			const cr = card.getBoundingClientRect();
+			lines.push({ x1: cr.left + ox - 1, y1: (cr.top + cr.bottom) / 2 + oy, x2: anchor.x, y2: anchor.y, concept: !a.isBox });
+		});
+		popoutGeom = { boxes, dots, lines };
+	}
+
+	// Rebuild annotation content whenever the Para column re-highlights.
+	effect {
+		popoutPsHtml;
+		if (!popout || !popoutPsCodeEl) return;
+		const id = requestAnimationFrame(buildPopoutAnnos);
+		return () => cancelAnimationFrame(id);
+	}
+	// Re-measure geometry when the annotations change, and keep it aligned as
+	// the body scrolls or resizes.
+	effect {
+		popoutAnnos;
+		const body = popoutBodyEl;
+		if (!popout || !body) return;
+		const id = requestAnimationFrame(measurePopout);
+		const onScroll = () => measurePopout();
+		body.addEventListener("scroll", onScroll, { passive: true });
+		const ro = new ResizeObserver(() => measurePopout());
+		ro.observe(body);
+		return () => {
+			cancelAnimationFrame(id);
+			body.removeEventListener("scroll", onScroll);
+			ro.disconnect();
+		};
+	}
 
 	// Theme (light / dark / auto) is owned site-wide by SiteNav's shared
 	// controller (src/lib/theme.ts): one localStorage key, one toggle in the
@@ -223,8 +401,16 @@
 
 	<main>
 		<header class="page-head">
-			<h2>{active.title}</h2>
-			<p>{active.subtitle}</p>
+			<div class="page-head-top">
+				<div class="page-head-title">
+					<h2>{active.title}</h2>
+					<p>{active.subtitle}</p>
+				</div>
+				<button type="button" class="popout-btn" onclick={() => (popout = true)}>
+					<span class="popout-btn-icon" aria-hidden="true">⤢</span>
+					Pop out code
+				</button>
+			</div>
 			<table class="stats">
 				<thead>
 					<tr><th></th><th>Cloudscape</th><th>Parascape</th><th>Δ</th></tr>
@@ -267,6 +453,84 @@
 		</section>
 	</main>
 </div>
+
+<!--
+  Screenshot pop-out — a modal scrim over a single card holding the two
+  highlighted sources side by side, with the headline stats in the header so
+  the captured image carries the comparison numbers. Click the backdrop or
+  press Esc to close.
+-->
+{#if popout}
+	<div class="popout-backdrop">
+		<button type="button" class="popout-scrim" aria-label="Close comparison" onclick={() => (popout = false)}></button>
+		<div
+			class="popout-panel"
+			class:has-rail={popoutAnnos.length > 0}
+			role="dialog"
+			aria-modal="true"
+			aria-label="{active.title} — code comparison"
+			tabindex="-1"
+		>
+			<header class="popout-head">
+				<div class="popout-title">
+					<span class="popout-num">{active.id.split("-")[0]}</span>
+					<div>
+						<h2>{active.title}</h2>
+						<p>{active.subtitle}</p>
+					</div>
+				</div>
+				<div class="popout-meta">
+					<div class="popout-stats">
+						<span>Chars <b>{stat.chars.cs.toLocaleString()}</b> → <b>{stat.chars.ps.toLocaleString()}</b>
+							{#if stat.chars.cs > 0}<em>({Math.abs(stat.bytesPct)}% less)</em>{/if}</span>
+						<span>Sync points <b>{stat.sync.cs}</b> → <b>{stat.sync.ps}</b></span>
+					</div>
+					<button type="button" class="popout-close" onclick={() => (popout = false)} aria-label="Close comparison (Esc)">✕</button>
+				</div>
+			</header>
+			<div class="popout-body" bind:this={popoutBodyEl}>
+				<div class="popout-grid">
+					<figure class="popout-col">
+						<figcaption><b>Cloudscape (React)</b><span>.tsx</span></figcaption>
+						<div class="popout-code">{@html popoutCsHtml}</div>
+					</figure>
+					<figure class="popout-col">
+						<figcaption><b>Parascape</b><span>.pui</span></figcaption>
+						<div class="popout-code" bind:this={popoutPsCodeEl}>{@html popoutPsHtml}</div>
+					</figure>
+				</div>
+				{#if popoutAnnos.length}
+					<div class="popout-rail">
+						{#each popoutAnnos as a, i (a.label + "|" + a.content)}
+							<div class="popout-anno" data-i={i} class:concept={a.kind === "text"}>
+								<div class="popout-anno-label">{a.label}</div>
+								{#if a.kind === "code"}
+									<div class="popout-anno-code">{@html a.contentHtml}</div>
+								{:else}
+									<div class="popout-anno-text">{a.content}</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
+				<!-- Marker + leader-line overlay, in the body's content space. -->
+				<div class="popout-overlay" aria-hidden="true">
+					<svg class="popout-leaders" preserveAspectRatio="none">
+						{#each popoutGeom.lines as ln}
+							<line class="leader" class:concept={ln.concept} x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} />
+						{/each}
+					</svg>
+					{#each popoutGeom.boxes as b}
+						<div class="popout-fbox" style="left: {b.left}px; top: {b.top}px; width: {b.width}px; height: {b.height}px"></div>
+					{/each}
+					{#each popoutGeom.dots as d}
+						<div class="popout-dot" class:concept={d.concept} style="left: {d.x}px; top: {d.y}px"></div>
+					{/each}
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <style>
 	/* Theme tokens now come from the shared palette (src/lib/theme.css via
@@ -462,6 +726,43 @@
 		margin: 0 0 12px;
 		color: var(--fg-muted);
 	}
+	.page-head-top {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 16px;
+	}
+	.page-head-title {
+		min-width: 0;
+	}
+	/* "Pop out code" trigger — opens the screenshot comparison overlay. */
+	.popout-btn {
+		flex: 0 0 auto;
+		display: inline-flex;
+		align-items: center;
+		gap: 7px;
+		padding: 7px 14px;
+		font: 600 13px/1 'Open Sans', system-ui, sans-serif;
+		color: var(--fg-strong);
+		background: var(--bg-elev);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-pill, 999px);
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.popout-btn:hover {
+		background: var(--bg-button-hover);
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+	.popout-btn:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+	.popout-btn-icon {
+		font-size: 15px;
+		line-height: 1;
+	}
 	.grid {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
@@ -485,4 +786,323 @@
 	   chrome when the viewer split into its own .pui module. The
 	   Shiki <pre> overrides live alongside them. Demos.pui only owns
 	   the outer layout (sidebar + main + grid) and the theme tokens. */
+
+	/* ── Screenshot pop-out ────────────────────────────────────────────
+	   A modal scrim + a single card with the two sources side by side.
+	   Deliberately chrome-light so a screenshot of the panel reads as a
+	   clean comparison: header (title + stats), then two highlighted code
+	   columns. */
+	.popout-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 100;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 32px;
+		box-sizing: border-box;
+		background: rgba(0, 0, 0, 0.62);
+		backdrop-filter: blur(2px);
+	}
+	/* Full-bleed close affordance behind the panel — clicking the dimmed area
+	   dismisses the pop-out, and it's a real <button> so it's keyboard- and
+	   screen-reader-reachable (Esc closes too). */
+	.popout-scrim {
+		position: absolute;
+		inset: 0;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		cursor: default;
+	}
+	.popout-panel {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		flex-direction: column;
+		width: min(1240px, 100%);
+		max-height: 100%;
+		transition: width 0.15s ease;
+		background: var(--bg-elev);
+		border: 1px solid var(--border);
+		border-radius: 14px;
+		box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+		overflow: hidden;
+	}
+	/* Widen to make room for the annotation rail when there are POIs. */
+	.popout-panel.has-rail {
+		width: min(1480px, 100%);
+	}
+	.popout-head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 20px;
+		padding: 18px 22px;
+		border-bottom: 1px solid var(--border);
+		flex: 0 0 auto;
+	}
+	.popout-title {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		min-width: 0;
+	}
+	.popout-num {
+		display: grid;
+		place-items: center;
+		flex: 0 0 auto;
+		width: 32px;
+		height: 32px;
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--fg-body);
+		background: var(--bg-num-pill);
+		border-radius: 7px;
+	}
+	.popout-title h2 {
+		margin: 0;
+		font-size: 18px;
+		color: var(--fg-strong);
+	}
+	.popout-title p {
+		margin: 2px 0 0;
+		font-size: 13px;
+		color: var(--fg-muted);
+	}
+	.popout-meta {
+		display: flex;
+		align-items: flex-start;
+		gap: 16px;
+		flex: 0 0 auto;
+	}
+	.popout-stats {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+		text-align: right;
+		font-size: 12px;
+		color: var(--fg-muted);
+		font-variant-numeric: tabular-nums;
+	}
+	.popout-stats b {
+		color: var(--fg-strong);
+		font-weight: 600;
+	}
+	.popout-stats em {
+		color: var(--good);
+		font-style: normal;
+		font-weight: 600;
+	}
+	.popout-close {
+		flex: 0 0 auto;
+		width: 30px;
+		height: 30px;
+		display: grid;
+		place-items: center;
+		font-size: 15px;
+		line-height: 1;
+		color: var(--fg-muted);
+		background: transparent;
+		border: 1px solid var(--border);
+		border-radius: 7px;
+		cursor: pointer;
+	}
+	.popout-close:hover {
+		color: var(--fg-strong);
+		background: var(--bg-button-hover);
+	}
+	/* Body is the scroll + positioning context: the two-column code grid plus
+	   an optional annotation rail, with the marker/leader overlay on top. */
+	.popout-body {
+		position: relative;
+		display: flex;
+		gap: 18px;
+		padding: 22px;
+		overflow: auto;
+	}
+	.popout-grid {
+		flex: 1 1 auto;
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 18px;
+		min-width: 0;
+		align-content: start;
+	}
+	.popout-col {
+		display: flex;
+		flex-direction: column;
+		margin: 0;
+		min-width: 0;
+		background: var(--bg-code);
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		overflow: hidden;
+	}
+	.popout-col figcaption {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 8px 14px;
+		background: var(--bg-pane-head);
+		border-bottom: 1px solid var(--border);
+		font-size: 12px;
+		color: var(--fg-muted);
+	}
+	.popout-col figcaption b {
+		color: var(--fg-strong);
+		font-size: 13px;
+	}
+	.popout-col figcaption span {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		color: var(--fg-muted);
+	}
+	.popout-code {
+		margin: 0;
+		padding: 16px 18px;
+		overflow: visible;
+		font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		tab-size: 2;
+	}
+	/* Dual-theme Shiki, same scheme as the editor panes: tokens carry
+	   --shiki-light / --shiki-dark vars (defaultColor:false) and the active
+	   one is picked off [data-theme]. Reset the <pre> chrome so only the
+	   .popout-code surface shows. */
+	:global(.popout-code pre.shiki) {
+		margin: 0;
+		padding: 0;
+		background: transparent !important;
+		font: inherit;
+		white-space: pre;
+	}
+	:global(.popout-code pre.shiki),
+	:global(.popout-code pre.shiki span) {
+		color: var(--shiki-light, inherit);
+	}
+	:global([data-theme="dark"] .popout-code pre.shiki),
+	:global([data-theme="dark"] .popout-code pre.shiki span) {
+		color: var(--shiki-dark, inherit);
+	}
+	/* ── Annotation rail + always-on POI callouts ──────────────────────
+	   Each hover tooltip from the editor becomes a permanent card here; a
+	   leader line ties it back to its marker over the Para column, so the
+	   explanation never sits on top of code. */
+	.popout-rail {
+		flex: 0 0 300px;
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+		min-width: 0;
+	}
+	.popout-anno {
+		background: var(--bg-elev);
+		border: 1px solid var(--border);
+		border-left: 3px solid var(--accent);
+		border-radius: 8px;
+		padding: 10px 12px;
+		box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.12));
+	}
+	.popout-anno.concept {
+		border-left-color: var(--info, #4a78b0);
+	}
+	.popout-anno-label {
+		font: 600 10px/1 'Open Sans', system-ui, sans-serif;
+		text-transform: uppercase;
+		letter-spacing: 0.8px;
+		color: var(--accent);
+		margin-bottom: 7px;
+	}
+	.popout-anno.concept .popout-anno-label {
+		color: var(--info, #4a78b0);
+	}
+	.popout-anno-text {
+		font-size: 12px;
+		line-height: 1.5;
+		color: var(--fg-body);
+	}
+	.popout-anno-code {
+		font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		tab-size: 2;
+		overflow-x: auto;
+	}
+	/* Fused-form snippet shares the editor's dual-theme Shiki scheme. */
+	:global(.popout-anno-code pre.shiki) {
+		margin: 0;
+		padding: 0;
+		background: transparent !important;
+		font: inherit;
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+	:global(.popout-anno-code pre.shiki),
+	:global(.popout-anno-code pre.shiki span) {
+		color: var(--shiki-light, inherit);
+	}
+	:global([data-theme="dark"] .popout-anno-code pre.shiki),
+	:global([data-theme="dark"] .popout-anno-code pre.shiki span) {
+		color: var(--shiki-dark, inherit);
+	}
+	/* Overlay: leader lines (SVG) + fusion boxes + anchor dots, all drawn in
+	   the body's content space so they track the code on scroll. Inert. */
+	.popout-overlay {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		overflow: visible;
+	}
+	.popout-leaders {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+	}
+	.popout-leaders .leader {
+		stroke: var(--accent);
+		stroke-width: 1.5;
+		stroke-dasharray: 3 3;
+		opacity: 0.85;
+	}
+	.popout-leaders .leader.concept {
+		stroke: var(--info, #4a78b0);
+	}
+	.popout-fbox {
+		position: absolute;
+		box-sizing: border-box;
+		border: 1.5px solid color-mix(in oklab, var(--accent) 70%, transparent);
+		background: color-mix(in oklab, var(--accent) 8%, transparent);
+		border-radius: 5px;
+	}
+	.popout-dot {
+		position: absolute;
+		width: 9px;
+		height: 9px;
+		border-radius: 50%;
+		background: var(--accent);
+		border: 1.5px solid var(--bg-elev);
+		transform: translate(-50%, -50%);
+	}
+	.popout-dot.concept {
+		background: var(--info, #4a78b0);
+	}
+	/* Narrow viewports: drop the rail and markers, stack the two columns. The
+	   rail is only meaningful when there's room to place callouts beside the
+	   code, so below this width we fall back to the plain comparison. */
+	@media (max-width: 900px) {
+		.popout-grid {
+			grid-template-columns: 1fr;
+		}
+		.popout-rail,
+		.popout-overlay {
+			display: none;
+		}
+		.popout-head {
+			flex-direction: column;
+			gap: 12px;
+		}
+		.popout-stats {
+			text-align: left;
+		}
+	}
 </style>

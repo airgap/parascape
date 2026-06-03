@@ -1,7 +1,7 @@
 <!--
   Parascape home — a landing page for the design system, composed from the
   ported Parascape components themselves (Header / Box / Button / Columns /
-  Container / Badge), so the "Cloudscape, ported to .pui" claim holds end to
+  Container / Badge), so the "unofficial Cloudscape port" claim holds end to
   end. Reactivity is Para signals; the page is .pui. The hero + CTA bands run
   on the dark palette (awsui-dark-mode) and are centre-aligned; the Header
   component lays its title out with flex, so .hero / .cta nudge that flex to
@@ -62,11 +62,12 @@
 	<section class="band hero">
 		<div class="inner awsui-dark-mode">
 			<SpaceBetween size="l">
-				<div><Badge color="blue">Cloudscape, ported to .pui</Badge></div>
+				<div><Badge color="blue">Unofficial Cloudscape port</Badge></div>
 				<Header variant="h1">The Cloudscape design system, rebuilt on signals.</Header>
 				<Box variant="p" fontSize="heading-s" color="text-body-secondary">
-					Parascape ports AWS Cloudscape to .pui — the same components and prop APIs you already
-					know, running on fine-grained Para signals instead of React hooks.
+					Parascape is an independent, community port of AWS Cloudscape — the same components and
+					prop APIs you already know, rebuilt on fine-grained signals instead of React hooks. Not
+					affiliated with or endorsed by Amazon Web Services.
 				</Box>
 				<div class="cta-row">
 					<Button variant="primary" href="/components/">Browse components</Button>
@@ -125,7 +126,11 @@
 
 	<footer class="band foot">
 		<div class="inner awsui-dark-mode">
-			<Box fontSize="body-s">Parascape — the Cloudscape Design System, ported to .pui.</Box>
+			<Box fontSize="body-s">
+				Parascape — an independent, unofficial port of the Cloudscape Design System. Not affiliated
+				with, endorsed by, or sponsored by Amazon Web Services. "Cloudscape" is a trademark of
+				Amazon.com, Inc. or its affiliates.
+			</Box>
 		</div>
 	</footer>
 </main>

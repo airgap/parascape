@@ -48,7 +48,7 @@
 			</a>
 		{/each}
 	</div>
-	<span class="tagline">Cloudscape, in <code>.pui</code></span>
+	<span class="tagline">Unofficial Cloudscape port</span>
 	<button
 		type="button"
 		class="theme-toggle"
@@ -133,12 +133,6 @@
 		color: var(--fg-muted);
 		font-size: 12px;
 		white-space: nowrap;
-	}
-	.tagline code {
-		background: var(--bg-num-pill);
-		padding: 1px 5px;
-		border-radius: var(--radius-sm);
-		color: var(--fg-muted);
 	}
 	.theme-toggle {
 		display: inline-flex;
