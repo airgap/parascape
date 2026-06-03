@@ -31,14 +31,15 @@ export default function LoginCloudscape() {
 					<SpaceBetween size="l">
 						<FormField label="Email" description="Use the address on your account.">
 							<Input
-								value={email} type="email"
+								type="email"
+								value={email}
 								onChange={({ detail }) => setEmail(detail.value)}
 							/>
 						</FormField>
 						<FormField label="Password" constraintText="Minimum 8 characters.">
 							<Input
-								value={password}
 								type="password"
+								value={password}
 								onChange={({ detail }) => setPassword(detail.value)}
 							/>
 						</FormField>

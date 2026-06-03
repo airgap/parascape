@@ -12,13 +12,13 @@
 	signal submitted: string | null = null;
 	derived valid = email.includes('@') && password.length >= 8;
 
-	const onSubmit = (e: Event) => {
+	const onsubmit = (e: Event) => {
 		e.preventDefault();
 		if (valid) submitted = email;
 	};
 </script>
 
-<form onsubmit={onSubmit}>
+<form {onsubmit}>
 	<Form
 		header={<Header variant="h2">Sign in</Header>}
 		actions={
@@ -31,16 +31,10 @@
 		<Container>
 			<SpaceBetween size="l">
 				<FormField label="Email" description="Use the address on your account.">
-					<Input
-						bind:value={email}
-						type="email"
-					/>
+					<Input type="email" bind:value={email} />
 				</FormField>
 				<FormField label="Password" constraintText="Minimum 8 characters.">
-					<Input
-						bind:value={password}
-						type="password"
-					/>
+					<Input type="password" bind:value={password} />
 				</FormField>
 				{#if submitted}
 					<FormField label="Submitted as">
