@@ -12,10 +12,12 @@ export default function LoginCloudscape() {
 	const [password, setPassword] = useState('');
 	const [submitted, setSubmitted] = useState<string | null>(null);
 	const valid = email.includes('@') && password.length >= 8;
+
 	const onSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
 		if (valid) setSubmitted(email);
 	};
+	
 	return (
 		<form onSubmit={onSubmit}>
 			<Form
