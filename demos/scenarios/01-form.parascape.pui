@@ -31,10 +31,16 @@
 		<Container>
 			<SpaceBetween size="l">
 				<FormField label="Email" description="Use the address on your account.">
-					<Input type="email" bind:value={email} />
+					<Input
+						type="email"
+						bind:value={email}
+					/>
 				</FormField>
 				<FormField label="Password" constraintText="Minimum 8 characters.">
-					<Input type="password" bind:value={password} />
+					<Input
+						type="password"
+						bind:value={password}
+					/>
 				</FormField>
 				{#if submitted}
 					<FormField label="Submitted as">
